@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#C42B28">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ricettario">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Ricettario Repub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+html{color-scheme:light}
+body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+img{max-width:100%}[hidden]{display:none!important}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.bar .btn{padding:6px 12px;font-size:.88rem}
+.bar .st{font-size:.8rem;color:var(--muted)}
+.bar .st.on{color:var(--ok)}
+body.locked .search,body.locked .tabs{display:none}
+.panel{max-width:420px}
+.panel h2{font-family:var(--f-display);font-size:1.5rem;margin:0 0 8px}
+.panel .form input,.panel .form select{width:100%;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+.form select{width:100%;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+.okmsg{color:var(--ok);margin-top:10px}
+/* Layout: un quaderno da bancone. Barra sezioni fissa in alto, elenco a righe raggruppate, scheda ricetta con dosi in monospazio, moltiplicatore, unità ml/oz e modifica a richiesta. */
+:root{
+  --bg:#F3F1F6; --surface:#FFFFFF; --fg:#1D1A24; --muted:#6A6478; --line:#DDD8E5;
+  --accent:#B5301C; --accent-soft:#F6DFDA; --accent-fg:#FFFFFF; --ok:#2C6B57; --tag:#E9E5F0;
+  --f-display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#16141B; --surface:#1F1C27; --fg:#ECE8F2; --muted:#A39CB3; --line:#332F40;
+  --accent:#F0674F; --accent-soft:#3A2420; --accent-fg:#1A0F0D; --ok:#6FCBAE; --tag:#2B2735; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#16141B; --surface:#1F1C27; --fg:#ECE8F2; --muted:#A39CB3; --line:#332F40;
+  --accent:#F0674F; --accent-soft:#3A2420; --accent-fg:#1A0F0D; --ok:#6FCBAE; --tag:#2B2735; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
+header.top{padding-block:20px 12px}
+h1{font-family:var(--f-display);font-weight:700;font-size:1.9rem;line-height:1.1;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0;font-size:.9rem}
+.search{margin-top:14px}
+.search input{width:100%;font:inherit;padding:11px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+.search input:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);margin-inline:-16px;padding-inline:16px;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{flex:none;font:inherit;font-weight:500;background:none;border:0;color:var(--muted);padding:12px 10px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+nav.tabs .n{font-family:var(--f-mono);font-size:.72rem;margin-left:5px;color:var(--muted)}
+main{padding-top:18px;min-width:0}
+h2.grp{font-family:var(--f-display);font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:500;margin:26px 0 6px;display:flex;gap:10px;align-items:center}
+h2.grp:first-child{margin-top:4px}
+h2.grp::after{content:"";flex:1;border-top:1px solid var(--line)}
+.row{display:flex;align-items:baseline;gap:12px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:11px 2px;font:inherit;color:inherit;cursor:pointer;text-decoration:none}
+.row:hover .rn{color:var(--accent)}
+.row .rn{font-weight:500;flex:1;min-width:0;overflow-wrap:anywhere}
+.row .rs{color:var(--muted);font-size:.82rem;font-weight:400}
+.chip{display:inline-block;font-size:.7rem;padding:1px 7px;border-radius:99px;background:var(--tag);color:var(--muted);margin-left:6px;vertical-align:1px;white-space:nowrap;font-weight:400}
+.chip.hot{background:var(--accent-soft);color:var(--accent)}
+.back{font:inherit;background:none;border:0;color:var(--accent);padding:0;cursor:pointer;font-weight:500;margin-bottom:12px}
+.d h2{font-family:var(--f-display);font-size:1.7rem;line-height:1.15;margin:0 0 6px;text-wrap:balance}
+.meta{display:flex;flex-wrap:wrap;gap:6px;color:var(--muted);font-size:.85rem;margin-bottom:6px}
+.ctl{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:14px 0 0}
+.ctl .lab{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-right:4px;min-width:5.4rem}
+.ctl button{font:inherit;font-family:var(--f-mono);font-size:.85rem;padding:5px 10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:6px;cursor:pointer}
+.ctl button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.ctl input{width:70px;font:inherit;font-family:var(--f-mono);font-size:.85rem;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg)}
+.ing{list-style:none;margin:16px 0 0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.ing li{display:flex;gap:12px;align-items:baseline;padding:9px 14px;border-bottom:1px solid var(--line)}
+.ing li:last-child{border-bottom:0}
+.ing .q{font-family:var(--f-mono);font-size:.88rem;min-width:5.6rem;flex:none;font-variant-numeric:tabular-nums}
+.ing .t{flex:1;min-width:0;overflow-wrap:anywhere}
+.ing a{color:var(--accent)}
+h3{font-family:var(--f-display);font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:500;margin:24px 0 6px}
+.d p{margin:0 0 10px;max-width:65ch}
+.dupg{margin:0 0 12px}.dupt{font-weight:600;font-size:.9rem;margin:8px 0 2px}
+.issue{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;margin:0 0 10px}.issue .ih{margin-bottom:4px}.issue .it{font-size:.88rem;color:var(--fg);max-width:65ch}.issue .mrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-top:1px solid var(--line)}.issue .mrow .btn{padding:4px 10px;font-size:.85rem}.issue .ia{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ctl.one{gap:5px}.ctl.one button{padding:5px 7px}.ctl.one input.tot{width:122px;font-family:inherit;font-size:.82rem}
+.note{border-left:3px solid var(--accent);padding:6px 12px;background:var(--accent-soft);border-radius:0 6px 6px 0;max-width:65ch}
+ul.pts{margin:0;padding-left:18px;max-width:65ch}
+ul.pts li{margin-bottom:6px}
+.tblw{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:420px}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500}
+tr:last-child td{border-bottom:0}
+.actions{margin-top:22px;display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:inherit;padding:8px 14px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:6px;cursor:pointer}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.danger{color:var(--accent);border-color:var(--accent)}
+.btn.danger.sure{background:var(--accent);color:var(--accent-fg)}
+.empty{padding:32px 4px;color:var(--muted);max-width:52ch}
+.empty b{display:block;color:var(--fg);font-family:var(--f-display);font-size:1.15rem;margin-bottom:4px}
+.lezcard{display:block;text-align:left;width:100%;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:10px;cursor:pointer;text-decoration:none}
+.lezcard:hover{border-color:var(--accent)}
+.lezcard strong{font-family:var(--f-display);font-size:1.15rem;display:block;margin-bottom:2px}
+.lezcard span{color:var(--muted);font-size:.88rem}
+.src{color:var(--muted);font-size:.8rem;margin-top:26px}
+.form label{display:block;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:16px 0 4px}
+.form input,.form textarea{width:100%;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+.form textarea{font-family:var(--f-mono);font-size:.88rem;line-height:1.5;resize:vertical}
+.form .hint{color:var(--muted);font-size:.8rem;margin:4px 0 0}
+.err{color:var(--accent);margin-top:10px}
+@media (prefers-reduced-motion:no-preference){.d,.list{animation:in .18s ease-out}@keyframes in{from{opacity:.4;transform:translateY(3px)}to{opacity:1;transform:none}}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Ricettario Repub</h1>
+    <p class="sub">Cocktail, homemade, infusioni, blend, menu e lezioni.</p>
+    <div class="bar" id="bar"></div>
+    <div class="search"><input id="q" type="search" placeholder="Cerca una ricetta, un ingrediente, una tecnica" autocomplete="off" aria-label="Cerca"></div>
+  </header>
+  <nav class="tabs" id="tabs" aria-label="Sezioni"></nav>
+  <main id="main"><div class="empty"><b>Sto caricando il ricettario</b>Le ricette compaiono qui appena sono pronte.</div></main>
+</div>
+
+<script>
+(function(){
+  var TABS=[["cocktail","Cocktail"],["homemade","Homemade"],["blend","Blend"],["soda","Soda"],["infusione","Liquori e infusi"],["menu","Menu"],["lezioni","Lezioni e corsi"],["appunti","Appunti e idee"],["controllare","Da controllare"]];
+  var ORDER={
+    cocktail:["Pub","Mocktail","Tiki","Milk washing"],
+    homemade:["Sciroppi e preparazioni","Soda","Acidificati e cordial","Shrub e aceti","Foam","Chiarificati","Milk washing"],
+    infusione:["Infusi","Liquori","Tinture"],
+    blend:["Blend rum","Blend","Botte"]};
+  var CATNAME={cocktail:"Cocktail",homemade:"Homemade",soda:"Soda",infusione:"Liquori e infusi",blend:"Blend"};
+  var OZ=30; /* 1 oz = 30 ml, misura da bar */
+  var FONTI=["Drink list Manga 2026 (Villain edition)","Drink list Manga 2024/25","Drink list 2023/24","Capodanno","Drink list 2023","Drink list 2022-23","Drink list mare 2022","Cocktail list mare 2021","Menù inverno 2020-21","Tiki night","Tiki list mare 2018","Altre ricette","Lezione Chiarificazione"];
+  var EDIT_EMAIL="modifica@ricettario-repub.app";
+  var S={role:null,busy:false,panel:null,creating:false,msg:"",authReady:false,issues:null,delId:null,dup:{},dupg:[],target:null,ricette:null,lezioni:null,menu:null,appunti:null,tab:"cocktail",q:"",open:null,scale:1,unit:"ml",err:null,db:null,canEdit:false,edit:false,confirmDel:false,formErr:""};
+  try{var u0=localStorage.getItem("ricettario-unit");if(u0==="oz"||u0==="ml")S.unit=u0}catch(e){}
+  var $=function(id){return document.getElementById(id)};
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+  function norm(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim()}
+  function byName(a,b){return a.nome.localeCompare(b.nome,"it")}
+  function inc(r){return r.stato==="incompleta"}
+
+  /* ---- ingredienti: scala il numero iniziale e converte ml, cl, oz ---- */
+  var NUM=/^(\d+(?:[.,]\d+)?(?:\s+\d\/\d)?|\d\/\d)(?!\d|%|\/)\s*(.*)$/;
+  var UNIT=/^(ml|cl|oz|gr|g|kg|l|litri|litro|drop|dash|dr|dh|bs|parti|parte|cucchiaino|cucchiaio|cucchiai|tsp|tbsp)\b\s*(.*)$/i;
+  function toNum(s){s=s.trim();var m=s.match(/^(\d+)\s+(\d)\/(\d)$/);if(m)return +m[1]+ +m[2]/+m[3];m=s.match(/^(\d)\/(\d)$/);if(m)return +m[1]/+m[2];return parseFloat(s.replace(",","."))}
+  function fmt(n){var r=Math.round(n*100)/100;return String(r).replace(".",",")}
+  function fmtOz(n){var q=Math.round(n*4)/4;if(q===0&&n>0)q=0.25;var w=Math.floor(q),f=q-w;var fr=f===0.25?"1/4":f===0.5?"1/2":f===0.75?"3/4":"";return ((w?String(w):"")+(w&&fr?" ":"")+fr)||"0"}
+  var RNG=/^(\d+(?:[.,]\d+)?)\s*-\s*(\d+(?:[.,]\d+)?)\s+(.*)$/;
+  function conv(num,k,u){
+    var val=num*k,uu=u;
+    if(S.unit==="oz"){if(u==="ml"){val/=OZ;uu="oz"}else if(u==="cl"){val/=OZ/10;uu="oz"}}
+    else{if(u==="cl"){val*=10;uu="ml"}else if(u==="oz"){val*=OZ;uu="ml"}}
+    return {s:(S.unit==="oz"&&uu==="oz")?fmtOz(val):fmt(val),u:uu};
+  }
+  function split(text,k){
+    var rg=text.match(RNG);
+    if(rg){
+      var ru=rg[3].match(UNIT),u1=ru?ru[1].toLowerCase():"",a=conv(toNum(rg[1]),k,u1),b=conv(toNum(rg[2]),k,u1);
+      return {q:a.s+"-"+b.s+(ru?" "+a.u:""),t:ru?ru[2]:rg[3]};
+    }
+    var m=text.match(NUM);
+    if(!m)return {q:"",t:text};
+    var unit=m[2].match(UNIT),num=toNum(m[1]);
+    if(isNaN(num))return {q:"",t:text};
+    var c=conv(num,k,unit?unit[1].toLowerCase():"");
+    return {q:c.s+(unit?" "+c.u:""),t:unit?unit[2]:m[2]};
+  }
+  /* ---- quantità totale di una ricetta, in ml (gr contati come ml) ---- */
+  function toMl(v,u){switch(u){case"ml":case"gr":case"g":return v;case"cl":return v*10;case"oz":return v*OZ;case"kg":case"l":case"litri":case"litro":return v*1000;default:return null}}
+  function mlOf(text){
+    var rg=text.match(RNG);
+    if(rg){var ru=rg[3].match(UNIT);if(!ru)return null;return toMl((toNum(rg[1])+toNum(rg[2]))/2,ru[1].toLowerCase())}
+    var m=text.match(NUM);if(!m)return null;var un=m[2].match(UNIT);if(!un)return null;
+    var v=toNum(m[1]);return isNaN(v)?null:toMl(v,un[1].toLowerCase());
+  }
+  function baseMl(r){var t=0,skip=0;(r.ing||[]).forEach(function(x){var v=mlOf(x);if(v==null)skip++;else t+=v});return {t:t,skip:skip}}
+
+  /* ---- cose da controllare ---- */
+  function okHas(r,k){return (r.ok||[]).indexOf(k)>=0}
+  var COUNTABLE=/^(foglie|foglia|fette|fetta|cubett|gocce|goccia|spicchi|spicchio|chiodi|baccell|sfere|sfera|noccioli|olive|ciliegi|limoni|lime\b.*(interi|intero)|uova|uovo|bustin|stecche|stecca|fave|fava)/i;
+  function numIssues(r){
+    var out=[],isC=r.cat==="cocktail";
+    (r.ing||[]).forEach(function(x){
+      var rg=x.match(RNG);
+      if(rg){if(toNum(rg[1])>toNum(rg[2]))out.push("«"+x+"»: intervallo al contrario");return}
+      var m=x.match(NUM);if(!m)return;
+      var n=toNum(m[1]);if(isNaN(n))return;
+      var un=m[2].match(UNIT);
+      var fr=m[1].match(/(\d)\/(\d)$/);
+      if(fr&&[2,3,4,8].indexOf(+fr[2])<0)out.push("«"+x+"»: frazione insolita");
+      if(!un&&n>=10&&!COUNTABLE.test(m[2]))out.push("«"+x+"»: quantità senza unità di misura");
+      if(isC&&un){var ml=toMl(n,un[1].toLowerCase());if(ml!=null&&ml>400)out.push("«"+x+"»: quantità molto alta per un cocktail")}
+    });
+    if(isC){var b=baseMl(r);if(b.t>300)out.push("Totale degli ingredienti "+fmt(b.t)+" ml: molto alto per un drink");}
+    return out;
+  }
+  function noteIssue(r){
+    var t=(r.note||"")+" "+(r.ing||[]).join(" ");
+    return /da verificare|da confermare|da controllare|non (è )?(specificat|indicat|chiar)|base non|manca|probabilmente|forse|incomplet|dubbi/i.test(t)?(r.note||"Un ingrediente non è specificato."):null;
+  }
+  function buildIssues(){
+    var secs={inc:[],num:[],nota:[],dup:[],nome:[]},byId={};
+    S.ricette.forEach(function(r){byId[r.id]=r});
+    S.ricette.forEach(function(r){
+      if(inc(r))secs.inc.push({r:r,kind:"inc",text:r.note||"Ricetta segnata come incompleta."});
+      else{var nt=okHas(r,"nota")?null:noteIssue(r);if(nt)secs.nota.push({r:r,kind:"nota",text:nt})}
+      if(!okHas(r,"numeri")&&!inc(r)){var ni=numIssues(r);if(ni.length)secs.num.push({r:r,kind:"numeri",text:ni.join("\n")})}
+      (S.dup[r.id]||[]).forEach(function(g){
+        if(g.tipo==="nome")return;
+        var txt=g.label+": "+g.ids.filter(function(id){return id!==r.id}).map(function(id){var x=byId[id];return x?x.nome+(x.fonte?" ("+x.fonte+")":""):""}).filter(Boolean).join(", ");
+        secs.dup.push({r:r,kind:"dup",text:txt});
+      });
+    });
+    Object.keys(secs).forEach(function(k){secs[k].sort(function(a,b){return a.r.cat===b.r.cat?byName(a.r,b.r):a.r.cat.localeCompare(b.r.cat)})});
+    return secs;
+  }
+  function issueCard(it){
+    var r=it.r,ed=S.canEdit&&S.db;
+    var h='<div class="issue"><div class="ih"><a href="#ricetta-'+esc(r.id)+'"><b>'+esc(r.nome)+'</b></a> <span class="src">'+esc([CATNAME[r.cat],r.fonte,r.gruppo].filter(Boolean).join(" · "))+'</span></div>';
+    h+='<div class="it">'+esc(it.text).replace(/\n/g,"<br>")+'</div>';
+    if(ed){
+      h+='<div class="ia"><button class="btn" data-act="edit" data-id="'+esc(r.id)+'">Modifica</button>';
+      if(it.kind==="inc")h+='<button class="btn" data-act="complete" data-id="'+esc(r.id)+'">Segna come completa</button>';
+      else h+='<button class="btn" data-act="ok" data-kind="'+it.kind+'" data-id="'+esc(r.id)+'">'+(it.kind==="dup"?"Non è un doppione":"Va bene così")+'</button>';
+      var sure=S.delId===r.id;
+      h+='<button class="btn danger'+(sure?' sure':'')+'" data-act="del" data-id="'+esc(r.id)+'">'+(sure?'Conferma: elimina':'Elimina')+'</button></div>';
+    }
+    return h+'</div>';
+  }
+  function nameCluster(g){
+    var byId={};S.ricette.forEach(function(r){byId[r.id]=r});
+    var ed=S.canEdit&&S.db;
+    var h='<div class="issue"><div class="ih"><b>'+esc(g.titolo)+'</b> <span class="src">'+g.ids.length+' ricette con questo nome</span></div>';
+    g.ids.forEach(function(id){
+      var r=byId[id];if(!r)return;
+      h+='<div class="mrow"><a href="#ricetta-'+esc(r.id)+'">'+esc(r.nome)+'</a> <span class="src">'+esc([r.fonte,r.gruppo].filter(Boolean).join(" · "))+'</span>';
+      if(ed){var sure=S.delId===r.id;h+='<span class="ia"><button class="btn" data-act="edit" data-id="'+esc(r.id)+'">Modifica</button><button class="btn danger'+(sure?' sure':'')+'" data-act="del" data-id="'+esc(r.id)+'">'+(sure?'Conferma: elimina':'Elimina')+'</button></span>'}
+      h+='</div>';
+    });
+    if(ed)h+='<div class="ia"><button class="btn" data-act="okgroup" data-ids="'+esc(g.ids.join(","))+'">Sono varianti, va bene</button></div>';
+    return h+'</div>';
+  }
+  function renderControllare(){
+    var secs=S.issues,ng=S.dupg.filter(function(g){return g.tipo==="nome"}),tot=Object.keys(secs).reduce(function(t,k){return t+(k==="nome"?0:secs[k].length)},0)+ng.length;
+    if(!tot)return '<div class="empty"><b>Tutto a posto</b>Non c\'è niente da controllare.</div>';
+    var T=[["inc","Incompleti","Ricette a cui manca qualcosa. Completale con Modifica e poi segnale come complete."],
+           ["num","Numeri da controllare","Quantità che sembrano strane o senza unità di misura."],
+           ["nota","Note da verificare","Punti che non ero sicuro di aver capito dalle tue note."],
+           ["dup","Possibili doppioni","Ricette identiche o con gli stessi ingredienti."],
+           ["nome","Stesso nome","Spesso sono varianti di edizioni diverse: cancella solo se sono davvero uguali."]];
+    var h='<div class="list">'+(S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'');
+    T.forEach(function(t){
+      if(t[0]==="nome"){
+        if(!ng.length)return;
+        h+='<h2 class="grp">'+t[1]+' ('+ng.length+')</h2><p class="src" style="margin:0 0 6px">'+t[2]+'</p>'+ng.map(nameCluster).join("");
+        return;
+      }
+      var L=secs[t[0]];if(!L.length)return;
+      h+='<h2 class="grp">'+t[1]+' ('+L.length+')</h2><p class="src" style="margin:0 0 6px">'+t[2]+'</p>'+L.map(issueCard).join("");
+    });
+    return h+'</div>';
+  }
+
+  /* ---- doppioni ---- */
+  var STOP={di:1,al:1,alla:1,e:1,il:1,la:1,sciroppo:1,syrup:1,hm:1,dei:1,del:1,della:1,"in":1};
+  function nameKey(r){return norm(String(r.nome||"").replace(/\(.*?\)/g,"")).split(" ").filter(function(w){return w&&!STOP[w]}).sort().join(" ")}
+  function sigKey(r,noq){return (r.ing||[]).map(function(x){return norm(noq?x.replace(/^[\d\/.,\s-]+(ml|cl|oz|gr|g|kg|l|dash|dh|drop|bs)?\b/i,""):x)}).sort().join("|")}
+  function dupCompute(){
+    var info={},groups=[];
+    if(!S.ricette){S.dup=info;S.dupg=groups;return}
+    var TYPES=[["identica","Ricetta identica a",function(r){return (r.ing||[]).length>1?sigKey(r,false):null}],
+               ["ingredienti","Stessi ingredienti (quantità diverse) di",function(r){return (r.ing||[]).length>1?sigKey(r,true):null}],
+               ["nome","Stesso nome di",function(r){return nameKey(r)||null}]];
+    TYPES.forEach(function(t){
+      var map={};
+      S.ricette.forEach(function(r){if(okHas(r,"dup"))return;var k=t[2](r);if(k==null)return;var kk=r.cat+"§"+k;(map[kk]=map[kk]||[]).push(r)});
+      Object.keys(map).forEach(function(k){
+        var g=map[k];if(g.length<2)return;
+        var ids=g.map(function(r){return r.id});
+        var already=groups.some(function(o){return ids.every(function(id){return o.ids.indexOf(id)>=0})});
+        if(already)return;
+        var grp={tipo:t[0],label:t[1],ids:ids,titolo:g[0].nome.replace(/\s*\(.*?\)/g,"")};
+        groups.push(grp);
+        ids.forEach(function(id){(info[id]=info[id]||[]).push(grp)});
+      });
+    });
+    S.dup=info;S.dupg=groups;
+  }
+  function linkFor(name){
+    var n=norm(name.replace(/\(.*?\)/g,""));if(n.length<4)return null;
+    var l=S.ricette.filter(function(r){return r.cat!=="cocktail"&&!inc(r)&&norm(r.nome.replace(/\(.*?\)/g,""))===n});
+    return l.length?l[0]:null;
+  }
+
+  /* ---- routing con hash semplice ---- */
+  function parse(h){
+    h=String(h||"").replace(/^#/,"");
+    try{h=decodeURIComponent(h)}catch(e){}
+    if(h.indexOf("ricetta-")===0){S.open={k:"r",id:h.slice(8)}}
+    else if(h.indexOf("lezione-")===0){S.open={k:"l",id:h.slice(8)}}
+    else if(h.indexOf("appunto-")===0){S.open={k:"a",id:h.slice(8)}}
+    else if(h.indexOf("menu-")===0){S.open={k:"m",id:h.slice(5)}}
+    else if(h==="accesso"||h==="impostazioni"){S.open=null;S.panel=h}
+    else{S.open=null;S.panel=null;if(TABS.some(function(t){return t[0]===h}))S.tab=h}
+  }
+  function readHash(){parse(location.hash)}
+  function reset(){S.creating=false;S.msg="";S.panel=null;S.target=null;S.scale=1;S.edit=false;S.confirmDel=false;S.formErr=""}
+  /* la navigazione non dipende dall'hash del browser: lo stato sta nella pagina, l'hash si aggiorna solo se possibile */
+  function go(h){reset();parse(h);try{history.replaceState(null,"","#"+h)}catch(e){}render();window.scrollTo(0,0)}
+  window.addEventListener("hashchange",function(){reset();readHash();render()});
+  document.addEventListener("click",function(e){
+    var a=e.target.closest&&e.target.closest('a[href^="#"]');
+    if(!a)return;
+    e.preventDefault();
+    var h=a.getAttribute("href").slice(1);
+    if(h)go(h);
+  });
+
+  /* ---- render ---- */
+  function counts(){var c={};if(S.ricette)S.ricette.forEach(function(r){if(!inc(r))c[r.cat]=(c[r.cat]||0)+1});if(S.menu)c.menu=S.menu.length;if(S.lezioni)c.lezioni=S.lezioni.length;if(S.appunti)c.appunti=S.appunti.length;var iss=S.issues||{};c.controllare=Object.keys(iss).reduce(function(t,k){return t+iss[k].length},0)+(S.dupg||[]).filter(function(g){return g.tipo==="nome"}).length;return c}
+  function renderTabs(){
+    var c=counts();
+    $("tabs").innerHTML=TABS.filter(function(t){return t[0]!=="menu"||(S.menu&&S.menu.length)}).map(function(t){
+      var sel=!S.open&&!S.q&&S.tab===t[0];
+      return '<button role="tab" data-tab="'+t[0]+'" aria-selected="'+sel+'">'+esc(t[1])+(c[t[0]]!=null?'<span class="n">'+c[t[0]]+'</span>':'')+'</button>'}).join("");
+  }
+  function row(r,showCat,subx){
+    var dp=S.dup&&S.dup[r.id];var chips=(inc(r)?'<span class="chip hot">incompleta</span>':'')+(dp?'<span class="chip hot">'+(dp.some(function(g){return g.tipo!=='nome'})?'possibile doppione':'stesso nome')+'</span>':'');
+    var sub=showCat?CATNAME[r.cat]+(r.gruppo?" · "+r.gruppo:""):(subx||"");
+    return '<a class="row" href="#ricetta-'+esc(r.id)+'"><span class="rn">'+esc(r.nome)+chips+(sub?'<div class="rs">'+esc(sub)+'</div>':'')+'</span></a>';
+  }
+  function groupsFonte(items){
+    var map={};items.forEach(function(r){var g=r.fonte||"Altro";(map[g]=map[g]||[]).push(r)});
+    var keys=FONTI.filter(function(g){return map[g]}).concat(Object.keys(map).filter(function(g){return FONTI.indexOf(g)<0}).sort());
+    return keys.map(function(g){return '<h2 class="grp">'+esc(g)+'</h2>'+map[g].sort(byName).map(function(r){return row(r,false,r.gruppo)}).join("")}).join("");
+  }
+  function groups(cat,items){
+    var order=ORDER[cat]||[],map={};
+    items.forEach(function(r){var g=r.gruppo||"Altro";(map[g]=map[g]||[]).push(r)});
+    var keys=order.filter(function(g){return map[g]}).concat(Object.keys(map).filter(function(g){return order.indexOf(g)<0}).sort());
+    return keys.map(function(g){return '<h2 class="grp">'+esc(g)+'</h2>'+map[g].sort(byName).map(function(r){return row(r,false)}).join("")}).join("");
+  }
+  function haystack(r){return norm([r.nome,r.gruppo,(r.ing||[]).join(" "),r.proc,r.metodo,r.note,r.guarn].join(" "))}
+  function lezRow(l){return '<a class="row" href="#lezione-'+esc(l.id)+'"><span class="rn">'+esc(l.titolo)+'<div class="rs">'+esc(l.sommario||"")+'</div></span></a>'}
+  function renderMenu(){
+    if(!S.menu.length)return '<div class="empty"><b>Nessun menu</b>I menu compariranno qui.</div>';
+    var M=S.menu.slice().sort(function(a,b){return (a.ordine||99)-(b.ordine||99)});
+    return '<div class="list">'+M.map(function(m){
+      var n=(m.sezioni||[]).reduce(function(t,x){return t+(x.drink||[]).length+(x.voci||[]).length},0);
+      return '<a class="lezcard" href="#menu-'+esc(m.id)+'"><strong>'+esc(m.titolo)+'</strong><span>'+n+' voci</span></a>'}).join("")+'</div>';
+  }
+  function renderDup(){
+    if(!S.dupg.length)return '<div class="empty"><b>Nessun doppione</b>Non ho trovato ricette uguali o con lo stesso nome.</div>';
+    var byId={};S.ricette.forEach(function(r){byId[r.id]=r});
+    var h='<div class="list"><p class="src" style="margin:0 0 10px">Ricette che potrebbero essere doppie. Apri una ricetta e usa "Elimina ricetta" se vuoi toglierla. Lo stesso nome in edizioni diverse spesso è una variante voluta.</p>';
+    var order=["identica","ingredienti","nome"];
+    order.forEach(function(t){
+      var G=S.dupg.filter(function(g){return g.tipo===t});if(!G.length)return;
+      h+='<h2 class="grp">'+esc(G[0].label)+' ('+G.length+')</h2>';
+      G.forEach(function(g){
+        h+='<div class="dupg"><div class="dupt">'+esc(g.titolo)+'</div>'+g.ids.map(function(id){var r=byId[id];return r?'<a class="row" href="#ricetta-'+esc(r.id)+'"><span class="rn">'+esc(r.nome)+'<div class="rs">'+esc([CATNAME[r.cat],r.fonte,r.gruppo].filter(Boolean).join(" · "))+'</div></span></a>':""}).join("")+'</div>';
+      });
+    });
+    return h+'</div>';
+  }
+  function renderAppunti(){
+    var L=(S.appunti||[]).slice().sort(function(a,b){return (a.ordine||99)-(b.ordine||99)});
+    if(!L.length)return '<div class="empty"><b>Nessun appunto</b>Note e idee compariranno qui.</div>';
+    return '<div class="list">'+L.map(function(l){return '<a class="lezcard" href="#appunto-'+esc(l.id)+'"><strong>'+esc(l.titolo)+'</strong><span>'+esc(l.sommario||"")+'</span></a>'}).join("")+'</div>';
+  }
+  function detailMenu(m){
+    var byId={};S.ricette.forEach(function(r){byId[r.id]=r});
+    var h='<div class="d"><button class="back" data-back="1">← Indietro</button><h2>'+esc(m.titolo)+'</h2>';
+    (m.sezioni||[]).forEach(function(s){
+      h+='<h3>'+esc(s.titolo)+'</h3>';
+      (s.drink||[]).forEach(function(id){if(byId[id])h+=row(byId[id],false,byId[id].gruppo)});
+      if((s.voci||[]).length)h+='<ul class="pts">'+s.voci.map(function(v){return '<li>'+esc(v)+'</li>'}).join("")+'</ul>';
+    });
+    if(m.note)h+='<h3>Note</h3><div class="note">'+esc(m.note)+'</div>';
+    return h+'</div>';
+  }
+  function renderList(){
+    var q=norm(S.q);
+    if(q){
+      var rs=S.ricette.filter(function(r){return haystack(r).indexOf(q)>=0}).sort(byName);
+      var ls=(S.lezioni||[]).filter(function(l){return norm(l.titolo+" "+l.sommario+" "+JSON.stringify(l.sezioni||[])).indexOf(q)>=0});
+      var as=(S.appunti||[]).filter(function(l){return norm(l.titolo+" "+l.sommario+" "+JSON.stringify(l.sezioni||[])).indexOf(q)>=0});
+      if(!rs.length&&!ls.length&&!as.length)return '<div class="empty"><b>Nessun risultato</b>Prova con una parola più corta o con il nome di un ingrediente.</div>';
+      var h='<div class="list">';
+      if(rs.length)h+='<h2 class="grp">Ricette ('+rs.length+')</h2>'+rs.map(function(r){return row(r,true)}).join("");
+      if(ls.length)h+='<h2 class="grp">Lezioni ('+ls.length+')</h2>'+ls.map(lezRow).join("");
+      if(as.length)h+='<h2 class="grp">Appunti ('+as.length+')</h2>'+as.map(function(l){return '<a class="row" href="#appunto-'+esc(l.id)+'"><span class="rn">'+esc(l.titolo)+'<div class="rs">'+esc(l.sommario||"")+'</div></span></a>'}).join("");
+      return h+'</div>';
+    }
+    if(S.tab==="menu")return renderMenu();
+    if(S.tab==="appunti")return renderAppunti();
+    if(S.tab==="controllare")return renderControllare();
+    if(S.tab==="lezioni"){
+      var L=(S.lezioni||[]).slice().sort(function(a,b){return (a.ordine||99)-(b.ordine||99)});
+      if(!L.length)return '<div class="empty"><b>Nessuna lezione</b>Le lezioni e i corsi compariranno qui.</div>';
+      return '<div class="list">'+L.map(function(l){return '<a class="lezcard" href="#lezione-'+esc(l.id)+'"><strong>'+esc(l.titolo)+'</strong><span>'+esc(l.sommario||"")+'</span></a>'}).join("")+'</div>';
+    }
+    if(S.tab==="incompleti"){
+      var I=S.ricette.filter(inc);
+      if(!I.length)return '<div class="empty"><b>Nessuna ricetta incompleta</b>Le ricette a cui manca qualcosa compaiono qui finché non le segni come complete.</div>';
+      var by={};I.forEach(function(r){(by[r.cat]=by[r.cat]||[]).push(r)});
+      return '<div class="list">'+Object.keys(by).map(function(c){return '<h2 class="grp">'+esc(CATNAME[c]||c)+'</h2>'+by[c].sort(byName).map(function(r){return row(r,false)}).join("")}).join("")+'</div>';
+    }
+    var items=S.ricette.filter(function(r){return r.cat===S.tab&&!inc(r)});
+    if(!items.length)return '<div class="empty"><b>Ancora niente qui</b>Le ricette di questa sezione compariranno appena verranno aggiunte.</div>';
+    return '<div class="list">'+(S.tab==="cocktail"?groupsFonte(items):groups(S.tab,items))+'</div>';
+  }
+  function detailRecipe(r){
+    var lis=(r.ing||[]).map(function(t){
+      var s=split(t,S.scale),ln=linkFor(s.t);
+      var name=ln&&ln.id!==r.id?'<a href="#ricetta-'+esc(ln.id)+'">'+esc(s.t)+'</a>':esc(s.t);
+      return '<li><span class="q">'+esc(s.q)+'</span><span class="t">'+name+'</span></li>';
+    }).join("");
+    var meta=['<span>'+esc(CATNAME[r.cat]||r.cat)+'</span>'];
+    if(r.gruppo)meta.push('<span>· '+esc(r.gruppo)+'</span>');
+    if(inc(r))meta.push('<span class="chip hot">incompleta</span>');
+    var sc=[0.5,1,2,5,10].map(function(v){return '<button data-scale="'+v+'" aria-pressed="'+(S.scale===v)+'">'+(v===0.5?'½':'×'+v)+'</button>'}).join("");
+    var un=["ml","oz"].map(function(v){return '<button data-unit="'+v+'" aria-pressed="'+(S.unit===v)+'">'+v+'</button>'}).join("");
+    var h='<div class="d"><button class="back" data-back="1">← Indietro</button><h2>'+esc(r.nome)+'</h2><div class="meta">'+meta.join(" ")+'</div>';
+    var bm=baseMl(r);
+    var qf=bm.t>0?'<input id="totin" class="tot" type="number" min="0" step="any" inputmode="decimal" placeholder="Quantità finale" value="'+(S.target!=null?esc(S.target):"")+'" aria-label="Quantità finale desiderata"><span class="src" style="margin:0">'+S.unit+'</span>':'<input id="scalein" type="number" min="0.1" step="0.5" inputmode="decimal" placeholder="altro" aria-label="Moltiplicatore personalizzato">';
+    h+='<div class="ctl one">'+sc+qf+'</div>';
+    h+='<div class="ctl"><span class="lab">Unità</span>'+un+'</div>';
+    if(bm.t>0){
+      var baseShow=S.unit==="oz"?fmtOz(bm.t/OZ)+" oz":fmt(bm.t)+" ml";
+      h+='<p class="src" style="margin:6px 0 0">Base della ricetta: '+esc(baseShow)+(S.scale!==1?' · moltiplicatore ×'+esc(fmt(S.scale)):'')+'. Nel totale gr e g contano come ml; drop, dash, top e foglie non sono contati'+(bm.skip?' ('+bm.skip+' ingredienti)':'')+'.</p>';
+    }
+    var dp=S.dup&&S.dup[r.id];
+    if(dp){
+      var byIdD={};S.ricette.forEach(function(x){byIdD[x.id]=x});
+      h+='<div class="note" style="margin-top:14px"><b>Possibile doppione</b>'+dp.map(function(g){return '<br>'+esc(g.label)+': '+g.ids.filter(function(id){return id!==r.id}).map(function(id){var x=byIdD[id];return x?'<a href="#ricetta-'+esc(x.id)+'">'+esc(x.nome)+'</a> <span class="src">'+esc([x.fonte,x.gruppo].filter(Boolean).join(" · "))+'</span>':""}).join(", ")}).join("")+'</div>';
+    }
+    h+='<ul class="ing">'+lis+'</ul>';
+    if(S.scale!==1||S.unit==="oz")h+='<p class="src" style="margin-top:8px">Si convertono solo i numeri a inizio riga (1 oz = 30 ml); le once sono arrotondate al quarto d\'oncia. Le quantità scritte tra parentesi restano quelle originali.</p>';
+    if(r.descrizione)h+='<h3>Descrizione a menu</h3><p>'+esc(r.descrizione)+'</p>';
+    if(r.profilo)h+='<h3>Profilo</h3><p>'+esc(r.profilo)+'</p>';
+    if(r.metodo)h+='<h3>Metodo</h3><p>'+esc(r.metodo)+'</p>';
+    if(r.proc)h+='<h3>Procedimento</h3><p>'+esc(r.proc)+'</p>';
+    if(r.guarn)h+='<h3>Guarnizione</h3><p>'+esc(r.guarn)+'</p>';
+    if(r.note)h+='<h3>Note</h3><div class="note">'+esc(r.note)+'</div>';
+    h+='<div class="actions"><button class="btn" data-copy="1">Copia ricetta</button>';
+    if(S.canEdit&&S.db){
+      h+='<button class="btn" data-edit="1">Modifica ricetta</button>';
+      h+='<button class="btn" data-toggle-stato="1">'+(inc(r)?'Segna come completa':'Segna come incompleta')+'</button>';
+      h+='<button class="btn danger'+(S.confirmDel?' sure':'')+'" data-del="1">'+(S.confirmDel?'Conferma: elimina per sempre':'Elimina ricetta')+'</button>';
+    }
+    h+='</div>';
+    if(S.formErr)h+='<div class="err">'+esc(S.formErr)+'</div>';
+    if(r.fonte)h+='<p class="src">Fonte: '+esc(r.fonte)+'</p>';
+    return h+'</div>';
+  }
+  function catOptions(sel){return Object.keys(CATNAME).map(function(k){return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+esc(CATNAME[k])+'</option>'}).join("")}
+  function formRecipe(r){
+    var nuova=S.creating;
+    return '<div class="d form"><button class="back" data-cancel="1">← '+(nuova?'Annulla':'Annulla modifica')+'</button><h2>'+(nuova?'Nuova ricetta':'Modifica ricetta')+'</h2>'+
+      '<label for="e-nome">Nome</label><input id="e-nome" value="'+esc(r.nome||"")+'">'+
+      '<label for="e-cat">Sezione</label><select id="e-cat">'+catOptions(r.cat||"cocktail")+'</select>'+
+      '<label for="e-gruppo">Gruppo</label><input id="e-gruppo" value="'+esc(r.gruppo||"")+'">'+
+      '<label for="e-fonte">Fonte / edizione</label><input id="e-fonte" value="'+esc(r.fonte||"")+'">'+
+      '<label for="e-ing">Ingredienti</label><textarea id="e-ing" rows="10">'+esc((r.ing||[]).join("\n"))+'</textarea><p class="hint">Un ingrediente per riga, con la quantità all\'inizio (per esempio: 45 ml Gin, oppure 1 3/4 oz Gin). Le righe senza numero restano come sono.</p>'+
+      '<label for="e-metodo">Metodo</label><input id="e-metodo" value="'+esc(r.metodo||"")+'">'+
+      '<label for="e-proc">Procedimento</label><textarea id="e-proc" rows="6">'+esc(r.proc||"")+'</textarea>'+
+      '<label for="e-guarn">Guarnizione</label><input id="e-guarn" value="'+esc(r.guarn||"")+'">'+
+      '<label for="e-note">Note</label><textarea id="e-note" rows="4">'+esc(r.note||"")+'</textarea>'+
+      (S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+
+      '<div class="actions"><button class="btn pri" data-save="1">'+(nuova?'Aggiungi ricetta':'Salva modifiche')+'</button><button class="btn" data-cancel="1">Annulla</button></div></div>';
+  }
+  function detailLesson(l){
+    var byId={};S.ricette.forEach(function(r){byId[r.id]=r});
+    var h='<div class="d"><button class="back" data-back="1">← Indietro</button><h2>'+esc(l.titolo)+'</h2>';
+    if(l.sommario)h+='<p class="sub">'+esc(l.sommario)+'</p>';
+    (l.sezioni||[]).forEach(function(s){
+      h+='<h3>'+esc(s.titolo)+'</h3>';
+      if(s.testo)h+='<p>'+esc(s.testo)+'</p>';
+      if(s.punti)h+='<ul class="pts">'+s.punti.map(function(p){return '<li>'+esc(p)+'</li>'}).join("")+'</ul>';
+      if(s.tabella){var t=s.tabella;h+='<div class="tblw"><table><thead><tr>'+t[0].map(function(c){return '<th>'+esc(c)+'</th>'}).join("")+'</tr></thead><tbody>'+t.slice(1).map(function(r){return '<tr>'+r.map(function(c){return '<td>'+esc(c)+'</td>'}).join("")+'</tr>'}).join("")+'</tbody></table></div>'}
+    });
+    var col=(l.collegate||[]).filter(function(id){return byId[id]});
+    if(col.length)h+='<h3>Ricette collegate</h3>'+col.map(function(id){return row(byId[id],true)}).join("");
+    if(l.fonte)h+='<p class="src">Fonte: '+esc(l.fonte)+'</p>';
+    return h+'</div>';
+  }
+  function render(){
+    document.body.classList.toggle("locked",!S.role);
+    if(!S.role){renderGate();return}
+    if(S.ricette&&S._dr!==S.ricette){S._dr=S.ricette;dupCompute()}
+    if(S.ricette)S.issues=buildIssues();
+    renderTabs();
+    renderBar();
+    var m=$("main");
+    if(S.panel&&!S.edit){m.innerHTML=renderPanel();return}
+    if(S.err){m.innerHTML='<div class="empty"><b>Ricettario non disponibile</b>'+esc(S.err)+'</div>';return}
+    if(S.ricette==null||S.lezioni==null||S.menu==null||S.appunti==null){return}
+    if(S.edit)return; /* non ridisegnare mentre si modifica */
+    if(!S.ricette.length&&!S.lezioni.length){m.innerHTML='<div class="empty"><b>Il ricettario è ancora vuoto</b>Riprova tra poco.</div>';return}
+    if(S.open){
+      if(S.open.k==="r"){var r=S.ricette.filter(function(x){return x.id===S.open.id})[0];m.innerHTML=r?detailRecipe(r):'<div class="empty"><b>Ricetta non trovata</b><a href="#'+S.tab+'">Torna all\'elenco</a></div>'}
+      else if(S.open.k==="m"){var mm=S.menu.filter(function(x){return x.id===S.open.id})[0];m.innerHTML=mm?detailMenu(mm):'<div class="empty"><b>Menu non trovato</b><a href="#menu">Torna ai menu</a></div>'}
+      else if(S.open.k==="a"){var aa=(S.appunti||[]).filter(function(x){return x.id===S.open.id})[0];m.innerHTML=aa?detailLesson(aa):'<div class="empty"><b>Appunto non trovato</b><a href="#appunti">Torna agli appunti</a></div>'}
+      else{var l=S.lezioni.filter(function(x){return x.id===S.open.id})[0];m.innerHTML=l?detailLesson(l):'<div class="empty"><b>Lezione non trovata</b><a href="#lezioni">Torna alle lezioni</a></div>'}
+      return;
+    }
+    m.innerHTML=renderList();
+  }
+  function cur(){return S.open&&S.open.k==="r"?S.ricette.filter(function(x){return x.id===S.open.id})[0]:null}
+
+  /* ---- scrittura (solo chi può modificare) ---- */
+  function clean(o){var d={};Object.keys(o).forEach(function(k){var v=o[k];if(k==="id")return;if(v===""||v==null||(Array.isArray(v)&&!v.length))return;d[k]=v});return d}
+  function saveMsg(e){var st=e&&e.status;if(st===401||st===403)return "Il collegamento a GitHub non è valido o è scaduto. Rifallo da Impostazioni.";if(st===404)return "Il collegamento a GitHub non ha i permessi sul ricettario. Rifallo da Impostazioni.";if(!navigator.onLine||(e&&/fetch|network/i.test(e.message||"")))return "Manca la connessione: la modifica non è stata salvata. Riprova.";return "Non sono riuscito a salvare ("+((e&&e.message)||"errore")+"). Riprova."}
+  function write(r,next,after){
+    S.formErr="";
+    S.db.doc("ricette/"+r.id).set(clean(next)).then(function(){after&&after()},function(e){S.formErr=saveMsg(e);S.edit=S.edit;if(S.edit){var f=$("main").querySelector(".form");if(f){var er=f.querySelector(".err");if(!er){er=document.createElement("div");er.className="err";f.insertBefore(er,f.querySelector(".actions"))}er.textContent=S.formErr}}else render()});
+  }
+  function formError(msg){
+    S.formErr=msg;var f=$("main").querySelector(".form");if(!f)return;
+    var er=f.querySelector(".err");if(!er){er=document.createElement("div");er.className="err";f.insertBefore(er,f.querySelector(".actions"))}er.textContent=msg;
+  }
+  function slug(n){return norm(n).replace(/ /g,"-").replace(/^-+|-+$/g,"")||"ricetta"}
+  function saveForm(){
+    var nome=$("e-nome").value.trim();
+    if(!nome){formError("Il nome non può essere vuoto.");return}
+    var vals={nome:nome,cat:$("e-cat").value,gruppo:$("e-gruppo").value.trim(),fonte:$("e-fonte").value.trim(),
+      ing:$("e-ing").value.split("\n").map(function(x){return x.trim()}).filter(Boolean),
+      metodo:$("e-metodo").value.trim(),proc:$("e-proc").value.trim(),guarn:$("e-guarn").value.trim(),note:$("e-note").value.trim()};
+    if(S.creating){
+      var id=slug(nome),base=id,n=2;
+      while(S.ricette.some(function(x){return x.id===id})){id=base+"-"+n;n++}
+      write({id:id},vals,function(){S.creating=false;S.edit=false;go("ricetta-"+id)});
+      return;
+    }
+    var r=cur();if(!r)return;
+    write(r,Object.assign({},r,vals),function(){S.edit=false;render()});
+  }
+
+  /* ---- eventi ---- */
+  $("tabs").addEventListener("click",function(e){var b=e.target.closest("button[data-tab]");if(!b)return;$("q").value="";S.q="";go(b.getAttribute("data-tab"))});
+  var qt;$("q").addEventListener("input",function(e){clearTimeout(qt);var v=e.target.value;qt=setTimeout(function(){S.q=v;if(v&&S.open){try{history.replaceState(null,"","#"+S.tab)}catch(x){}S.open=null;S.edit=false}render()},120)});
+  $("main").addEventListener("click",function(e){
+    var t=e.target;
+    var ab=t.closest("button[data-act]");
+    if(ab){
+      var aid=ab.getAttribute("data-id"),act=ab.getAttribute("data-act"),ar=S.ricette.filter(function(x){return x.id===aid})[0];
+      if(act==="okgroup"&&S.db){
+        S.delId=null;
+        ab.getAttribute("data-ids").split(",").forEach(function(id){var rr=S.ricette.filter(function(x){return x.id===id})[0];if(rr){var nx2=Object.assign({},rr);nx2.ok=(rr.ok||[]).concat(["dup"]);write(rr,nx2,function(){})}});
+        return;
+      }
+      if(!ar||!S.db)return;
+      if(act!=="del")S.delId=null;
+      if(act==="edit"){go("ricetta-"+aid);S.edit=true;var cr=cur();if(cr)$("main").innerHTML=formRecipe(cr);return}
+      if(act==="ok"){var kd=ab.getAttribute("data-kind"),nx=Object.assign({},ar);nx.ok=(ar.ok||[]).concat([kd]);write(ar,nx,function(){});return}
+      if(act==="complete"){var n3=Object.assign({},ar);delete n3.stato;write(ar,n3,function(){});return}
+      if(act==="del"){
+        if(S.delId!==aid){S.delId=aid;render();return}
+        S.delId=null;S.db.doc("ricette/"+aid).delete().then(function(){},function(er){S.formErr=saveMsg(er);render()});
+        return;
+      }
+      return;
+    }
+    if(t.closest("[data-back]")){var bk=S.open&&S.open.k==="m"?"menu":S.open&&S.open.k==="a"?"appunti":S.open&&S.open.k==="l"?"lezioni":S.tab;go(bk);return}
+    var sb=t.closest("button[data-scale]");if(sb){S.scale=parseFloat(sb.getAttribute("data-scale"));S.target=null;render();return}
+    var ub=t.closest("button[data-unit]");if(ub){var nu=ub.getAttribute("data-unit");if(S.target!=null&&nu!==S.unit){S.target=Math.round((nu==="oz"?S.target/OZ:S.target*OZ)*100)/100}S.unit=nu;try{localStorage.setItem("ricettario-unit",S.unit)}catch(x){}render();return}
+    if(t.closest("[data-copy]")){copyRecipe(t.closest("[data-copy]"));return}
+    if(t.closest("[data-edit]")){S.edit=true;S.formErr="";var r=cur();if(r)$("main").innerHTML=formRecipe(r);window.scrollTo(0,0);return}
+    if(t.closest("[data-cancel]")){var wasNew=S.creating;S.creating=false;S.edit=false;S.formErr="";if(wasNew){go(S.tab)}else render();return}
+    if(t.closest("[data-save]")){saveForm();return}
+    if(t.closest("[data-toggle-stato]")){var r2=cur();if(!r2)return;var n2=Object.assign({},r2);if(inc(r2))delete n2.stato;else n2.stato="incompleta";write(r2,n2,function(){S.formErr=""});return}
+    if(t.closest("[data-del]")){
+      var r3=cur();if(!r3)return;
+      if(!S.confirmDel){S.confirmDel=true;render();return}
+      S.db.doc("ricette/"+r3.id).delete().then(function(){go(S.tab)},function(er){S.confirmDel=false;S.formErr=saveMsg(er);render()});
+    }
+  });
+  $("main").addEventListener("change",function(e){
+    if(e.target.id==="scalein"){var v=parseFloat(String(e.target.value).replace(",","."));if(v>0&&v<1000){S.scale=v;S.target=null;setTimeout(render,0)}}
+    if(e.target.id==="totin"){
+      var r=cur();if(!r)return;var bm=baseMl(r);
+      var tv=parseFloat(String(e.target.value).replace(",","."));
+      if(tv>0&&bm.t>0){S.target=tv;S.scale=(S.unit==="oz"?tv*OZ:tv)/bm.t}else{S.target=null;S.scale=1}
+      setTimeout(render,0);
+    }
+  });
+  function copyRecipe(btn){
+    var r=cur();if(!r)return;
+    var L=[r.nome,""];(r.ing||[]).forEach(function(i){var s=split(i,S.scale);L.push((s.q?s.q+" ":"")+s.t)});
+    if(r.metodo)L.push("","Metodo: "+r.metodo);if(r.proc)L.push("","Procedimento: "+r.proc);if(r.guarn)L.push("Guarnizione: "+r.guarn);if(r.note)L.push("","Note: "+r.note);
+    var txt=L.join("\n");
+    function done(ok){btn.textContent=ok?"Copiata":"Copia non riuscita";setTimeout(function(){btn.textContent="Copia ricetta"},1600)}
+    try{navigator.clipboard.writeText(txt).then(function(){done(true)},function(){fallback()})}catch(x){fallback()}
+    function fallback(){try{var ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);ta.select();var ok=document.execCommand("copy");document.body.removeChild(ta);done(ok)}catch(x){done(false)}}
+  }
+
+  /* ---- accesso (due password), cifratura e salvataggio su GitHub ---- */
+  var GH={o:"tommyfonti-art",r:"ricettario-drink",p:"dati.enc.json",b:"main"};
+  var ITER=200000,SESS="rp_sess",COLS=["ricette","lezioni","menu","appunti"];
+  var enc8=new TextEncoder(),dec8=new TextDecoder();
+  function b64e(u){var s="";for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s)}
+  function b64d(s){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+  function kx(pw,saltB64,it){return crypto.subtle.importKey("raw",enc8.encode(pw),"PBKDF2",false,["deriveKey"]).then(function(k){return crypto.subtle.deriveKey({name:"PBKDF2",salt:b64d(saltB64),iterations:it||ITER,hash:"SHA-256"},k,{name:"AES-GCM",length:256},false,["encrypt","decrypt"])})}
+  function aesDec(key,o){return crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(o.iv)},key,b64d(o.ct))}
+  function aesEnc(key,u8){var iv=crypto.getRandomValues(new Uint8Array(12));return crypto.subtle.encrypt({name:"AES-GCM",iv:iv},key,u8).then(function(ct){return {iv:b64e(iv),ct:b64e(new Uint8Array(ct))}})}
+  function dkKey(raw){return crypto.subtle.importKey("raw",raw,"AES-GCM",false,["encrypt","decrypt"])}
+  function readData(file,key){return aesDec(key,file.data).then(function(b){return JSON.parse(dec8.decode(b))})}
+  function writeData(file,key,data){return aesEnc(key,enc8.encode(JSON.stringify(data))).then(function(o){var f=Object.assign({},file);f.data=o;return f})}
+  function newSalt(){return b64e(crypto.getRandomValues(new Uint8Array(16)))}
+  function rewrap(pw,raw){var salt=newSalt();return kx(pw,salt).then(function(k){return aesEnc(k,raw).then(function(o){o.salt=salt;return {w:o,k:k}})})}
+
+  function fetchFile(){return fetch("dati.enc.json?v="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http "+r.status);return r.json()})}
+  function tryRole(file,pw,role){var w=file[role];return kx(pw,w.salt,file.iter).then(function(k){return aesDec(k,w).then(function(raw){return {role:role,raw:new Uint8Array(raw),k:k}})})}
+  function unlock(file,pw){
+    return tryRole(file,pw,"boss").catch(function(){return null}).then(function(r){return r||tryRole(file,pw,"staff").catch(function(){return null})}).then(function(r){
+      if(!r)throw new Error("bad");
+      if(r.role==="boss"&&file.tok)return aesDec(r.k,file.tok).then(function(b){r.tok=dec8.decode(b);return r},function(){r.tok=null;return r});
+      r.tok=null;return r;
+    });
+  }
+  function sessSave(){try{localStorage.setItem(SESS,JSON.stringify({role:S.role,dk:b64e(S.dkRaw),tok:S.tok||null}))}catch(x){}}
+  function sessClear(){try{localStorage.removeItem(SESS)}catch(x){}}
+
+  function setBase(d){
+    S.raw=d;
+    COLS.forEach(function(c){
+      var o=d[c]||{};
+      S[c]=Object.keys(o).map(function(k){return Object.assign({},o[k],{id:k})});
+    });
+    S.ricette=S.ricette.map(function(r){r.nome=r.nome||r.id;return r});
+    S.err=null;render();
+  }
+  function afterAuth(d){
+    S.canEdit=S.role==="boss"&&!!S.tok;S.db=S.canEdit?makeDb():null;
+    setBase(d);
+  }
+  function ghReq(method,body){
+    return fetch("https://api.github.com/repos/"+GH.o+"/"+GH.r+"/contents/"+GH.p+(method==="GET"?"?ref="+GH.b+"&t="+Date.now():""),{method:method,headers:{"Authorization":"Bearer "+S.tok,"Accept":"application/vnd.github+json"},body:body?JSON.stringify(body):undefined}).then(function(r){if(r.ok)return r.json();var e=new Error("gh "+r.status);e.status=r.status;throw e});
+  }
+  function ghCommitFile(mut,msg,tries){
+    return ghReq("GET").then(function(cur){
+      var file=JSON.parse(dec8.decode(b64d(cur.content.replace(/\n/g,""))));
+      return mut(file).then(function(nf){return ghReq("PUT",{message:msg,content:btoa(JSON.stringify(nf)),sha:cur.sha,branch:GH.b}).then(function(){return nf})});
+    }).catch(function(e){if((e.status===409||e.status===422)&&tries>0)return ghCommitFile(mut,msg,tries-1);throw e});
+  }
+  var chain=Promise.resolve();
+  function commit(mut,msg){var p=chain.then(function(){return ghCommitFile(mut,msg,3)});chain=p.catch(function(){});return p}
+  function applyOp(fn,msg){
+    var out;
+    return commit(function(file){return readData(file,S.dk).then(function(d){fn(d);out=d;return writeData(file,S.dk,d)})},msg).then(function(nf){S.file=nf;S.lastSave=Date.now();setBase(out)});
+  }
+  function makeDb(){
+    return {doc:function(p){var a=p.split("/");return {
+      set:function(d){return applyOp(function(x){(x[a[0]]=x[a[0]]||{})[a[1]]=d},"Modifica dal sito: "+p)},
+      delete:function(){return applyOp(function(x){if(x[a[0]])delete x[a[0]][a[1]]},"Elimina dal sito: "+p)}
+    }}};
+  }
+  /* aggiornamento automatico: vedo anche le modifiche fatte da altri (o da Claude) */
+  function poll(){
+    if(!S.role||S.edit||S.busy||document.hidden)return;
+    if(S.lastSave&&Date.now()-S.lastSave<180000)return;
+    fetchFile().then(function(f){
+      if(S.file&&f.data.ct===S.file.data.ct)return;
+      return readData(f,S.dk).then(function(d){S.file=f;if(!S.edit)setBase(d)});
+    }).catch(function(){});
+  }
+  setInterval(poll,45000);document.addEventListener("visibilitychange",function(){if(!document.hidden)poll()});
+
+  function renderGate(){
+    $("bar").innerHTML="";$("tabs").innerHTML="";
+    var m=$("main");
+    m.innerHTML='<div class="d panel form"><h2>Entra</h2><p class="sub">Scrivi la password per vedere il ricettario.</p>'+
+      '<label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" autocapitalize="none">'+
+      (S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+(S.msg?'<div class="okmsg">'+esc(S.msg)+'</div>':'')+
+      '<div class="actions"><button class="btn pri" data-ui="login">Entra</button></div></div>';
+  }
+  function renderBar(){
+    var b=$("bar");if(!b)return;
+    if(S.role==="boss"&&S.canEdit)b.innerHTML='<span class="st on">Modifica attiva</span><button class="btn pri" data-ui="nuova">+ Nuova ricetta</button><a class="btn" href="#impostazioni" style="text-decoration:none">Impostazioni</a><button class="btn" data-ui="logout">Esci</button>';
+    else if(S.role==="boss")b.innerHTML='<span class="st">Da collegare a GitHub</span><a class="btn pri" href="#impostazioni" style="text-decoration:none">Impostazioni</a><button class="btn" data-ui="logout">Esci</button>';
+    else if(S.role==="staff")b.innerHTML='<span class="st">Sola lettura</span><button class="btn" data-ui="logout">Esci</button>';
+    else b.innerHTML="";
+  }
+  function renderPanel(){
+    if(S.panel==="impostazioni"){
+      if(S.role!=="boss")return '<div class="d panel"><button class="back" data-back="1">← Indietro</button><h2>Impostazioni</h2><p>Solo il capo può cambiare le impostazioni.</p></div>';
+      var n=(S.ricette||[]).length,msgs=(S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+(S.msg?'<div class="okmsg">'+esc(S.msg)+'</div>':'');
+      return '<div class="d panel form"><button class="back" data-back="1">← Indietro</button><h2>Impostazioni</h2>'+msgs+
+        '<h3>Collegamento a GitHub</h3><p>'+(S.tok?'Attivo: puoi modificare le ricette dall\'app.':'Manca. Serve una sola volta per poter salvare le modifiche.')+'</p>'+
+        '<label for="tk">Token GitHub</label><input id="tk" type="password" autocomplete="off" autocapitalize="none">'+
+        '<label for="tkpw">Password capo (per proteggere il token)</label><input id="tkpw" type="password" autocomplete="current-password" autocapitalize="none">'+
+        '<div class="actions"><button class="btn pri" data-ui="savetok">Salva collegamento</button></div>'+
+        '<h3>Password capo</h3><label for="pb1">Nuova password (almeno 6 caratteri)</label><input id="pb1" type="password" autocomplete="new-password" autocapitalize="none">'+
+        '<label for="pb2">Ripeti la nuova password</label><input id="pb2" type="password" autocomplete="new-password" autocapitalize="none">'+
+        '<div class="actions"><button class="btn pri" data-ui="chboss">Cambia password capo</button></div>'+
+        '<h3>Password dipendenti</h3><label for="ps1">Nuova password (almeno 4 caratteri)</label><input id="ps1" type="text" autocomplete="off" autocapitalize="none">'+
+        '<div class="actions"><button class="btn pri" data-ui="chstaff">Cambia password dipendenti</button></div>'+
+        '<h3>Backup</h3><p>Scarica un file con tutte le ricette, le lezioni e gli appunti ('+n+' ricette).</p>'+
+        '<div class="actions"><button class="btn" data-ui="backup">Scarica backup</button></div></div>';
+    }
+    return "";
+  }
+  function flash(msg,err){S.msg=err?"":msg;S.formErr=err?msg:"";render()}
+  function doLogin(){
+    var pw=($("pw")||{}).value||"";if(!pw){flash("Scrivi la password.",1);return}
+    S.busy=true;flash("Controllo…");
+    (S.file?Promise.resolve(S.file):fetchFile().then(function(f){S.file=f;return f})).then(function(f){
+      return unlock(f,pw).then(function(r){
+        S.role=r.role;S.dkRaw=r.raw;S.tok=r.tok;
+        return dkKey(r.raw).then(function(k){S.dk=k;return readData(f,k)}).then(function(d){S.busy=false;S.formErr="";S.msg="";sessSave();S.panel=null;afterAuth(d);go(S.tab)});
+      });
+    }).catch(function(e){S.busy=false;S.role=null;flash(e&&e.message==="bad"?"Password sbagliata.":"Non riesco a leggere il ricettario. Controlla la connessione.",1)});
+  }
+  function doLogout(){sessClear();S.role=null;S.dk=null;S.dkRaw=null;S.tok=null;S.canEdit=false;S.db=null;S.edit=false;S.panel=null;S.open=null;S.ricette=S.lezioni=S.menu=S.appunti=null;S.msg="";S.formErr="";render()}
+  function doSaveTok(){
+    var tk=($("tk")||{}).value.trim(),pw=($("tkpw")||{}).value||"";
+    if(!tk||!pw){flash("Compila token e password capo.",1);return}
+    S.busy=true;flash("Controllo…");
+    tryRole(S.file,pw,"boss").then(function(r){
+      var old=S.tok;S.tok=tk;
+      return aesEnc(r.k,enc8.encode(tk)).then(function(t){
+        return commit(function(file){var f=Object.assign({},file);f.tok=t;return Promise.resolve(f)},"Collegamento GitHub dal sito").then(function(nf){S.file=nf;S.lastSave=Date.now();S.busy=false;S.canEdit=true;S.db=makeDb();sessSave();flash("Collegamento attivo. Ora puoi modificare le ricette.")});
+      }).catch(function(e){S.tok=old;throw e});
+    }).catch(function(e){S.busy=false;flash(e&&e.status?saveMsg(e):"Password capo sbagliata.",1)});
+  }
+  function doChBoss(){
+    var p1=$("pb1").value,p2=$("pb2").value;
+    if(p1.length<6){flash("La nuova password deve avere almeno 6 caratteri.",1);return}
+    if(p1!==p2){flash("Le due password non coincidono.",1);return}
+    if(!S.tok){flash("Prima salva il collegamento a GitHub.",1);return}
+    S.busy=true;flash("Salvo…");
+    rewrap(p1,S.dkRaw).then(function(r){return aesEnc(r.k,enc8.encode(S.tok)).then(function(t){
+      return commit(function(file){var f=Object.assign({},file);f.boss=r.w;f.tok=t;return Promise.resolve(f)},"Password capo cambiata")});
+    }).then(function(nf){S.file=nf;S.lastSave=Date.now();S.busy=false;flash("Password capo cambiata.")},function(e){S.busy=false;flash(saveMsg(e),1)});
+  }
+  function doChStaff(){
+    var p=$("ps1").value.trim();
+    if(p.length<4){flash("La password deve avere almeno 4 caratteri.",1);return}
+    if(!S.tok){flash("Prima salva il collegamento a GitHub.",1);return}
+    S.busy=true;flash("Salvo…");
+    rewrap(p,S.dkRaw).then(function(r){return commit(function(file){var f=Object.assign({},file);f.staff=r.w;return Promise.resolve(f)},"Password dipendenti cambiata")}).then(function(nf){S.file=nf;S.lastSave=Date.now();S.busy=false;flash("Password dipendenti cambiata. Comunicala ai dipendenti.")},function(e){S.busy=false;flash(saveMsg(e),1)});
+  }
+  function doBackup(){
+    var out={ricette:{},lezioni:{},menu:{},appunti:{}};
+    COLS.forEach(function(c){(S[c]||[]).forEach(function(r){var o=Object.assign({},r);delete o.id;out[c][r.id]=o})});
+    var blob=new Blob([JSON.stringify(out,null,1)],{type:"application/json"});
+    var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ricettario-backup-"+new Date().toISOString().slice(0,10)+".json";
+    document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500);
+    flash("Backup scaricato.");
+  }
+  document.addEventListener("click",function(e){
+    var b=e.target.closest&&e.target.closest("[data-ui]");if(!b)return;
+    var a=b.getAttribute("data-ui");
+    if(a==="login")doLogin();
+    else if(a==="logout")doLogout();
+    else if(a==="savetok")doSaveTok();
+    else if(a==="chboss")doChBoss();
+    else if(a==="chstaff")doChStaff();
+    else if(a==="backup")doBackup();
+    else if(a==="nuova"){
+      var cat=CATNAME[S.tab]?S.tab:"cocktail";
+      reset();S.open=null;S.creating=true;S.edit=true;S.formErr="";
+      $("main").innerHTML=formRecipe({cat:cat});window.scrollTo(0,0);
+    }
+  });
+  document.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.id==="pw")doLogin()});
+
+  readHash();render();
+  if(!window.crypto||!crypto.subtle){S.formErr="Questo browser non è abbastanza recente per aprire il ricettario.";render()}
+  else fetchFile().then(function(f){
+    S.file=f;
+    var sess=null;try{sess=JSON.parse(localStorage.getItem(SESS)||"null")}catch(x){}
+    if(!sess||!sess.dk)return;
+    var raw=b64d(sess.dk);
+    return dkKey(raw).then(function(k){return readData(f,k).then(function(d){S.role=sess.role;S.dk=k;S.dkRaw=raw;S.tok=sess.tok||null;afterAuth(d)})}).catch(function(){sessClear()});
+  }).catch(function(){S.formErr="Non riesco a leggere il ricettario. Controlla la connessione e riprova.";render()});
+})();
+</script>
+
+</body>
+</html>
