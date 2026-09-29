@@ -415,7 +415,7 @@ tr:last-child td{border-bottom:0}
     }
     var items=S.ricette.filter(function(r){return r.cat===S.tab&&!inc(r)});
     if(!items.length)return '<div class="empty"><b>Ancora niente qui</b>Le ricette di questa sezione compariranno appena verranno aggiunte.</div>';
-    return '<div class="list">'+(S.tab==="cocktail"?groupsFonte(items):groups(S.tab,items))+'</div>';
+    return '<div class="list">'+(S.tab==="cocktail"?items.slice().sort(byName).map(function(r){return row(r,false)}).join(""):groups(S.tab,items))+'</div>';
   }
   function detailRecipe(r){
     var lis=(r.ing||[]).map(function(t){
