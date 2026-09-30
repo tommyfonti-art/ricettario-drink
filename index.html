@@ -68,7 +68,10 @@ h2.grp::after{content:"";flex:1;border-top:1px solid var(--line)}
 .chip.hot{background:var(--accent-soft);color:var(--accent)}
 .back{font:inherit;display:inline-flex;align-items:center;gap:10px;background:var(--accent);color:#fff;border:0;border-radius:99px;padding:10px 22px 10px 16px;cursor:pointer;font-weight:600;font-size:1.05rem;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 .back b{font-size:1.7rem;line-height:1;font-weight:500;margin-top:-3px}
-.lo{font:inherit;font-size:.7rem;background:none;border:0;color:var(--muted);opacity:.55;padding:6px 4px;margin-left:auto;cursor:pointer;text-decoration:underline}
+.rf{margin-left:auto;font:inherit;font-size:1.3rem;line-height:1;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer;padding:0}
+.rf.spin{animation:sp .8s linear infinite}.rf.done{color:var(--ok)}.rf.bad{color:var(--accent)}
+@keyframes sp{to{transform:rotate(360deg)}}
+.lo{font:inherit;font-size:.7rem;background:none;border:0;color:var(--muted);opacity:.55;padding:6px 4px;margin-left:14px;cursor:pointer;text-decoration:underline}
 .d h2{font-family:var(--f-display);font-size:1.7rem;line-height:1.15;margin:0 0 6px;text-wrap:balance}
 .meta{display:flex;flex-wrap:wrap;gap:6px;color:var(--muted);font-size:.85rem;margin-bottom:6px}
 .ctl{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:14px 0 0}
@@ -668,6 +671,17 @@ tr:last-child td{border-bottom:0}
     }}};
   }
   /* aggiornamento automatico: vedo anche le modifiche fatte da altri (o da Claude) */
+  function fetchFresh(){
+    return fetch("https://api.github.com/repos/"+GH.o+"/"+GH.r+"/contents/"+GH.p+"?ref="+GH.b+"&t="+Date.now(),{headers:{Accept:"application/vnd.github.raw+json"},cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http "+r.status);return r.json()}).catch(function(){return fetchFile()});
+  }
+  function refreshNow(btn){
+    if(S.edit||S.busy){alert("Finisci prima la modifica in corso.");return}
+    btn.classList.add("spin");
+    fetchFresh().then(function(f){
+      if(S.file&&f.data.ct===S.file.data.ct)return "ok";
+      return readData(f,S.dk).then(function(d){S.file=f;setBase(d);return "ok"});
+    }).catch(function(){return "err"}).then(function(x){btn.classList.remove("spin");btn.classList.add(x==="ok"?"done":"bad");setTimeout(function(){btn.classList.remove("done","bad")},1500)});
+  }
   function poll(){
     if(!S.role||S.edit||S.busy||document.hidden)return;
     if(S.lastSave&&Date.now()-S.lastSave<180000)return;
@@ -688,9 +702,10 @@ tr:last-child td{border-bottom:0}
   }
   function renderBar(){
     var b=$("bar");if(!b)return;
-    if(S.role==="boss"&&S.canEdit)b.innerHTML='<button class="btn pri" data-ui="nuova">+ Nuova ricetta</button><a class="btn" href="#impostazioni" style="text-decoration:none">Impostazioni</a><button class="lo" data-ui="logout">esci</button>';
-    else if(S.role==="boss")b.innerHTML='<span class="st">Da collegare</span><a class="btn pri" href="#impostazioni" style="text-decoration:none">Impostazioni</a><button class="lo" data-ui="logout">esci</button>';
-    else if(S.role==="staff")b.innerHTML='<span class="st">Sola lettura</span><button class="lo" data-ui="logout">esci</button>';
+    var rf='<button class="rf" data-ui="refresh" aria-label="Aggiorna">&#8635;</button>';
+    if(S.role==="boss"&&S.canEdit)b.innerHTML='<button class="btn pri" data-ui="nuova">+ Nuova ricetta</button><a class="btn" href="#impostazioni" style="text-decoration:none">Impostazioni</a>'+rf+'<button class="lo" data-ui="logout">esci</button>';
+    else if(S.role==="boss")b.innerHTML='<span class="st">Da collegare</span><a class="btn pri" href="#impostazioni" style="text-decoration:none">Impostazioni</a>'+rf+'<button class="lo" data-ui="logout">esci</button>';
+    else if(S.role==="staff")b.innerHTML='<span class="st">Sola lettura</span>'+rf+'<button class="lo" data-ui="logout">esci</button>';
     else b.innerHTML="";
   }
   function renderPanel(){
@@ -764,6 +779,7 @@ tr:last-child td{border-bottom:0}
     var b=e.target.closest&&e.target.closest("[data-ui]");if(!b)return;
     var a=b.getAttribute("data-ui");
     if(a==="login")doLogin();
+    else if(a==="refresh")refreshNow(b);
     else if(a==="logout"){if(confirm("Uscire dall'account?"))doLogout()}
     else if(a==="savetok")doSaveTok();
     else if(a==="chboss")doChBoss();
