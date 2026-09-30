@@ -161,7 +161,7 @@ tr:last-child td{border-bottom:0}
   function conv(num,k,u){
     var val=num*k,uu=u;
     if(S.unit==="oz"){if(u==="ml"){val/=OZ;uu="oz"}else if(u==="cl"){val/=OZ/10;uu="oz"}}
-    else{if(u==="cl"){val*=10;uu="ml"}else if(u==="oz"){val*=OZ;uu="ml";if(val>=10)val=Math.ceil(val/5-0.5-1e-9)*5}}
+    else{if(u==="cl"){val*=10;uu="ml"}else if(u==="oz"){val*=OZ;uu="ml"}}
     return {s:(S.unit==="oz"&&uu==="oz")?fmtOz(val):fmt(val),u:uu};
   }
   function split(text,k){
@@ -180,7 +180,7 @@ tr:last-child td{border-bottom:0}
     return {q:c.s+(unit?" "+c.u:""),t:unit?unit[2]:m[2]};
   }
   /* ---- quantità totale di una ricetta, in ml (gr contati come ml) ---- */
-  function toMl(v,u){switch(u){case"ml":case"gr":case"g":return v;case"cl":return v*10;case"oz":var w=v*OZ;return w>=10?Math.ceil(w/5-0.5-1e-9)*5:w;case"kg":case"l":case"litri":case"litro":return v*1000;default:return null}}
+  function toMl(v,u){switch(u){case"ml":case"gr":case"g":return v;case"cl":return v*10;case"oz":return v*OZ;case"kg":case"l":case"litri":case"litro":return v*1000;default:return null}}
   function mlOf(text){
     var rg=text.match(RNG);
     if(rg){var ru=rg[3].match(UNIT);if(!ru)return null;return toMl((toNum(rg[1])+toNum(rg[2]))/2,ru[1].toLowerCase())}
