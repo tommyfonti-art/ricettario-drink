@@ -161,6 +161,8 @@ tr:last-child td{border-bottom:0}
     return {s:(S.unit==="oz"&&uu==="oz")?fmtOz(val):fmt(val),u:uu};
   }
   function split(text,k){
+    var tp=text.match(/^top\s+(.+)$/i);
+    if(tp){var r0=split(tp[1],k);return {q:"top"+(r0.q?" "+r0.q:""),t:r0.t}}
     var rg=text.match(RNG);
     if(rg){
       var ru=rg[3].match(UNIT),u1=ru?ru[1].toLowerCase():"",a=conv(toNum(rg[1]),k,u1),b=conv(toNum(rg[2]),k,u1);
