@@ -66,7 +66,9 @@ h2.grp::after{content:"";flex:1;border-top:1px solid var(--line)}
 .row .rs{color:var(--muted);font-size:.82rem;font-weight:400}
 .chip{display:inline-block;font-size:.7rem;padding:1px 7px;border-radius:99px;background:var(--tag);color:var(--muted);margin-left:6px;vertical-align:1px;white-space:nowrap;font-weight:400}
 .chip.hot{background:var(--accent-soft);color:var(--accent)}
-.back{font:inherit;background:none;border:0;color:var(--accent);padding:0;cursor:pointer;font-weight:500;margin-bottom:12px}
+.back{font:inherit;display:inline-flex;align-items:center;gap:10px;background:var(--accent);color:#fff;border:0;border-radius:99px;padding:10px 22px 10px 16px;cursor:pointer;font-weight:600;font-size:1.05rem;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.back b{font-size:1.7rem;line-height:1;font-weight:500;margin-top:-3px}
+.lo{font:inherit;font-size:.7rem;background:none;border:0;color:var(--muted);opacity:.55;padding:6px 4px;margin-left:auto;cursor:pointer;text-decoration:underline}
 .d h2{font-family:var(--f-display);font-size:1.7rem;line-height:1.15;margin:0 0 6px;text-wrap:balance}
 .meta{display:flex;flex-wrap:wrap;gap:6px;color:var(--muted);font-size:.85rem;margin-bottom:6px}
 .ctl{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:14px 0 0}
@@ -376,7 +378,7 @@ tr:last-child td{border-bottom:0}
   }
   function detailMenu(m){
     var byId={};S.ricette.forEach(function(r){byId[r.id]=r});
-    var h='<div class="d"><button class="back" data-back="1">← Indietro</button><h2>'+esc(m.titolo)+'</h2>';
+    var h='<div class="d"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>'+esc(m.titolo)+'</h2>';
     (m.sezioni||[]).forEach(function(s){
       h+='<h3>'+esc(s.titolo)+'</h3>';
       (s.drink||[]).forEach(function(id){if(byId[id])h+=row(byId[id],false,byId[id].gruppo)});
@@ -427,7 +429,7 @@ tr:last-child td{border-bottom:0}
     if(inc(r))meta.push('<span class="chip hot">incompleta</span>');
     var sc=[0.5,1,2,5,10].map(function(v){return '<button data-scale="'+v+'" aria-pressed="'+(S.scale===v)+'">'+(v===0.5?'½':'×'+v)+'</button>'}).join("");
     var un=["ml","oz"].map(function(v){return '<button data-unit="'+v+'" aria-pressed="'+(S.unit===v)+'">'+v+'</button>'}).join("");
-    var h='<div class="d"><button class="back" data-back="1">← Indietro</button><h2>'+esc(r.nome)+'</h2><div class="meta">'+meta.join(" ")+'</div>';
+    var h='<div class="d"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>'+esc(r.nome)+'</h2><div class="meta">'+meta.join(" ")+'</div>';
     var bm=baseMl(r);
     var qf=bm.t>0?'<input id="totin" class="tot" type="number" min="0" step="any" inputmode="decimal" placeholder="Quantità finale" value="'+(S.target!=null?esc(S.target):"")+'" aria-label="Quantità finale desiderata"><span class="src" style="margin:0">'+S.unit+'</span>':'<input id="scalein" type="number" min="0.1" step="0.5" inputmode="decimal" placeholder="altro" aria-label="Moltiplicatore personalizzato">';
     h+='<div class="ctl one">'+sc+qf+'</div>';
@@ -478,7 +480,7 @@ tr:last-child td{border-bottom:0}
   }
   function detailLesson(l){
     var byId={};S.ricette.forEach(function(r){byId[r.id]=r});
-    var h='<div class="d"><button class="back" data-back="1">← Indietro</button><h2>'+esc(l.titolo)+'</h2>';
+    var h='<div class="d"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>'+esc(l.titolo)+'</h2>';
     if(l.sommario)h+='<p class="sub">'+esc(l.sommario)+'</p>';
     (l.sezioni||[]).forEach(function(s){
       h+='<h3>'+esc(s.titolo)+'</h3>';
@@ -684,16 +686,16 @@ tr:last-child td{border-bottom:0}
   }
   function renderBar(){
     var b=$("bar");if(!b)return;
-    if(S.role==="boss"&&S.canEdit)b.innerHTML='<button class="btn pri" data-ui="nuova">+ Nuova ricetta</button><a class="btn" href="#impostazioni" style="text-decoration:none">Impostazioni</a><button class="btn" data-ui="logout">Esci</button>';
-    else if(S.role==="boss")b.innerHTML='<span class="st">Da collegare</span><a class="btn pri" href="#impostazioni" style="text-decoration:none">Impostazioni</a><button class="btn" data-ui="logout">Esci</button>';
-    else if(S.role==="staff")b.innerHTML='<span class="st">Sola lettura</span><button class="btn" data-ui="logout">Esci</button>';
+    if(S.role==="boss"&&S.canEdit)b.innerHTML='<button class="btn pri" data-ui="nuova">+ Nuova ricetta</button><a class="btn" href="#impostazioni" style="text-decoration:none">Impostazioni</a><button class="lo" data-ui="logout">esci</button>';
+    else if(S.role==="boss")b.innerHTML='<span class="st">Da collegare</span><a class="btn pri" href="#impostazioni" style="text-decoration:none">Impostazioni</a><button class="lo" data-ui="logout">esci</button>';
+    else if(S.role==="staff")b.innerHTML='<span class="st">Sola lettura</span><button class="lo" data-ui="logout">esci</button>';
     else b.innerHTML="";
   }
   function renderPanel(){
     if(S.panel==="impostazioni"){
-      if(S.role!=="boss")return '<div class="d panel"><button class="back" data-back="1">← Indietro</button><h2>Impostazioni</h2><p>Solo il capo può cambiare le impostazioni.</p></div>';
+      if(S.role!=="boss")return '<div class="d panel"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>Impostazioni</h2><p>Solo il capo può cambiare le impostazioni.</p></div>';
       var n=(S.ricette||[]).length,msgs=(S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+(S.msg?'<div class="okmsg">'+esc(S.msg)+'</div>':'');
-      return '<div class="d panel form"><button class="back" data-back="1">← Indietro</button><h2>Impostazioni</h2>'+msgs+
+      return '<div class="d panel form"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>Impostazioni</h2>'+msgs+
         '<h3>Collegamento a GitHub</h3><p>'+(S.tok?'Attivo: puoi modificare le ricette dall\'app.':'Manca. Serve una sola volta per poter salvare le modifiche.')+'</p>'+
         '<label for="tk">Token GitHub</label><input id="tk" type="password" autocomplete="off" autocapitalize="none">'+
         '<label for="tkpw">Password capo (per proteggere il token)</label><input id="tkpw" type="password" autocomplete="current-password" autocapitalize="none">'+
@@ -760,7 +762,7 @@ tr:last-child td{border-bottom:0}
     var b=e.target.closest&&e.target.closest("[data-ui]");if(!b)return;
     var a=b.getAttribute("data-ui");
     if(a==="login")doLogin();
-    else if(a==="logout")doLogout();
+    else if(a==="logout"){if(confirm("Uscire dall'account?"))doLogout()}
     else if(a==="savetok")doSaveTok();
     else if(a==="chboss")doChBoss();
     else if(a==="chstaff")doChStaff();
