@@ -295,7 +295,7 @@ tr:last-child td{border-bottom:0}
   }
   function linkFor(name){
     var n=norm(name.replace(/\(.*?\)/g,""));if(n.length<4)return null;
-    var l=S.ricette.filter(function(r){return r.cat!=="cocktail"&&!inc(r)&&norm(r.nome.replace(/\(.*?\)/g,""))===n});
+    var l=S.ricette.filter(function(r){return r.cat!=="cocktail"&&!inc(r)&&(norm(r.nome.replace(/\(.*?\)/g,""))===n||(r.alias||[]).some(function(a){return norm(a.replace(/\(.*?\)/g,""))===n}))});
     return l.length?l[0]:null;
   }
 
@@ -468,6 +468,7 @@ tr:last-child td{border-bottom:0}
       '<label for="e-nome">Nome</label><input id="e-nome" value="'+esc(r.nome||"")+'">'+
       '<label for="e-cat">Sezione</label><select id="e-cat">'+catOptions(r.cat||"cocktail")+'</select>'+
       '<label for="e-gruppo">Gruppo</label><input id="e-gruppo" value="'+esc(r.gruppo||"")+'">'+
+      '<label for="e-alias">Altri nomi con cui compare negli ingredienti (separati da virgola)</label><input id="e-alias" value="'+esc((r.alias||[]).join(", "))+'">'+
       '<label for="e-fonte">Fonte / edizione</label><input id="e-fonte" value="'+esc(r.fonte||"")+'">'+
       '<label for="e-ing">Ingredienti</label><textarea id="e-ing" rows="10">'+esc((r.ing||[]).join("\n"))+'</textarea><p class="hint">Un ingrediente per riga, con la quantità all\'inizio (per esempio: 45 ml Gin, oppure 1 3/4 oz Gin). Le righe senza numero restano come sono.</p>'+
       '<label for="e-metodo">Metodo</label><input id="e-metodo" value="'+esc(r.metodo||"")+'">'+
@@ -533,7 +534,8 @@ tr:last-child td{border-bottom:0}
     if(!nome){formError("Il nome non può essere vuoto.");return}
     var vals={nome:nome,cat:$("e-cat").value,gruppo:$("e-gruppo").value.trim(),fonte:$("e-fonte").value.trim(),
       ing:$("e-ing").value.split("\n").map(function(x){return x.trim()}).filter(Boolean),
-      metodo:$("e-metodo").value.trim(),proc:$("e-proc").value.trim(),guarn:$("e-guarn").value.trim(),note:$("e-note").value.trim()};
+      metodo:$("e-metodo").value.trim(),proc:$("e-proc").value.trim(),guarn:$("e-guarn").value.trim(),note:$("e-note").value.trim(),
+      alias:($("e-alias")?$("e-alias").value:"").split(",").map(function(x){return x.trim()}).filter(Boolean)};
     if(S.creating){
       var id=slug(nome),base=id,n=2;
       while(S.ricette.some(function(x){return x.id===id})){id=base+"-"+n;n++}
