@@ -90,6 +90,7 @@ h3{font-family:var(--f-display);font-size:.78rem;text-transform:uppercase;letter
 .d p{margin:0 0 10px;max-width:65ch}
 .dupg{margin:0 0 12px}.dupt{font-weight:600;font-size:.9rem;margin:8px 0 2px}
 .issue{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;margin:0 0 10px}.issue .ih{margin-bottom:4px}.issue .it{font-size:.88rem;color:var(--fg);max-width:65ch}.issue .mrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-top:1px solid var(--line)}.issue .mrow .btn{padding:4px 10px;font-size:.85rem}.issue .ia{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ctl select{font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg);width:100%;max-width:100%}
 .ctl.one{gap:5px}.ctl.one button{padding:5px 7px}.ctl.one input.tot{width:122px;font-family:inherit;font-size:.82rem}
 .note{border-left:3px solid var(--accent);padding:6px 12px;background:var(--accent-soft);border-radius:0 6px 6px 0;max-width:65ch}
 ul.pts{margin:0;padding-left:18px;max-width:65ch}
@@ -143,12 +144,15 @@ tr:last-child td{border-bottom:0}
   var OZ=30; /* 1 oz = 30 ml, misura da bar */
   var FONTI=["Drink list Manga 2026 (Villain edition)","Drink list Manga 2024/25","Drink list 2023/24","Capodanno","Drink list 2023","Drink list 2022-23","Drink list mare 2022","Cocktail list mare 2021","Menù inverno 2020-21","Tiki night","Tiki list mare 2018","Altre ricette","Lezione Chiarificazione"];
   var EDIT_EMAIL="modifica@ricettario-repub.app";
-  var S={role:null,busy:false,panel:null,creating:false,msg:"",authReady:false,issues:null,delId:null,dup:{},dupg:[],target:null,ricette:null,lezioni:null,menu:null,appunti:null,tab:"cocktail",q:"",open:null,scale:1,unit:"ml",err:null,db:null,canEdit:false,edit:false,confirmDel:false,formErr:""};
+  var S={role:null,busy:false,panel:null,creating:false,msg:"",authReady:false,issues:null,delId:null,dup:{},dupg:[],target:null,ricette:null,lezioni:null,menu:null,appunti:null,bicchieri:null,tab:"cocktail",q:"",open:null,scale:1,unit:"ml",err:null,db:null,canEdit:false,edit:false,confirmDel:false,formErr:""};
   var $=function(id){return document.getElementById(id)};
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
   function norm(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim()}
   /* nella sezione Blend il nome compare sempre con «Blend» davanti (se non c'è già) */
   function dn(r){if(!r)return "";var n=String(r.nome||r.id||"");if(r.cat!=="blend")return n;n=n.trim();return /^blend/i.test(n)?n.charAt(0).toUpperCase()+n.slice(1):"Blend "+n}
+  /* bicchieri: elenco con capienza in ml; la ricetta ricorda l'id del bicchiere */
+  function glassOf(r){return r&&r.bicchiere?(S.bicchieri||[]).filter(function(g){return g.id===r.bicchiere})[0]||null:null}
+  function glassLabel(g){return g.nome+(g.capienza?" · "+fmt(g.capienza)+" ml":"")}
   function byName(a,b){return dn(a).localeCompare(dn(b),"it")}
   function inc(r){return r.stato==="incompleta"}
 
@@ -315,7 +319,7 @@ tr:last-child td{border-bottom:0}
     else if(h.indexOf("lezione-")===0){S.open={k:"l",id:h.slice(8)}}
     else if(h.indexOf("appunto-")===0){S.open={k:"a",id:h.slice(8)}}
     else if(h.indexOf("menu-")===0){S.open={k:"m",id:h.slice(5)}}
-    else if(h==="accesso"||h==="impostazioni"){S.open=null;S.panel=h}
+    else if(h==="accesso"||h==="impostazioni"||h==="bicchieri"){S.open=null;S.panel=h}
     else{S.open=null;S.panel=null;if(TABS.some(function(t){return t[0]===h}))S.tab=h}
   }
   function readHash(){parse(location.hash)}
@@ -355,7 +359,7 @@ tr:last-child td{border-bottom:0}
     var keys=order.filter(function(g){return map[g]}).concat(Object.keys(map).filter(function(g){return order.indexOf(g)<0}).sort());
     return keys.map(function(g){return '<h2 class="grp">'+esc(g)+'</h2>'+map[g].sort(byName).map(function(r){return row(r,false)}).join("")}).join("");
   }
-  function haystack(r){return norm([dn(r),r.gruppo,(r.ing||[]).join(" "),r.proc,r.metodo,r.note,r.guarn].join(" "))}
+  function haystack(r){return norm([dn(r),r.gruppo,(r.ing||[]).join(" "),r.proc,r.metodo,r.note,r.guarn,(glassOf(r)||{}).nome].join(" "))}
   function lezRow(l){return '<a class="row" href="#lezione-'+esc(l.id)+'"><span class="rn">'+esc(l.titolo)+'<div class="rs">'+esc(l.sommario||"")+'</div></span></a>'}
   function renderMenu(){
     if(!S.menu.length)return '<div class="empty"><b>Nessun menu</b>I menu compariranno qui.</div>';
@@ -452,6 +456,11 @@ tr:last-child td{border-bottom:0}
     }
     h+='<ul class="ing">'+lis+'</ul>';
     if(S.scale!==1||S.unit==="oz")h+='<p class="src" style="margin-top:8px">Si convertono solo i numeri a inizio riga (1 oz = 30 ml); le once sono arrotondate al quarto d\'oncia. Le quantità scritte tra parentesi restano quelle originali.</p>';
+    var gl=glassOf(r);
+    if(S.canEdit&&S.db){
+      var gs=(S.bicchieri||[]).slice().sort(byName);
+      h+='<h3>Bicchiere</h3><div class="ctl"><select id="glassin" aria-label="Bicchiere"><option value="">— nessun bicchiere —</option>'+gs.map(function(g){return '<option value="'+esc(g.id)+'"'+(r.bicchiere===g.id?' selected':'')+'>'+esc(glassLabel(g))+'</option>'}).join("")+'<option value="__new">+ Aggiungi un bicchiere…</option></select></div>';
+    }else if(gl)h+='<h3>Bicchiere</h3><p>'+esc(glassLabel(gl))+'</p>';
     if(r.descrizione)h+='<h3>Descrizione a menu</h3><p>'+esc(r.descrizione)+'</p>';
     if(r.profilo)h+='<h3>Profilo</h3><p>'+esc(r.profilo)+'</p>';
     if(r.metodo)h+='<h3>Metodo</h3><p>'+esc(r.metodo)+'</p>';
@@ -578,7 +587,7 @@ tr:last-child td{border-bottom:0}
       }
       return;
     }
-    if(t.closest("[data-back]")){var bk=S.open&&S.open.k==="m"?"menu":S.open&&S.open.k==="a"?"appunti":S.open&&S.open.k==="l"?"lezioni":S.tab;go(bk);return}
+    if(t.closest("[data-back]")){var bk=S.panel==="bicchieri"?"impostazioni":S.open&&S.open.k==="m"?"menu":S.open&&S.open.k==="a"?"appunti":S.open&&S.open.k==="l"?"lezioni":S.tab;go(bk);return}
     var sb=t.closest("button[data-scale]");if(sb){S.scale=parseFloat(sb.getAttribute("data-scale"));S.target=null;render();return}
     var ub=t.closest("button[data-unit]");if(ub){var nu=ub.getAttribute("data-unit");if(S.target!=null&&nu!==S.unit){S.target=Math.round((nu==="oz"?S.target/OZ:S.target*OZ)*100)/100}S.unit=nu;render();return}
     if(t.closest("[data-copy]")){copyRecipe(t.closest("[data-copy]"));return}
@@ -593,6 +602,21 @@ tr:last-child td{border-bottom:0}
     }
   });
   $("main").addEventListener("change",function(e){
+    if(e.target.id==="glassin"){
+      var rg=cur();if(!rg||!S.db)return;var gv=e.target.value;
+      if(gv==="__new"){
+        var gn=(prompt("Nome del nuovo bicchiere")||"").trim();
+        if(!gn){e.target.value=rg.bicchiere||"";return}
+        var gcs=prompt("Capienza in ml (puoi lasciare vuoto)")||"",gcap=parseFloat(gcs.replace(",","."));
+        var gid=slug(gn),have=(S.bicchieri||[]).some(function(g){return g.id===gid});
+        var gd={nome:gn};if(gcap>0)gd.capienza=gcap;
+        var assign=function(){write(rg,Object.assign({},rg,{bicchiere:gid}),function(){})};
+        if(have)assign();else S.db.doc("bicchieri/"+gid).set(gd).then(assign,function(er){S.formErr=saveMsg(er);render()});
+        return;
+      }
+      write(rg,Object.assign({},rg,{bicchiere:gv}),function(){});
+      return;
+    }
     if(e.target.id==="scalein"){var v=parseFloat(String(e.target.value).replace(",","."));if(v>0&&v<1000){S.scale=v;S.target=null;setTimeout(render,0)}}
     if(e.target.id==="totin"){
       var r=cur();if(!r)return;var bm=baseMl(r);
@@ -604,6 +628,7 @@ tr:last-child td{border-bottom:0}
   function copyRecipe(btn){
     var r=cur();if(!r)return;
     var L=[dn(r),""];(r.ing||[]).forEach(function(i){var s=split(i,S.scale);L.push((s.q?s.q+" ":"")+s.t)});
+    var gc=glassOf(r);if(gc)L.push("","Bicchiere: "+glassLabel(gc));
     if(r.metodo)L.push("","Metodo: "+r.metodo);if(r.proc)L.push("","Procedimento: "+r.proc);if(r.guarn)L.push("Guarnizione: "+r.guarn);if(r.note)L.push("","Note: "+r.note);
     var txt=L.join("\n");
     function done(ok){btn.textContent=ok?"Copiata":"Copia non riuscita";setTimeout(function(){btn.textContent="Copia ricetta"},1600)}
@@ -613,7 +638,7 @@ tr:last-child td{border-bottom:0}
 
   /* ---- accesso (due password), cifratura e salvataggio su GitHub ---- */
   var GH={o:"tommyfonti-art",r:"ricettario-drink",p:"dati.enc.json",b:"main"};
-  var ITER=200000,SESS="rp_sess",COLS=["ricette","lezioni","menu","appunti"];
+  var ITER=200000,SESS="rp_sess",COLS=["ricette","lezioni","menu","appunti","bicchieri"];
   var enc8=new TextEncoder(),dec8=new TextDecoder();
   function b64e(u){var s="";for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s)}
   function b64d(s){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
@@ -711,10 +736,26 @@ tr:last-child td{border-bottom:0}
     else b.innerHTML="";
   }
   function renderPanel(){
+    if(S.panel==="bicchieri"){
+      var back='<button class="back" data-back="1"><b>←</b> Indietro</button>';
+      if(S.role!=="boss")return '<div class="d panel">'+back+'<h2>Bicchieri</h2><p>Solo il capo può cambiare i bicchieri.</p></div>';
+      var gm=(S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+(S.msg?'<div class="okmsg">'+esc(S.msg)+'</div>':'');
+      var gl2=(S.bicchieri||[]).slice().sort(byName);
+      return '<div class="d panel form">'+back+'<h2>Bicchieri</h2>'+gm+
+        (S.db?'':'<p>Prima salva il collegamento a GitHub da Impostazioni.</p>')+
+        gl2.map(function(g){var used=(S.ricette||[]).filter(function(x){return x.bicchiere===g.id}).length;
+          return '<div class="issue"><label for="gn-'+esc(g.id)+'">Nome</label><input id="gn-'+esc(g.id)+'" value="'+esc(g.nome)+'">'+
+            '<label for="gc-'+esc(g.id)+'">Capienza (ml)</label><input id="gc-'+esc(g.id)+'" type="number" min="0" step="any" inputmode="decimal" value="'+(g.capienza?esc(g.capienza):"")+'">'+
+            '<p class="src" style="margin:6px 0 0">Usato in '+used+' ricette</p>'+
+            '<div class="ia"><button class="btn pri" data-ui="gsave" data-id="'+esc(g.id)+'">Salva</button><button class="btn danger" data-ui="gdel" data-id="'+esc(g.id)+'">Elimina</button></div></div>'}).join("")+
+        '<h3>Nuovo bicchiere</h3><label for="gnew-n">Nome</label><input id="gnew-n"><label for="gnew-c">Capienza (ml)</label><input id="gnew-c" type="number" min="0" step="any" inputmode="decimal">'+
+        '<div class="actions"><button class="btn pri" data-ui="gadd">Aggiungi bicchiere</button></div></div>';
+    }
     if(S.panel==="impostazioni"){
       if(S.role!=="boss")return '<div class="d panel"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>Impostazioni</h2><p>Solo il capo può cambiare le impostazioni.</p></div>';
       var n=(S.ricette||[]).length,msgs=(S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+(S.msg?'<div class="okmsg">'+esc(S.msg)+'</div>':'');
       return '<div class="d panel form"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>Impostazioni</h2>'+msgs+
+        '<h3>Bicchieri</h3><p>Elenco dei bicchieri con la capienza ('+(S.bicchieri||[]).length+').</p><div class="actions"><a class="btn" href="#bicchieri" style="text-decoration:none">Gestisci bicchieri</a></div>'+
         '<h3>Collegamento a GitHub</h3><p>'+(S.tok?'Attivo: puoi modificare le ricette dall\'app.':'Manca. Serve una sola volta per poter salvare le modifiche.')+'</p>'+
         '<label for="tk">Token GitHub</label><input id="tk" type="password" autocomplete="off" autocapitalize="none">'+
         '<label for="tkpw">Password capo (per proteggere il token)</label><input id="tkpw" type="password" autocomplete="current-password" autocapitalize="none">'+
@@ -740,7 +781,7 @@ tr:last-child td{border-bottom:0}
       });
     }).catch(function(e){S.busy=false;S.role=null;flash(e&&e.message==="bad"?"Password sbagliata.":"Non riesco a leggere il ricettario. Controlla la connessione.",1)});
   }
-  function doLogout(){sessClear();S.role=null;S.dk=null;S.dkRaw=null;S.tok=null;S.canEdit=false;S.db=null;S.edit=false;S.panel=null;S.open=null;S.ricette=S.lezioni=S.menu=S.appunti=null;S.msg="";S.formErr="";render()}
+  function doLogout(){sessClear();S.role=null;S.dk=null;S.dkRaw=null;S.tok=null;S.canEdit=false;S.db=null;S.edit=false;S.panel=null;S.open=null;S.ricette=S.lezioni=S.menu=S.appunti=S.bicchieri=null;S.msg="";S.formErr="";render()}
   function doSaveTok(){
     var tk=($("tk")||{}).value.trim(),pw=($("tkpw")||{}).value||"";
     if(!tk||!pw){flash("Compila token e password capo.",1);return}
@@ -769,8 +810,15 @@ tr:last-child td{border-bottom:0}
     S.busy=true;flash("Salvo…");
     rewrap(p,S.dkRaw).then(function(r){return commit(function(file){var f=Object.assign({},file);f.staff=r.w;return Promise.resolve(f)},"Password dipendenti cambiata")}).then(function(nf){S.file=nf;S.lastSave=Date.now();S.busy=false;flash("Password dipendenti cambiata. Comunicala ai dipendenti.")},function(e){S.busy=false;flash(saveMsg(e),1)});
   }
+  function glassWrite(id,d,msg){
+    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni.",1);return}
+    var dc=S.db.doc("bicchieri/"+id);
+    S.busy=true;
+    (d===null?dc.delete():dc.set(d)).then(function(){S.busy=false;flash(msg)},function(e){S.busy=false;flash(saveMsg(e),1)});
+  }
+  function glassData(n,c){var nome=(n||"").trim();if(!nome)return null;var cap=parseFloat(String(c||"").replace(",","."));var d={nome:nome};if(cap>0)d.capienza=cap;return d}
   function doBackup(){
-    var out={ricette:{},lezioni:{},menu:{},appunti:{}};
+    var out={ricette:{},lezioni:{},menu:{},appunti:{},bicchieri:{}};
     COLS.forEach(function(c){(S[c]||[]).forEach(function(r){var o=Object.assign({},r);delete o.id;out[c][r.id]=o})});
     var blob=new Blob([JSON.stringify(out,null,1)],{type:"application/json"});
     var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ricettario-backup-"+new Date().toISOString().slice(0,10)+".json";
@@ -787,6 +835,13 @@ tr:last-child td{border-bottom:0}
     else if(a==="chboss")doChBoss();
     else if(a==="chstaff")doChStaff();
     else if(a==="backup")doBackup();
+    else if(a==="gsave"){var gi=b.getAttribute("data-id"),gd1=glassData(($("gn-"+gi)||{}).value,($("gc-"+gi)||{}).value);if(!gd1){flash("Il nome non può essere vuoto.",1);return}glassWrite(gi,gd1,"Bicchiere salvato.")}
+    else if(a==="gdel"){var gi2=b.getAttribute("data-id"),us=(S.ricette||[]).filter(function(x){return x.bicchiere===gi2}).length;
+      if(us){flash("Questo bicchiere è usato in "+us+" ricette: cambialo prima in quelle ricette.",1);return}
+      if(confirm("Eliminare il bicchiere?"))glassWrite(gi2,null,"Bicchiere eliminato.")}
+    else if(a==="gadd"){var gd2=glassData(($("gnew-n")||{}).value,($("gnew-c")||{}).value);if(!gd2){flash("Scrivi il nome del bicchiere.",1);return}
+      var gi3=slug(gd2.nome),k=2,base=gi3;while((S.bicchieri||[]).some(function(g){return g.id===gi3})){gi3=base+"-"+k;k++}
+      glassWrite(gi3,gd2,"Bicchiere aggiunto.")}
     else if(a==="nuova"){
       var cat=CATNAME[S.tab]?S.tab:"cocktail";
       reset();S.open=null;S.creating=true;S.edit=true;S.formErr="";
