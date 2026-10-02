@@ -147,7 +147,9 @@ tr:last-child td{border-bottom:0}
   var $=function(id){return document.getElementById(id)};
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
   function norm(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim()}
-  function byName(a,b){return a.nome.localeCompare(b.nome,"it")}
+  /* nella sezione Blend il nome compare sempre con «Blend» davanti (se non c'è già) */
+  function dn(r){if(!r)return "";var n=String(r.nome||r.id||"");if(r.cat!=="blend")return n;n=n.trim();return /^blend/i.test(n)?n.charAt(0).toUpperCase()+n.slice(1):"Blend "+n}
+  function byName(a,b){return dn(a).localeCompare(dn(b),"it")}
   function inc(r){return r.stato==="incompleta"}
 
   /* ---- ingredienti: scala il numero iniziale e converte ml, cl, oz ---- */
@@ -220,7 +222,7 @@ tr:last-child td{border-bottom:0}
       if(!okHas(r,"numeri")&&!inc(r)){var ni=numIssues(r);if(ni.length)secs.num.push({r:r,kind:"numeri",text:ni.join("\n")})}
       (S.dup[r.id]||[]).forEach(function(g){
         if(g.tipo==="nome")return;
-        var txt=g.label+": "+g.ids.filter(function(id){return id!==r.id}).map(function(id){var x=byId[id];return x?x.nome+(x.fonte?" ("+x.fonte+")":""):""}).filter(Boolean).join(", ");
+        var txt=g.label+": "+g.ids.filter(function(id){return id!==r.id}).map(function(id){var x=byId[id];return x?dn(x)+(x.fonte?" ("+x.fonte+")":""):""}).filter(Boolean).join(", ");
         secs.dup.push({r:r,kind:"dup",text:txt});
       });
     });
@@ -229,7 +231,7 @@ tr:last-child td{border-bottom:0}
   }
   function issueCard(it){
     var r=it.r,ed=S.canEdit&&S.db;
-    var h='<div class="issue"><div class="ih"><a href="#ricetta-'+esc(r.id)+'"><b>'+esc(r.nome)+'</b></a> <span class="src">'+esc([CATNAME[r.cat],r.fonte,r.gruppo].filter(Boolean).join(" · "))+'</span></div>';
+    var h='<div class="issue"><div class="ih"><a href="#ricetta-'+esc(r.id)+'"><b>'+esc(dn(r))+'</b></a> <span class="src">'+esc([CATNAME[r.cat],r.fonte,r.gruppo].filter(Boolean).join(" · "))+'</span></div>';
     h+='<div class="it">'+esc(it.text).replace(/\n/g,"<br>")+'</div>';
     if(ed){
       h+='<div class="ia"><button class="btn" data-act="edit" data-id="'+esc(r.id)+'">Modifica</button>';
@@ -246,7 +248,7 @@ tr:last-child td{border-bottom:0}
     var h='<div class="issue"><div class="ih"><b>'+esc(g.titolo)+'</b> <span class="src">'+g.ids.length+' ricette con questo nome</span></div>';
     g.ids.forEach(function(id){
       var r=byId[id];if(!r)return;
-      h+='<div class="mrow"><a href="#ricetta-'+esc(r.id)+'">'+esc(r.nome)+'</a> <span class="src">'+esc([r.fonte,r.gruppo].filter(Boolean).join(" · "))+'</span>';
+      h+='<div class="mrow"><a href="#ricetta-'+esc(r.id)+'">'+esc(dn(r))+'</a> <span class="src">'+esc([r.fonte,r.gruppo].filter(Boolean).join(" · "))+'</span>';
       if(ed){var sure=S.delId===r.id;h+='<span class="ia"><button class="btn" data-act="edit" data-id="'+esc(r.id)+'">Modifica</button><button class="btn danger'+(sure?' sure':'')+'" data-act="del" data-id="'+esc(r.id)+'">'+(sure?'Conferma: elimina':'Elimina')+'</button></span>'}
       h+='</div>';
     });
@@ -276,7 +278,7 @@ tr:last-child td{border-bottom:0}
 
   /* ---- doppioni ---- */
   var STOP={di:1,al:1,alla:1,e:1,il:1,la:1,sciroppo:1,syrup:1,hm:1,dei:1,del:1,della:1,"in":1};
-  function nameKey(r){return norm(String(r.nome||"").replace(/\(.*?\)/g,"")).split(" ").filter(function(w){return w&&!STOP[w]}).sort().join(" ")}
+  function nameKey(r){return norm(dn(r).replace(/\(.*?\)/g,"")).split(" ").filter(function(w){return w&&!STOP[w]}).sort().join(" ")}
   function sigKey(r,noq){return (r.ing||[]).map(function(x){return norm(noq?x.replace(/^[\d\/.,\s-]+(ml|cl|oz|gr|g|kg|l|dash|dh|drop|bs)?\b/i,""):x)}).sort().join("|")}
   function dupCompute(){
     var info={},groups=[];
@@ -292,7 +294,7 @@ tr:last-child td{border-bottom:0}
         var ids=g.map(function(r){return r.id});
         var already=groups.some(function(o){return ids.every(function(id){return o.ids.indexOf(id)>=0})});
         if(already)return;
-        var grp={tipo:t[0],label:t[1],ids:ids,titolo:g[0].nome.replace(/\s*\(.*?\)/g,"")};
+        var grp={tipo:t[0],label:t[1],ids:ids,titolo:dn(g[0]).replace(/\s*\(.*?\)/g,"")};
         groups.push(grp);
         ids.forEach(function(id){(info[id]=info[id]||[]).push(grp)});
       });
@@ -301,7 +303,7 @@ tr:last-child td{border-bottom:0}
   }
   function linkFor(name){
     var n=norm(name.replace(/\(.*?\)/g,""));if(n.length<4)return null;
-    var l=S.ricette.filter(function(r){return r.cat!=="cocktail"&&!inc(r)&&(norm(r.nome.replace(/\(.*?\)/g,""))===n||(r.alias||[]).some(function(a){return norm(a.replace(/\(.*?\)/g,""))===n}))});
+    var l=S.ricette.filter(function(r){return r.cat!=="cocktail"&&!inc(r)&&(norm(r.nome.replace(/\(.*?\)/g,""))===n||norm(dn(r).replace(/\(.*?\)/g,""))===n||(r.alias||[]).some(function(a){return norm(a.replace(/\(.*?\)/g,""))===n}))});
     return l.length?l[0]:null;
   }
 
@@ -340,7 +342,7 @@ tr:last-child td{border-bottom:0}
   function row(r,showCat,subx){
     var dp=S.dup&&S.dup[r.id];var chips=(inc(r)?'<span class="chip hot">incompleta</span>':'')+(dp?'<span class="chip hot">'+(dp.some(function(g){return g.tipo!=='nome'})?'possibile doppione':'stesso nome')+'</span>':'');
     var sub=showCat?CATNAME[r.cat]+(r.gruppo?" · "+r.gruppo:""):(subx||"");
-    return '<a class="row" href="#ricetta-'+esc(r.id)+'"><span class="rn">'+esc(r.nome)+chips+(sub?'<div class="rs">'+esc(sub)+'</div>':'')+'</span></a>';
+    return '<a class="row" href="#ricetta-'+esc(r.id)+'"><span class="rn">'+esc(dn(r))+chips+(sub?'<div class="rs">'+esc(sub)+'</div>':'')+'</span></a>';
   }
   function groupsFonte(items){
     var map={};items.forEach(function(r){var g=r.fonte||"Altro";(map[g]=map[g]||[]).push(r)});
@@ -353,7 +355,7 @@ tr:last-child td{border-bottom:0}
     var keys=order.filter(function(g){return map[g]}).concat(Object.keys(map).filter(function(g){return order.indexOf(g)<0}).sort());
     return keys.map(function(g){return '<h2 class="grp">'+esc(g)+'</h2>'+map[g].sort(byName).map(function(r){return row(r,false)}).join("")}).join("");
   }
-  function haystack(r){return norm([r.nome,r.gruppo,(r.ing||[]).join(" "),r.proc,r.metodo,r.note,r.guarn].join(" "))}
+  function haystack(r){return norm([dn(r),r.gruppo,(r.ing||[]).join(" "),r.proc,r.metodo,r.note,r.guarn].join(" "))}
   function lezRow(l){return '<a class="row" href="#lezione-'+esc(l.id)+'"><span class="rn">'+esc(l.titolo)+'<div class="rs">'+esc(l.sommario||"")+'</div></span></a>'}
   function renderMenu(){
     if(!S.menu.length)return '<div class="empty"><b>Nessun menu</b>I menu compariranno qui.</div>';
@@ -371,7 +373,7 @@ tr:last-child td{border-bottom:0}
       var G=S.dupg.filter(function(g){return g.tipo===t});if(!G.length)return;
       h+='<h2 class="grp">'+esc(G[0].label)+' ('+G.length+')</h2>';
       G.forEach(function(g){
-        h+='<div class="dupg"><div class="dupt">'+esc(g.titolo)+'</div>'+g.ids.map(function(id){var r=byId[id];return r?'<a class="row" href="#ricetta-'+esc(r.id)+'"><span class="rn">'+esc(r.nome)+'<div class="rs">'+esc([CATNAME[r.cat],r.fonte,r.gruppo].filter(Boolean).join(" · "))+'</div></span></a>':""}).join("")+'</div>';
+        h+='<div class="dupg"><div class="dupt">'+esc(g.titolo)+'</div>'+g.ids.map(function(id){var r=byId[id];return r?'<a class="row" href="#ricetta-'+esc(r.id)+'"><span class="rn">'+esc(dn(r))+'<div class="rs">'+esc([CATNAME[r.cat],r.fonte,r.gruppo].filter(Boolean).join(" · "))+'</div></span></a>':""}).join("")+'</div>';
       });
     });
     return h+'</div>';
@@ -434,7 +436,7 @@ tr:last-child td{border-bottom:0}
     if(inc(r))meta.push('<span class="chip hot">incompleta</span>');
     var sc=[0.5,1,2,5,10].map(function(v){return '<button data-scale="'+v+'" aria-pressed="'+(S.scale===v)+'">'+(v===0.5?'½':'×'+v)+'</button>'}).join("");
     var un=["ml","oz"].map(function(v){return '<button data-unit="'+v+'" aria-pressed="'+(S.unit===v)+'">'+v+'</button>'}).join("");
-    var h='<div class="d"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>'+esc(r.nome)+'</h2><div class="meta">'+meta.join(" ")+'</div>';
+    var h='<div class="d"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>'+esc(dn(r))+'</h2><div class="meta">'+meta.join(" ")+'</div>';
     var bm=baseMl(r);
     var qf=bm.t>0?'<input id="totin" class="tot" type="number" min="0" step="any" inputmode="decimal" placeholder="Quantità finale" value="'+(S.target!=null?esc(S.target):"")+'" aria-label="Quantità finale desiderata"><span class="src" style="margin:0">'+S.unit+'</span>':'<input id="scalein" type="number" min="0.1" step="0.5" inputmode="decimal" placeholder="altro" aria-label="Moltiplicatore personalizzato">';
     h+='<div class="ctl one">'+sc+qf+'</div>';
@@ -446,7 +448,7 @@ tr:last-child td{border-bottom:0}
     var dp=S.dup&&S.dup[r.id];
     if(dp){
       var byIdD={};S.ricette.forEach(function(x){byIdD[x.id]=x});
-      h+='<div class="note" style="margin-top:14px"><b>Possibile doppione</b>'+dp.map(function(g){return '<br>'+esc(g.label)+': '+g.ids.filter(function(id){return id!==r.id}).map(function(id){var x=byIdD[id];return x?'<a href="#ricetta-'+esc(x.id)+'">'+esc(x.nome)+'</a> <span class="src">'+esc([x.fonte,x.gruppo].filter(Boolean).join(" · "))+'</span>':""}).join(", ")}).join("")+'</div>';
+      h+='<div class="note" style="margin-top:14px"><b>Possibile doppione</b>'+dp.map(function(g){return '<br>'+esc(g.label)+': '+g.ids.filter(function(id){return id!==r.id}).map(function(id){var x=byIdD[id];return x?'<a href="#ricetta-'+esc(x.id)+'">'+esc(dn(x))+'</a> <span class="src">'+esc([x.fonte,x.gruppo].filter(Boolean).join(" · "))+'</span>':""}).join(", ")}).join("")+'</div>';
     }
     h+='<ul class="ing">'+lis+'</ul>';
     if(S.scale!==1||S.unit==="oz")h+='<p class="src" style="margin-top:8px">Si convertono solo i numeri a inizio riga (1 oz = 30 ml); le once sono arrotondate al quarto d\'oncia. Le quantità scritte tra parentesi restano quelle originali.</p>';
@@ -471,7 +473,7 @@ tr:last-child td{border-bottom:0}
   function formRecipe(r){
     var nuova=S.creating;
     return '<div class="d form"><button class="back" data-cancel="1">← '+(nuova?'Annulla':'Annulla modifica')+'</button><h2>'+(nuova?'Nuova ricetta':'Modifica ricetta')+'</h2>'+
-      '<label for="e-nome">Nome</label><input id="e-nome" value="'+esc(r.nome||"")+'">'+
+      '<label for="e-nome">Nome</label><input id="e-nome" value="'+esc(r.nome||"")+'"><p class="hint">Nella sezione Blend la parola «Blend» compare davanti al nome da sola: non serve scriverla.</p>'+
       '<label for="e-cat">Sezione</label><select id="e-cat">'+catOptions(r.cat||"cocktail")+'</select>'+
       '<label for="e-gruppo">Gruppo</label><input id="e-gruppo" value="'+esc(r.gruppo||"")+'">'+
       '<label for="e-alias">Altri nomi con cui compare negli ingredienti (separati da virgola)</label><input id="e-alias" value="'+esc((r.alias||[]).join(", "))+'">'+
@@ -601,7 +603,7 @@ tr:last-child td{border-bottom:0}
   });
   function copyRecipe(btn){
     var r=cur();if(!r)return;
-    var L=[r.nome,""];(r.ing||[]).forEach(function(i){var s=split(i,S.scale);L.push((s.q?s.q+" ":"")+s.t)});
+    var L=[dn(r),""];(r.ing||[]).forEach(function(i){var s=split(i,S.scale);L.push((s.q?s.q+" ":"")+s.t)});
     if(r.metodo)L.push("","Metodo: "+r.metodo);if(r.proc)L.push("","Procedimento: "+r.proc);if(r.guarn)L.push("Guarnizione: "+r.guarn);if(r.note)L.push("","Note: "+r.note);
     var txt=L.join("\n");
     function done(ok){btn.textContent=ok?"Copiata":"Copia non riuscita";setTimeout(function(){btn.textContent="Copia ricetta"},1600)}
