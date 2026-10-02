@@ -141,6 +141,7 @@ tr:last-child td{border-bottom:0}
     infusione:["Infusi","Liquori","Tinture"],
     blend:["Blend rum","Blend","Botte"]};
   var CATNAME={cocktail:"Cocktail",homemade:"Homemade",soda:"Soda",infusione:"Liquori e infusi",blend:"Blend"};
+  var TECNICHE=["Shake","Shake double strain","Stir and strain","Build","Blend","Flash blend","Throwing"];
   var OZ=30; /* 1 oz = 30 ml, misura da bar */
   var FONTI=["Drink list Manga 2026 (Villain edition)","Drink list Manga 2024/25","Drink list 2023/24","Capodanno","Drink list 2023","Drink list 2022-23","Drink list mare 2022","Cocktail list mare 2021","Menù inverno 2020-21","Tiki night","Tiki list mare 2018","Altre ricette","Lezione Chiarificazione"];
   var EDIT_EMAIL="modifica@ricettario-repub.app";
@@ -359,7 +360,7 @@ tr:last-child td{border-bottom:0}
     var keys=order.filter(function(g){return map[g]}).concat(Object.keys(map).filter(function(g){return order.indexOf(g)<0}).sort());
     return keys.map(function(g){return '<h2 class="grp">'+esc(g)+'</h2>'+map[g].sort(byName).map(function(r){return row(r,false)}).join("")}).join("");
   }
-  function haystack(r){return norm([dn(r),r.gruppo,(r.ing||[]).join(" "),r.proc,r.metodo,r.note,r.guarn,(glassOf(r)||{}).nome].join(" "))}
+  function haystack(r){return norm([dn(r),r.gruppo,(r.ing||[]).join(" "),r.proc,r.metodo,r.note,r.guarn,(glassOf(r)||{}).nome,r.tecnica,r.tecnica_nota].join(" "))}
   function lezRow(l){return '<a class="row" href="#lezione-'+esc(l.id)+'"><span class="rn">'+esc(l.titolo)+'<div class="rs">'+esc(l.sommario||"")+'</div></span></a>'}
   function renderMenu(){
     if(!S.menu.length)return '<div class="empty"><b>Nessun menu</b>I menu compariranno qui.</div>';
@@ -456,6 +457,10 @@ tr:last-child td{border-bottom:0}
     }
     h+='<ul class="ing">'+lis+'</ul>';
     if(S.scale!==1||S.unit==="oz")h+='<p class="src" style="margin-top:8px">Si convertono solo i numeri a inizio riga (1 oz = 30 ml); le once sono arrotondate al quarto d\'oncia. Le quantità scritte tra parentesi restano quelle originali.</p>';
+    var tc=r.tecnica||"",tn=r.tecnica_nota||"";
+    if(S.canEdit&&S.db){
+      h+='<h3>Tecnica</h3><div class="ctl"><select id="techin" aria-label="Tecnica"><option value="">— nessuna tecnica —</option>'+TECNICHE.map(function(t){return '<option value="'+t+'"'+(tc===t?' selected':'')+'>'+t+'</option>'}).join("")+'</select></div>'+(tn?'<p class="src" style="margin:6px 0 0">'+esc(tn)+'</p>':'');
+    }else if(tc||tn)h+='<h3>Tecnica</h3><p>'+esc(tc+(tc&&tn?" · ":"")+tn)+'</p>';
     var gl=glassOf(r);
     if(S.canEdit&&S.db){
       var gs=(S.bicchieri||[]).slice().sort(byName);
@@ -487,6 +492,7 @@ tr:last-child td{border-bottom:0}
       '<label for="e-gruppo">Gruppo</label><input id="e-gruppo" value="'+esc(r.gruppo||"")+'">'+
       '<label for="e-alias">Altri nomi con cui compare negli ingredienti (separati da virgola)</label><input id="e-alias" value="'+esc((r.alias||[]).join(", "))+'">'+
       '<label for="e-ing">Ingredienti</label><textarea id="e-ing" rows="10">'+esc((r.ing||[]).join("\n"))+'</textarea><p class="hint">Un ingrediente per riga, con la quantità all\'inizio (per esempio: 45 ml Gin, oppure 1 3/4 oz Gin). Le righe senza numero restano come sono.</p>'+
+      '<label for="e-tnota">Nota sulla tecnica</label><input id="e-tnota" value="'+esc(r.tecnica_nota||"")+'"><p class="hint">La tecnica si sceglie dalla tendina nella scheda della ricetta; qui puoi aggiungere una nota, per esempio «con tritato».</p>'+
       '<label for="e-metodo">Metodo</label><input id="e-metodo" value="'+esc(r.metodo||"")+'">'+
       '<label for="e-proc">Procedimento</label><textarea id="e-proc" rows="6">'+esc(r.proc||"")+'</textarea>'+
       '<label for="e-guarn">Guarnizione</label><input id="e-guarn" value="'+esc(r.guarn||"")+'">'+
@@ -550,7 +556,7 @@ tr:last-child td{border-bottom:0}
     if(!nome){formError("Il nome non può essere vuoto.");return}
     var vals={nome:nome,cat:$("e-cat").value,gruppo:$("e-gruppo").value.trim(),
       ing:$("e-ing").value.split("\n").map(function(x){return x.trim()}).filter(Boolean),
-      metodo:$("e-metodo").value.trim(),proc:$("e-proc").value.trim(),guarn:$("e-guarn").value.trim(),note:$("e-note").value.trim(),
+      metodo:$("e-metodo").value.trim(),tecnica_nota:$("e-tnota").value.trim(),proc:$("e-proc").value.trim(),guarn:$("e-guarn").value.trim(),note:$("e-note").value.trim(),
       alias:($("e-alias")?$("e-alias").value:"").split(",").map(function(x){return x.trim()}).filter(Boolean)};
     if(S.creating){
       var id=slug(nome),base=id,n=2;
@@ -602,6 +608,7 @@ tr:last-child td{border-bottom:0}
     }
   });
   $("main").addEventListener("change",function(e){
+    if(e.target.id==="techin"){var rt=cur();if(!rt||!S.db)return;write(rt,Object.assign({},rt,{tecnica:e.target.value}),function(){});return}
     if(e.target.id==="glassin"){
       var rg=cur();if(!rg||!S.db)return;var gv=e.target.value;
       if(gv==="__new"){
@@ -629,6 +636,7 @@ tr:last-child td{border-bottom:0}
     var r=cur();if(!r)return;
     var L=[dn(r),""];(r.ing||[]).forEach(function(i){var s=split(i,S.scale);L.push((s.q?s.q+" ":"")+s.t)});
     var gc=glassOf(r);if(gc)L.push("","Bicchiere: "+glassLabel(gc));
+    if(r.tecnica||r.tecnica_nota)L.push("Tecnica: "+(r.tecnica||"")+(r.tecnica&&r.tecnica_nota?" · ":"")+(r.tecnica_nota||""));
     if(r.metodo)L.push("","Metodo: "+r.metodo);if(r.proc)L.push("","Procedimento: "+r.proc);if(r.guarn)L.push("Guarnizione: "+r.guarn);if(r.note)L.push("","Note: "+r.note);
     var txt=L.join("\n");
     function done(ok){btn.textContent=ok?"Copiata":"Copia non riuscita";setTimeout(function(){btn.textContent="Copia ricetta"},1600)}
