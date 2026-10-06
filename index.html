@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 html{color-scheme:light}
-html{touch-action:manipulation}
+html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
 body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 img{max-width:100%}[hidden]{display:none!important}
 .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
@@ -133,6 +133,12 @@ tr:last-child td{border-bottom:0}
 </div>
 
 <script>
+/* niente zoom: blocca il pizzico con due dita (iPhone ignora user-scalable) */
+(function(){
+  var opt={passive:false};
+  ["gesturestart","gesturechange","gestureend"].forEach(function(n){document.addEventListener(n,function(e){e.preventDefault()},opt)});
+  document.addEventListener("touchmove",function(e){if(e.touches&&e.touches.length>1)e.preventDefault()},opt);
+})();
 (function(){
   var TABS=[["cocktail","Cocktail"],["homemade","Homemade"],["blend","Blend"],["soda","Soda"],["infusione","Liquori e infusi"],["menu","Menu"],["lezioni","Lezioni e corsi"],["appunti","Appunti e idee"],["controllare","Da controllare"]];
   var ORDER={
