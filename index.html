@@ -169,6 +169,7 @@ tr:last-child td{border-bottom:0}
   function toNum(s){s=s.trim();var m=s.match(/^(\d+)\s+(\d)\/(\d)$/);if(m)return +m[1]+ +m[2]/+m[3];m=s.match(/^(\d)\/(\d)$/);if(m)return +m[1]/+m[2];return parseFloat(s.replace(",","."))}
   function fmt(n){var r=Math.round(n*100)/100;return String(r).replace(".",",")}
   function fmtOz(n){var q=Math.round(n*4)/4;if(q===0&&n>0)q=0.25;var w=Math.floor(q),f=q-w;var fr=f===0.25?"1/4":f===0.5?"1/2":f===0.75?"3/4":"";return ((w?String(w):"")+(w&&fr?" ":"")+fr)||"0"}
+  function fmtPz(n){return Math.abs(n*4-Math.round(n*4))<1e-9?fmtOz(n):fmt(n)}
   var RNG=/^(\d+(?:[.,]\d+)?)\s*-\s*(\d+(?:[.,]\d+)?)\s+(.*)$/;
   function conv(num,k,u){
     var val=num*k,uu=u;
@@ -189,7 +190,11 @@ tr:last-child td{border-bottom:0}
     var unit=m[2].match(UNIT),num=toNum(m[1]);
     if(isNaN(num))return {q:"",t:text};
     var c=conv(num,k,unit?unit[1].toLowerCase():"");
-    return {q:c.s+(unit?" "+c.u:""),t:unit?unit[2]:m[2]};
+    var rest=unit?unit[2]:m[2];
+    /* pezzi dopo l'unità (es. "180 gr 4 cetriolini", "600 ml 3 Ginger beer"): si moltiplicano anche loro; "3 Star", "12 anni" restano nomi */
+    if(unit&&k!==1){var pz=rest.match(/^(\d+(?:[.,]\d+)?(?:\s+\d\/\d)?|\d\/\d)(?!\d|%|\/)\s+(?!star|stars|stelle|anni|years?|y\.?o)(\S.*)$/i);
+      if(pz){var pn=toNum(pz[1]);if(!isNaN(pn))rest=fmtPz(pn*k)+" "+pz[2]}}
+    return {q:c.s+(unit?" "+c.u:""),t:rest};
   }
   /* ---- quantità totale di una ricetta, in ml (gr contati come ml) ---- */
   function toMl(v,u){switch(u){case"ml":case"gr":case"g":return v;case"cl":return v*10;case"oz":return v*OZ;case"kg":case"l":case"litri":case"litro":return v*1000;default:return null}}
@@ -462,7 +467,7 @@ tr:last-child td{border-bottom:0}
       h+='<div class="note" style="margin-top:14px"><b>Possibile doppione</b>'+dp.map(function(g){return '<br>'+esc(g.label)+': '+g.ids.filter(function(id){return id!==r.id}).map(function(id){var x=byIdD[id];return x?'<a href="#ricetta-'+esc(x.id)+'">'+esc(dn(x))+'</a> <span class="src">'+esc([x.fonte,x.gruppo].filter(Boolean).join(" · "))+'</span>':""}).join(", ")}).join("")+'</div>';
     }
     h+='<ul class="ing">'+lis+'</ul>';
-    if(S.scale!==1||S.unit==="oz")h+='<p class="src" style="margin-top:8px">Si convertono solo i numeri a inizio riga (1 oz = 30 ml); le once sono arrotondate al quarto d\'oncia. Le quantità scritte tra parentesi restano quelle originali.</p>';
+    if(S.scale!==1||S.unit==="oz")h+='<p class="src" style="margin-top:8px">Si convertono i numeri a inizio riga e i pezzi dopo l\'unità (1 oz = 30 ml); le once sono arrotondate al quarto d\'oncia. Le quantità scritte tra parentesi restano quelle originali.</p>';
     var tc=r.tecnica||"",tn=r.tecnica_nota||"";
     if(S.canEdit&&S.db){
       h+='<h3>Tecnica</h3><div class="ctl"><select id="techin" aria-label="Tecnica"><option value="">— nessuna tecnica —</option>'+TECNICHE.map(function(t){return '<option value="'+t+'"'+(tc===t?' selected':'')+'>'+t+'</option>'}).join("")+'</select></div>'+(tn?'<p class="src" style="margin:6px 0 0">'+esc(tn)+'</p>':'');
