@@ -495,8 +495,9 @@ tr:last-child td{border-bottom:0}
     if(S.canEdit&&S.db){
       h+='<h3>Tecnica</h3><div class="ctl"><select id="techin" aria-label="Tecnica"><option value="">— nessuna tecnica —</option>'+(tecList(r).indexOf(tc)<0&&tc?[tc]:[]).concat(tecList(r)).map(function(t){return '<option value="'+t+'"'+(tc===t?' selected':'')+'>'+t+'</option>'}).join("")+'</select></div>'+(tn?'<p class="src" style="margin:6px 0 0">'+esc(tn)+'</p>':'');
     }else if(tc||tn)h+='<h3>Tecnica</h3><p>'+esc(tc+(tc&&tn?" · ":"")+tn)+'</p>';
-    var gl=glassOf(r);
-    if(S.canEdit&&S.db){
+    var gl=r.cat==="cocktail"?glassOf(r):null;
+    if(r.cat!=="cocktail"){}
+    else if(S.canEdit&&S.db){
       var gs=(S.bicchieri||[]).slice().sort(byName);
       h+='<h3>Bicchiere</h3><div class="ctl"><select id="glassin" aria-label="Bicchiere"><option value="">— nessun bicchiere —</option>'+gs.map(function(g){return '<option value="'+esc(g.id)+'"'+(r.bicchiere===g.id?' selected':'')+'>'+esc(glassLabel(g))+'</option>'}).join("")+'<option value="__new">+ Aggiungi un bicchiere…</option></select></div>';
     }else if(gl)h+='<h3>Bicchiere</h3><p>'+esc(glassLabel(gl))+'</p>';
@@ -720,7 +721,7 @@ tr:last-child td{border-bottom:0}
   function copyRecipe(btn){
     var r=cur();if(!r)return;
     var L=[dn(r),""];(r.ing||[]).forEach(function(i){var s=split(i,S.scale);L.push((s.q?s.q+" ":"")+s.t)});
-    var gc=glassOf(r);if(gc)L.push("","Bicchiere: "+glassLabel(gc));
+    var gc=r.cat==="cocktail"?glassOf(r):null;if(gc)L.push("","Bicchiere: "+glassLabel(gc));
     if(r.tecnica||r.tecnica_nota)L.push("Tecnica: "+(r.tecnica||"")+(r.tecnica&&r.tecnica_nota?" · ":"")+(r.tecnica_nota||""));
     if(r.metodo)L.push("","Metodo: "+r.metodo);if(r.proc)L.push("","Procedimento: "+r.proc);if(r.ghiaccio)L.push("Ghiaccio: "+r.ghiaccio);if(r.guarn)L.push("Guarnizione: "+r.guarn);if(r.note)L.push("","Note: "+r.note);
     var txt=L.join("\n");
