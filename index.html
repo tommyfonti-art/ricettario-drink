@@ -302,9 +302,11 @@ tr:last-child td{border-bottom:0}
     }else h+='<p class="src">Scrivi anche i grammi di liquido che hai per sapere quanto zucchero sciogliere.</p>';
     return h;
   }
+  /* elenco dei calcolatori: per aggiungerne uno basta una voce qui e la sua funzione di disegno */
+  var CALCS=[{id:"sciroppi",titolo:"Sciroppi: zucchero da aggiungere",sommario:"Dal grado Brix del liquido ai grammi di zucchero da sciogliere",render:function(){return renderCalc()}}];
   function renderCalc(){
     var c=S.calc;
-    return '<div class="d form list"><h2>Sciroppi: quanto zucchero aggiungere</h2>'+
+    return '<div class="d form"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>Sciroppi: quanto zucchero aggiungere</h2>'+
       '<p class="src" style="margin:0">Pesi il liquido (per esempio un estratto di ananas), misuri il grado Brix con il rifrattometro e ti dico quanti grammi di zucchero sciogliere per arrivare al grado voluto.</p>'+
       '<label for="calc-qty">Liquido (grammi)</label><input id="calc-qty" type="number" min="0" step="any" inputmode="decimal" placeholder="es. 1000" value="'+esc(c.qty)+'">'+
       '<label for="calc-brix">Grado Brix del liquido</label><input id="calc-brix" type="number" min="0" max="99" step="any" inputmode="decimal" placeholder="es. 12" value="'+esc(c.brix)+'">'+
@@ -372,6 +374,7 @@ tr:last-child td{border-bottom:0}
     else if(h.indexOf("lezione-")===0){S.open={k:"l",id:h.slice(8)}}
     else if(h.indexOf("appunto-")===0){S.open={k:"a",id:h.slice(8)}}
     else if(h.indexOf("menu-")===0){S.open={k:"m",id:h.slice(5)}}
+    else if(h.indexOf("calcolatore-")===0){S.open={k:"c",id:h.slice(12)}}
     else if(h==="accesso"||h==="impostazioni"||h==="bicchieri"){S.open=null;S.panel=h}
     else{S.open=null;S.panel=null;if(TABS.some(function(t){return t[0]===h}))S.tab=h}
   }
@@ -467,7 +470,7 @@ tr:last-child td{border-bottom:0}
     if(S.tab==="menu")return renderMenu();
     if(S.tab==="appunti")return renderAppunti();
     if(S.tab==="controllare")return renderControllare();
-    if(S.tab==="calcolatori")return renderCalc();
+    if(S.tab==="calcolatori")return '<div class="list">'+CALCS.map(function(c){return '<a class="lezcard" href="#calcolatore-'+c.id+'"><strong>'+esc(c.titolo)+'</strong><span>'+esc(c.sommario)+'</span></a>'}).join("")+'</div>';
     if(S.tab==="lezioni"){
       var L=(S.lezioni||[]).slice().sort(function(a,b){return (a.ordine||99)-(b.ordine||99)});
       if(!L.length)return '<div class="empty"><b>Nessuna lezione</b>Le lezioni e i corsi compariranno qui.</div>';
@@ -642,6 +645,7 @@ tr:last-child td{border-bottom:0}
     if(!S.ricette.length&&!S.lezioni.length){m.innerHTML='<div class="empty"><b>Il ricettario è ancora vuoto</b>Riprova tra poco.</div>';return}
     if(S.open){
       if(S.open.k==="r"){var r=S.ricette.filter(function(x){return x.id===S.open.id})[0];m.innerHTML=r?detailRecipe(r):'<div class="empty"><b>Ricetta non trovata</b><a href="#'+S.tab+'">Torna all\'elenco</a></div>'}
+      else if(S.open.k==="c"){var cc=CALCS.filter(function(x){return x.id===S.open.id})[0];m.innerHTML=cc?cc.render():'<div class="empty"><b>Calcolatore non trovato</b><a href="#calcolatori">Torna ai calcolatori</a></div>'}
       else if(S.open.k==="m"){var mm=S.menu.filter(function(x){return x.id===S.open.id})[0];m.innerHTML=mm?detailMenu(mm):'<div class="empty"><b>Menu non trovato</b><a href="#menu">Torna ai menu</a></div>'}
       else if(S.open.k==="a"){var aa=(S.appunti||[]).filter(function(x){return x.id===S.open.id})[0];m.innerHTML=aa?detailLesson(aa):'<div class="empty"><b>Appunto non trovato</b><a href="#appunti">Torna agli appunti</a></div>'}
       else{var l=S.lezioni.filter(function(x){return x.id===S.open.id})[0];m.innerHTML=l?detailLesson(l):'<div class="empty"><b>Lezione non trovata</b><a href="#lezioni">Torna alle lezioni</a></div>'}
@@ -705,7 +709,7 @@ tr:last-child td{border-bottom:0}
       }
       return;
     }
-    if(t.closest("[data-back]")){var bk=S.panel==="bicchieri"?"impostazioni":S.open&&S.open.k==="m"?"menu":S.open&&S.open.k==="a"?"appunti":S.open&&S.open.k==="l"?"lezioni":S.tab;go(bk);return}
+    if(t.closest("[data-back]")){var bk=S.panel==="bicchieri"?"impostazioni":S.open&&S.open.k==="m"?"menu":S.open&&S.open.k==="c"?"calcolatori":S.open&&S.open.k==="a"?"appunti":S.open&&S.open.k==="l"?"lezioni":S.tab;go(bk);return}
     var ub=t.closest("button[data-unit]");if(ub){var nu=ub.getAttribute("data-unit");if(S.target!=null&&nu!==S.unit){S.target=Math.round((nu==="oz"?S.target/OZ:S.target*OZ)*100)/100}S.unit=nu;render();return}
     if(t.closest("[data-copy]")){copyRecipe(t.closest("[data-copy]"));return}
     if(t.closest("[data-mkblend-open]")){S.edit=true;S.formErr="";var rb=cur();if(rb)$("main").innerHTML=formBlend(rb);window.scrollTo(0,0);return}
