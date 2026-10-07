@@ -140,7 +140,7 @@ tr:last-child td{border-bottom:0}
   document.addEventListener("touchmove",function(e){if(e.touches&&e.touches.length>1)e.preventDefault()},opt);
 })();
 (function(){
-  var TABS=[["cocktail","Cocktail"],["analcolico","Cocktail analcolici"],["homemade","Homemade"],["blend","Blend"],["soda","Soda"],["infusione","Liquori e infusi"],["menu","Menu"],["lezioni","Lezioni e corsi"],["appunti","Appunti e idee"],["controllare","Da controllare"]];
+  var TABS=[["cocktail","Cocktail"],["analcolico","Cocktail analcolici"],["homemade","Homemade"],["blend","Blend"],["soda","Soda"],["infusione","Liquori e infusi"],["menu","Menu"],["lezioni","Lezioni e corsi"],["appunti","Appunti e idee"],["controllare","Da controllare"],["calcolatori","Calcolatori"]];
   var ORDER={
     cocktail:["Pub","Mocktail","Tiki","Milk washing"],
     homemade:["Sciroppi e preparazioni","Soda","Acidificati e cordial","Shrub e aceti","Foam","Chiarificati","Milk washing"],
@@ -155,7 +155,7 @@ tr:last-child td{border-bottom:0}
   var OZ=30; /* 1 oz = 30 ml, misura da bar */
   var FONTI=["Drink list Manga 2026 (Villain edition)","Drink list Manga 2024/25","Drink list 2023/24","Capodanno","Drink list 2023","Drink list 2022-23","Drink list mare 2022","Cocktail list mare 2021","Menù inverno 2020-21","Tiki night","Tiki list mare 2018","Altre ricette","Lezione Chiarificazione"];
   var EDIT_EMAIL="modifica@ricettario-repub.app";
-  var S={role:null,busy:false,panel:null,creating:false,msg:"",authReady:false,issues:null,delId:null,dup:{},dupg:[],target:null,ricette:null,lezioni:null,menu:null,appunti:null,bicchieri:null,tab:"cocktail",q:"",open:null,scale:1,onlyIdx:null,onlyScaled:false,perVal:"",divVal:"",unit:"ml",err:null,db:null,canEdit:false,edit:false,confirmDel:false,formErr:""};
+  var S={role:null,busy:false,panel:null,creating:false,msg:"",authReady:false,issues:null,delId:null,dup:{},dupg:[],target:null,ricette:null,lezioni:null,menu:null,appunti:null,bicchieri:null,tab:"cocktail",q:"",open:null,scale:1,onlyIdx:null,onlyScaled:false,perVal:"",divVal:"",calc:{brix:"",target:"",qty:"",unit:"gr"},unit:"ml",err:null,db:null,canEdit:false,edit:false,confirmDel:false,formErr:""};
   var $=function(id){return document.getElementById(id)};
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
   function norm(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim()}
@@ -284,6 +284,37 @@ tr:last-child td{border-bottom:0}
     });
     if(ed)h+='<div class="ia"><button class="btn" data-act="okgroup" data-ids="'+esc(g.ids.join(","))+'">Sono varianti, va bene</button></div>';
     return h+'</div>';
+  }
+  /* ---- calcolatori ---- */
+  function cnum(v){var n=parseFloat(String(v==null?"":v).replace(",","."));return isNaN(n)?NaN:n}
+  function sgBrix(b){return 1+b/(258.6-(b/258.2)*227.1)}
+  function calcOut(){
+    var c=S.calc,b=cnum(c.brix),t=cnum(c.target),q=cnum(c.qty);
+    if(isNaN(b)||isNaN(t))return '<p class="src">Scrivi il grado Brix del liquido e quello che vuoi raggiungere.</p>';
+    if(b<0||b>=100||t<=0||t>=100)return '<p class="err">Il grado Brix deve stare tra 0 e 100 (il grado voluto deve essere sopra 0 e sotto 100).</p>';
+    if(t<=b)return '<p class="note">Il liquido è già a '+fmt(b)+' Brix: più o uguale al grado voluto ('+fmt(t)+'). Non serve aggiungere zucchero.</p>';
+    var per100=100*(t-b)/(100-t),h='<p class="note">Ogni 100 gr di liquido servono <b>'+fmt(Math.round(per100*10)/10)+' gr</b> di zucchero.</p>';
+    if(q>0){
+      var M=c.unit==="ml"?q*sgBrix(b):q,x=M*(t-b)/(100-t),tot=M+x;
+      h+='<ul class="ing" style="margin-top:12px"><li><span class="q">'+fmt(Math.round(x*10)/10)+' gr</span><span class="t"><b>Zucchero da sciogliere</b></span></li>'+
+        '<li><span class="q">'+fmt(Math.round(tot*10)/10)+' gr</span><span class="t">Peso finale dello sciroppo</span></li>'+
+        (c.unit==="ml"?'<li><span class="q">'+fmt(Math.round(M*10)/10)+' gr</span><span class="t">Peso del liquido di partenza (stimato dai ml)</span></li>':'')+
+        '<li><span class="q">≈ '+fmt(Math.round(tot/sgBrix(t)))+' ml</span><span class="t">Volume finale approssimato</span></li></ul>';
+    }else h+='<p class="src">Scrivi anche la quantità di liquido che hai per avere i grammi totali.</p>';
+    return h;
+  }
+  function renderCalc(){
+    var c=S.calc,u=["gr","ml"].map(function(v){return '<button data-calcunit="'+v+'" aria-pressed="'+(c.unit===v)+'">'+v+'</button>'}).join("");
+    var pre=[["1:1",50],["Sciroppo (minimo)",62],["2:1",66.7]].map(function(p){return '<button data-calctarget="'+p[1]+'">'+p[0]+' · '+fmt(p[1])+'</button>'}).join("");
+    return '<div class="d form list"><h2>Sciroppi: quanto zucchero aggiungere</h2>'+
+      '<p class="src" style="margin:0">Misuri il grado Brix del liquido (per esempio un estratto di ananas) con il rifrattometro e scegli il grado che vuoi raggiungere: ti dico quanti grammi di zucchero sciogliere.</p>'+
+      '<label for="calc-brix">Grado Brix del liquido</label><input id="calc-brix" type="number" min="0" max="99" step="any" inputmode="decimal" placeholder="es. 12" value="'+esc(c.brix)+'">'+
+      '<label for="calc-target">Grado Brix che voglio raggiungere</label><input id="calc-target" type="number" min="1" max="99" step="any" inputmode="decimal" placeholder="es. 62" value="'+esc(c.target)+'">'+
+      '<div class="ctl" style="margin-top:8px">'+pre+'</div>'+
+      '<label for="calc-qty">Quantità di liquido che ho</label><input id="calc-qty" type="number" min="0" step="any" inputmode="decimal" placeholder="es. 1000" value="'+esc(c.qty)+'">'+
+      '<div class="ctl"><span class="lab" style="min-width:0">Unità</span>'+u+'</div>'+
+      '<div id="calc-out" style="margin-top:16px">'+calcOut()+'</div>'+
+      '<p class="src">Il Brix è la percentuale di zucchero in peso: 100 gr di liquido a 50 Brix contengono 50 gr di zucchero. Formula: zucchero = peso × (Brix voluto − Brix attuale) ÷ (100 − Brix voluto). Pesare il liquido in grammi è più preciso; i ml sono una stima, calcolata con la densità che corrisponde al Brix.</p></div>';
   }
   function renderControllare(){
     var secs=S.issues,ng=S.dupg.filter(function(g){return g.tipo==="nome"}),tot=Object.keys(secs).reduce(function(t,k){return t+(k==="nome"?0:secs[k].length)},0)+ng.length;
@@ -440,6 +471,7 @@ tr:last-child td{border-bottom:0}
     if(S.tab==="menu")return renderMenu();
     if(S.tab==="appunti")return renderAppunti();
     if(S.tab==="controllare")return renderControllare();
+    if(S.tab==="calcolatori")return renderCalc();
     if(S.tab==="lezioni"){
       var L=(S.lezioni||[]).slice().sort(function(a,b){return (a.ordine||99)-(b.ordine||99)});
       if(!L.length)return '<div class="empty"><b>Nessuna lezione</b>Le lezioni e i corsi compariranno qui.</div>';
@@ -729,6 +761,14 @@ tr:last-child td{border-bottom:0}
       var set=function(i,h,hide){var el=$(i);if(el){el.innerHTML=h;if(hide)el.hidden=!h}};
       set("inglist",ingHtml(r));set("basenote",baseNoteHtml(r));set("onlynote",onlyNoteHtml(r),1);set("convnote",convNoteHtml(),1);
     },180);
+  });
+  $("main").addEventListener("input",function(e){
+    var id=e.target.id;if(id.indexOf("calc-")!==0)return;
+    S.calc[id.slice(5)]=e.target.value;var o=$("calc-out");if(o)o.innerHTML=calcOut();
+  });
+  $("main").addEventListener("click",function(e){
+    var cu=e.target.closest("button[data-calcunit]");if(cu){S.calc.unit=cu.getAttribute("data-calcunit");render();return}
+    var ct=e.target.closest("button[data-calctarget]");if(ct){S.calc.target=ct.getAttribute("data-calctarget");render();return}
   });
   function copyRecipe(btn){
     var r=cur();if(!r)return;
