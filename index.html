@@ -486,6 +486,7 @@ tr:last-child td{border-bottom:0}
     h+='<div class="actions"><button class="btn" data-copy="1">Copia ricetta</button>';
     if(S.canEdit&&S.db){
       h+='<button class="btn" data-edit="1">Modifica ricetta</button>';
+      if(r.cat!=="blend"&&(r.ing||[]).length)h+='<button class="btn" data-mkblend-open="1">Crea blend</button>';
       h+='<button class="btn" data-toggle-stato="1">'+(inc(r)?'Segna come completa':'Segna come incompleta')+'</button>';
       h+='<button class="btn danger'+(S.confirmDel?' sure':'')+'" data-del="1">'+(S.confirmDel?'Conferma: elimina per sempre':'Elimina ricetta')+'</button>';
     }
@@ -510,6 +511,46 @@ tr:last-child td{border-bottom:0}
       '<label for="e-note">Note</label><textarea id="e-note" rows="4">'+esc(r.note||"")+'</textarea>'+
       (S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+
       '<div class="actions"><button class="btn pri" data-save="1">'+(nuova?'Aggiungi ricetta':'Salva modifiche')+'</button><button class="btn" data-cancel="1">Annulla</button></div></div>';
+  }
+  /* crea un blend a partire dagli ingredienti di un drink: il drink poi usa solo il blend */
+  function formBlend(r){
+    var rows=(r.ing||[]).map(function(t,i){
+      return '<label style="display:flex;gap:10px;align-items:baseline;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--fg);margin:8px 0"><input type="checkbox" class="b-ing" data-i="'+i+'" checked style="width:auto"> <span>'+esc(t)+'</span></label>';
+    }).join("");
+    return '<div class="d form"><button class="back" data-cancel="1">← Annulla</button><h2>Crea blend</h2>'+
+      '<p class="src" style="margin:0">Dal drink «'+esc(dn(r))+'». Gli ingredienti scelti vanno nel blend e nel drink resta una sola riga con il blend.</p>'+
+      '<label for="b-nome">Nome del blend</label><input id="b-nome" value="'+esc(r.nome||"")+'"><p class="hint">Davanti al nome compare «Blend» da solo: non serve scriverlo.</p>'+
+      '<label>Ingredienti che vanno nel blend</label>'+rows+
+      (S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+
+      '<div class="actions"><button class="btn pri" data-mkblend="1">Crea blend</button><button class="btn" data-cancel="1">Annulla</button></div></div>';
+  }
+  function makeBlend(){
+    var r=cur();if(!r||!S.db)return;
+    var nome=$("b-nome").value.trim().replace(/^blend\s+/i,"");
+    if(!nome){formError("Il nome non può essere vuoto.");return}
+    var sel=[].slice.call(document.querySelectorAll(".b-ing")).filter(function(c){return c.checked}).map(function(c){return +c.getAttribute("data-i")});
+    if(!sel.length){formError("Scegli almeno un ingrediente per il blend.");return}
+    var bname=dn({cat:"blend",nome:nome});
+    if(S.ricette.some(function(x){return x.cat==="blend"&&norm(dn(x))===norm(bname)})){formError("Esiste già un blend con questo nome. Scegli un altro nome.");return}
+    var id=slug("blend "+nome),base=id,n=2;
+    while(S.ricette.some(function(x){return x.id===id})){id=base+"-"+n;n++}
+    var bl=sel.map(function(i){return r.ing[i]});
+    var tot=0;bl.forEach(function(x){var v=mlOf(x);if(v!=null)tot+=v});
+    var line=(tot>0?fmt(tot)+" ml ":"")+bname;
+    var newIng=[],put=false;
+    (r.ing||[]).forEach(function(x,i){
+      if(sel.indexOf(i)>=0){if(!put){newIng.push(line);put=true}}
+      else newIng.push(x);
+    });
+    var blendRec={nome:nome,cat:"blend",gruppo:"Blend",ing:bl};
+    var rid=r.id;
+    S.formErr="";
+    applyOp(function(d){
+      d.ricette=d.ricette||{};
+      d.ricette[id]=clean(blendRec);
+      var nx=Object.assign({},d.ricette[rid]||r);delete nx.id;nx.ing=newIng;
+      d.ricette[rid]=clean(nx);
+    },"Crea blend dal sito: "+id).then(function(){S.edit=false;S.formErr="";go("ricetta-"+rid)},function(e){formError(saveMsg(e))});
   }
   function detailLesson(l){
     var byId={};S.ricette.forEach(function(r){byId[r.id]=r});
@@ -608,6 +649,8 @@ tr:last-child td{border-bottom:0}
     var sb=t.closest("button[data-scale]");if(sb){S.scale=parseFloat(sb.getAttribute("data-scale"));S.target=null;render();return}
     var ub=t.closest("button[data-unit]");if(ub){var nu=ub.getAttribute("data-unit");if(S.target!=null&&nu!==S.unit){S.target=Math.round((nu==="oz"?S.target/OZ:S.target*OZ)*100)/100}S.unit=nu;render();return}
     if(t.closest("[data-copy]")){copyRecipe(t.closest("[data-copy]"));return}
+    if(t.closest("[data-mkblend-open]")){S.edit=true;S.formErr="";var rb=cur();if(rb)$("main").innerHTML=formBlend(rb);window.scrollTo(0,0);return}
+    if(t.closest("[data-mkblend]")){makeBlend();return}
     if(t.closest("[data-edit]")){S.edit=true;S.formErr="";var r=cur();if(r)$("main").innerHTML=formRecipe(r);window.scrollTo(0,0);return}
     if(t.closest("[data-cancel]")){var wasNew=S.creating;S.creating=false;S.edit=false;S.formErr="";if(wasNew){go(S.tab)}else render();return}
     if(t.closest("[data-save]")){saveForm();return}
