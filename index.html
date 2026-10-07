@@ -295,8 +295,6 @@ tr:last-child td{border-bottom:0}
     if(t<62)h+='<p class="err"><b>Attenzione:</b> '+fmt(t)+' Brix è sotto il minimo di 62. Sotto i 62 Brix non è uno sciroppo ma una premiscela, e si conserva meno.</p>';
     else if(t>66.7)h+='<p class="err"><b>Attenzione:</b> '+fmt(t)+' Brix è sopra il massimo di 66,7 (lo sciroppo 2:1). Oltre questo grado lo zucchero rischia di non sciogliersi del tutto o di cristallizzare.</p>';
     if(t<=b)return h+'<p class="note">Il liquido è già a '+fmt(b)+' Brix: più o uguale al grado voluto ('+fmt(t)+'). Non serve aggiungere zucchero.</p>';
-    var per100=100*(t-b)/(100-t);
-    h+='<p class="note">Ogni 100 gr di liquido servono <b>'+fmt(Math.round(per100*10)/10)+' gr</b> di zucchero.</p>';
     if(q>0){
       var x=q*(t-b)/(100-t),tot=q+x;
       h+='<ul class="ing" style="margin-top:12px"><li><span class="q">'+fmt(Math.round(x*10)/10)+' gr</span><span class="t"><b>Zucchero da sciogliere</b></span></li>'+
