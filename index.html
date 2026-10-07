@@ -140,13 +140,14 @@ tr:last-child td{border-bottom:0}
   document.addEventListener("touchmove",function(e){if(e.touches&&e.touches.length>1)e.preventDefault()},opt);
 })();
 (function(){
-  var TABS=[["cocktail","Cocktail"],["homemade","Homemade"],["blend","Blend"],["soda","Soda"],["infusione","Liquori e infusi"],["menu","Menu"],["lezioni","Lezioni e corsi"],["appunti","Appunti e idee"],["controllare","Da controllare"]];
+  var TABS=[["cocktail","Cocktail"],["analcolico","Cocktail analcolici"],["homemade","Homemade"],["blend","Blend"],["soda","Soda"],["infusione","Liquori e infusi"],["menu","Menu"],["lezioni","Lezioni e corsi"],["appunti","Appunti e idee"],["controllare","Da controllare"]];
   var ORDER={
     cocktail:["Pub","Mocktail","Tiki","Milk washing"],
     homemade:["Sciroppi e preparazioni","Soda","Acidificati e cordial","Shrub e aceti","Foam","Chiarificati","Milk washing"],
     infusione:["Infusi","Liquori","Tinture"],
-    blend:["Blend rum","Blend","Botte"]};
-  var CATNAME={cocktail:"Cocktail",homemade:"Homemade",soda:"Soda",infusione:"Liquori e infusi",blend:"Blend"};
+    blend:["Blend rum","Blend","Botte"],
+    analcolico:["Analcolici","Analcolici extra","Mocktail","Soft drink","Gin & tonic analcolico","Cocktail zero"]};
+  var CATNAME={cocktail:"Cocktail",analcolico:"Cocktail analcolici",homemade:"Homemade",soda:"Soda",infusione:"Liquori e infusi",blend:"Blend"};
   var TECNICHE=["Shake","Shake double strain","Stir and strain","Build","Blend","Flash blend","Throwing"];
   var TECNICHE_HM=["Infusione a freddo","Infusione a caldo","Rapid infusion","Estrazione","Decozione","Macerazione","Infusione sottovuoto","Sous vide","Dissoluzione"];
   /* homemade, soda e liquori/infusi usano le tecniche di preparazione; cocktail e blend quelle dei drink */
@@ -223,7 +224,7 @@ tr:last-child td{border-bottom:0}
   function okHas(r,k){return (r.ok||[]).indexOf(k)>=0}
   var COUNTABLE=/^(foglie|foglia|fette|fetta|cubett|gocce|goccia|spicchi|spicchio|chiodi|baccell|sfere|sfera|noccioli|olive|ciliegi|limoni|lime\b.*(interi|intero)|uova|uovo|bustin|stecche|stecca|fave|fava)/i;
   function numIssues(r){
-    var out=[],isC=r.cat==="cocktail";
+    var out=[],isC=r.cat==="cocktail"||r.cat==="analcolico";
     (r.ing||[]).forEach(function(x){
       var rg=x.match(RNG);
       if(rg){if(toNum(rg[1])>toNum(rg[2]))out.push("«"+x+"»: intervallo al contrario");return}
@@ -332,7 +333,7 @@ tr:last-child td{border-bottom:0}
   }
   function linkFor(name){
     var n=norm(name.replace(/\(.*?\)/g,""));if(n.length<4)return null;
-    var l=S.ricette.filter(function(r){return r.cat!=="cocktail"&&!inc(r)&&(norm(r.nome.replace(/\(.*?\)/g,""))===n||norm(dn(r).replace(/\(.*?\)/g,""))===n||(r.alias||[]).some(function(a){return norm(a.replace(/\(.*?\)/g,""))===n}))});
+    var l=S.ricette.filter(function(r){return r.cat!=="cocktail"&&r.cat!=="analcolico"&&!inc(r)&&(norm(r.nome.replace(/\(.*?\)/g,""))===n||norm(dn(r).replace(/\(.*?\)/g,""))===n||(r.alias||[]).some(function(a){return norm(a.replace(/\(.*?\)/g,""))===n}))});
     return l.length?l[0]:null;
   }
 
@@ -500,8 +501,8 @@ tr:last-child td{border-bottom:0}
     if(S.canEdit&&S.db){
       h+='<h3>Tecnica</h3><div class="ctl"><select id="techin" aria-label="Tecnica"><option value="">— nessuna tecnica —</option>'+(tecList(r).indexOf(tc)<0&&tc?[tc]:[]).concat(tecList(r)).map(function(t){return '<option value="'+t+'"'+(tc===t?' selected':'')+'>'+t+'</option>'}).join("")+'</select></div>'+(tn?'<p class="src" style="margin:6px 0 0">'+esc(tn)+'</p>':'');
     }else if(tc||tn)h+='<h3>Tecnica</h3><p>'+esc(tc+(tc&&tn?" · ":"")+tn)+'</p>';
-    var gl=r.cat==="cocktail"?glassOf(r):null;
-    if(r.cat!=="cocktail"){}
+    var isDrink=r.cat==="cocktail"||r.cat==="analcolico";var gl=isDrink?glassOf(r):null;
+    if(!isDrink){}
     else if(S.canEdit&&S.db){
       var gs=(S.bicchieri||[]).slice().sort(byName);
       h+='<h3>Bicchiere</h3><div class="ctl"><select id="glassin" aria-label="Bicchiere"><option value="">— nessun bicchiere —</option>'+gs.map(function(g){return '<option value="'+esc(g.id)+'"'+(r.bicchiere===g.id?' selected':'')+'>'+esc(glassLabel(g))+'</option>'}).join("")+'<option value="__new">+ Aggiungi un bicchiere…</option></select></div>';
@@ -732,7 +733,7 @@ tr:last-child td{border-bottom:0}
   function copyRecipe(btn){
     var r=cur();if(!r)return;
     var L=[dn(r),""];(r.ing||[]).forEach(function(i){var s=split(i,S.scale);L.push((s.q?s.q+" ":"")+s.t)});
-    var gc=r.cat==="cocktail"?glassOf(r):null;if(gc)L.push("","Bicchiere: "+glassLabel(gc));
+    var gc=(r.cat==="cocktail"||r.cat==="analcolico")?glassOf(r):null;if(gc)L.push("","Bicchiere: "+glassLabel(gc));
     if(r.tecnica||r.tecnica_nota)L.push("Tecnica: "+(r.tecnica||"")+(r.tecnica&&r.tecnica_nota?" · ":"")+(r.tecnica_nota||""));
     if(r.metodo)L.push("","Metodo: "+r.metodo);if(r.proc)L.push("","Procedimento: "+r.proc);if(r.ghiaccio)L.push("Ghiaccio: "+r.ghiaccio);if(r.guarn)L.push("Guarnizione: "+r.guarn);if(r.note)L.push("","Note: "+r.note);
     var txt=L.join("\n");
@@ -933,7 +934,7 @@ tr:last-child td{border-bottom:0}
   }
   function doElenco(){
     var L=["ELENCO DRINK - compila dopo i due punti, lascia vuoto ciò che non sai","Tecniche: S shake, SD shake double strain, SS stir and strain, B build, BL blend, FB flash blend, T throwing",""];
-    var cs=(S.ricette||[]).filter(function(r){return r.cat==="cocktail"}).sort(byName);
+    var cs=(S.ricette||[]).filter(function(r){return r.cat==="cocktail"||r.cat==="analcolico"}).sort(byName);
     cs.forEach(function(r){var g=glassOf(r);
       L.push("## "+dn(r));
       L.push("Ingredienti: "+(r.ing||[]).join("; "));
