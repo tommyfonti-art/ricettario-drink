@@ -148,6 +148,9 @@ tr:last-child td{border-bottom:0}
     blend:["Blend rum","Blend","Botte"]};
   var CATNAME={cocktail:"Cocktail",homemade:"Homemade",soda:"Soda",infusione:"Liquori e infusi",blend:"Blend"};
   var TECNICHE=["Shake","Shake double strain","Stir and strain","Build","Blend","Flash blend","Throwing"];
+  var TECNICHE_HM=["Infusione a freddo","Infusione a caldo","Rapid infusion","Estrazione","Decozione","Macerazione","Infusione sottovuoto","Sous vide"];
+  /* homemade, soda e liquori/infusi usano le tecniche di preparazione; cocktail e blend quelle dei drink */
+  function tecList(r){return (r.cat==="homemade"||r.cat==="soda"||r.cat==="infusione")?TECNICHE_HM:TECNICHE}
   var OZ=30; /* 1 oz = 30 ml, misura da bar */
   var FONTI=["Drink list Manga 2026 (Villain edition)","Drink list Manga 2024/25","Drink list 2023/24","Capodanno","Drink list 2023","Drink list 2022-23","Drink list mare 2022","Cocktail list mare 2021","Menù inverno 2020-21","Tiki night","Tiki list mare 2018","Altre ricette","Lezione Chiarificazione"];
   var EDIT_EMAIL="modifica@ricettario-repub.app";
@@ -470,7 +473,7 @@ tr:last-child td{border-bottom:0}
     if(S.scale!==1||S.unit==="oz")h+='<p class="src" style="margin-top:8px">Si convertono i numeri a inizio riga e i pezzi dopo l\'unità (1 oz = 30 ml); le once sono arrotondate al quarto d\'oncia. Le quantità scritte tra parentesi restano quelle originali.</p>';
     var tc=r.tecnica||"",tn=r.tecnica_nota||"";
     if(S.canEdit&&S.db){
-      h+='<h3>Tecnica</h3><div class="ctl"><select id="techin" aria-label="Tecnica"><option value="">— nessuna tecnica —</option>'+TECNICHE.map(function(t){return '<option value="'+t+'"'+(tc===t?' selected':'')+'>'+t+'</option>'}).join("")+'</select></div>'+(tn?'<p class="src" style="margin:6px 0 0">'+esc(tn)+'</p>':'');
+      h+='<h3>Tecnica</h3><div class="ctl"><select id="techin" aria-label="Tecnica"><option value="">— nessuna tecnica —</option>'+(tecList(r).indexOf(tc)<0&&tc?[tc]:[]).concat(tecList(r)).map(function(t){return '<option value="'+t+'"'+(tc===t?' selected':'')+'>'+t+'</option>'}).join("")+'</select></div>'+(tn?'<p class="src" style="margin:6px 0 0">'+esc(tn)+'</p>':'');
     }else if(tc||tn)h+='<h3>Tecnica</h3><p>'+esc(tc+(tc&&tn?" · ":"")+tn)+'</p>';
     var gl=glassOf(r);
     if(S.canEdit&&S.db){
