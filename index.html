@@ -378,7 +378,10 @@ body>*:not(#printroot){display:none!important}
     });
     S.dup=info;S.dupg=groups;
   }
-  function linkFor(name){
+  /* collegamenti fatti a mano: la ricetta ricorda, per ogni ingrediente (per nome), l'id della preparazione collegata */
+  function collKey(name){return norm(String(name||"").replace(/\(.*?\)/g,""))}
+  function linkFor(name,rec){
+    if(rec&&rec.coll){var ck=collKey(name),cid=ck&&rec.coll[ck];if(cid){var cm=S.ricette.filter(function(x){return x.id===cid})[0];if(cm)return cm}}
     var n=norm(name.replace(/\(.*?\)/g,""));if(n.length<4)return null;
     var l=S.ricette.filter(function(r){return r.cat!=="cocktail"&&r.cat!=="analcolico"&&!inc(r)&&(norm(r.nome.replace(/\(.*?\)/g,""))===n||norm(dn(r).replace(/\(.*?\)/g,""))===n||(r.alias||[]).some(function(a){return norm(a.replace(/\(.*?\)/g,""))===n}))});
     return l.length?l[0]:null;
@@ -398,7 +401,7 @@ body>*:not(#printroot){display:none!important}
     else{S.open=null;S.panel=null;if(TABS.some(function(t){return t[0]===h}))S.tab=h}
   }
   function readHash(){parse(location.hash)}
-  function reset(){S.calc.target="62";S.creating=false;S.msg="";S.panel=null;S.target=null;S.scale=1;S.perVal="";S.divVal="";S.onlyIdx=null;S.onlyScaled=false;S.edit=false;S.confirmDel=false;S.formErr=""}
+  function reset(){S.calc.target="62";S.creating=false;S.msg="";S.panel=null;S.target=null;S.scale=1;S.perVal="";S.divVal="";S.onlyIdx=null;S.onlyScaled=false;S.edit=false;S.confirmDel=false;S.collega=false;S.formErr=""}
   /* la navigazione non dipende dall'hash del browser: lo stato sta nella pagina, l'hash si aggiorna solo se possibile */
   function go(h){reset();parse(h);try{history.replaceState(null,"","#"+h)}catch(e){}render();window.scrollTo(0,0)}
   window.addEventListener("hashchange",function(){reset();readHash();render()});
@@ -639,7 +642,7 @@ body>*:not(#printroot){display:none!important}
     return '<div class="list">'+items.slice().sort(byName).map(function(r){return row(r,false)}).join("")+'</div>';
   }
   function ingHtml(r){return (r.ing||[]).map(function(t){
-      var s=split(t,S.scale),ln=linkFor(s.t);
+      var s=split(t,S.scale),ln=linkFor(s.t,r);
       var name=ln&&ln.id!==r.id?'<a href="#ricetta-'+esc(ln.id)+'">'+esc(s.t)+'</a>':esc(s.t);
       return '<li><span class="q">'+esc(s.q)+'</span><span class="t">'+name+'</span></li>';
     }).join("")}
@@ -656,6 +659,20 @@ body>*:not(#printroot){display:none!important}
     return 'Con '+esc(fmt(osel.ob.b*S.scale))+' '+esc(osel.ob.lab)+' di '+esc(osel.ob.name||"ingrediente")+' fai circa '+esc(ttx)+' (moltiplicatore ×'+esc(fmt(S.scale))+').';
   }
   function convNoteHtml(){return (S.scale!==1||S.unit==="oz")?'Si convertono i numeri a inizio riga e i pezzi dopo l\'unità (1 oz = 30 ml); le once sono arrotondate al quarto d\'oncia. Le quantità scritte tra parentesi restano quelle originali.':''}
+  /* pannello «Collega preparazioni»: per ogni ingrediente si sceglie a mano la preparazione che si apre toccandolo */
+  function collegaHtml(r){
+    var opts=S.ricette.filter(function(x){return x.id!==r.id&&x.cat!=="cocktail"&&x.cat!=="analcolico"}).sort(byName);
+    var rows=(r.ing||[]).map(function(t,i){
+      var nm=split(t,1).t;if(!collKey(nm))return "";
+      var cid=r.coll&&r.coll[collKey(nm)];
+      var gone=cid&&!opts.some(function(x){return x.id===cid});
+      return '<label for="collin-'+i+'" style="text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--fg);margin-top:12px">'+esc(nm)+'</label>'+
+        '<select id="collin-'+i+'" data-coll="'+i+'" aria-label="Preparazione collegata a '+esc(nm)+'"><option value="">— nessun collegamento a mano —</option>'+
+        (gone?'<option value="'+esc(cid)+'" selected>'+esc(cid)+' (non esiste più)</option>':'')+
+        opts.map(function(x){return '<option value="'+esc(x.id)+'"'+(cid===x.id?' selected':'')+'>'+esc(dn(x)+(inc(x)?" (incompleta)":"")+" · "+(CATNAME[x.cat]||x.cat))+'</option>'}).join("")+'</select>';
+    }).join("");
+    return '<div class="form" style="margin-top:14px"><h3>Collega preparazioni</h3><p class="src" style="margin:0">Per ogni ingrediente scegli la preparazione da aprire quando lo tocchi. La scelta si salva subito. Dove non scegli niente, il collegamento resta automatico solo se il nome coincide.</p>'+rows+'<div class="actions"><button class="btn" data-collega="1">Chiudi</button></div></div>';
+  }
   function detailRecipe(r){
     var meta=['<span>'+esc(CATNAME[r.cat]||r.cat)+'</span>'];
     if(r.gruppo)meta.push('<span>· '+esc(r.gruppo)+'</span>');
@@ -679,6 +696,7 @@ body>*:not(#printroot){display:none!important}
       h+='<div class="note" style="margin-top:14px"><b>Possibile doppione</b>'+dp.map(function(g){return '<br>'+esc(g.label)+': '+g.ids.filter(function(id){return id!==r.id}).map(function(id){var x=byIdD[id];return x?'<a href="#ricetta-'+esc(x.id)+'">'+esc(dn(x))+'</a> <span class="src">'+esc([x.fonte,x.gruppo].filter(Boolean).join(" · "))+'</span>':""}).join(", ")}).join("")+'</div>';
     }
     h+='<ul class="ing" id="inglist">'+ingHtml(r)+'</ul>';
+    if(S.collega&&S.canEdit&&S.db)h+=collegaHtml(r);
     h+='<p class="src" id="convnote" style="margin-top:8px"'+(convNoteHtml()?'':' hidden')+'>'+convNoteHtml()+'</p>';
     var tc=r.tecnica||"",tn=r.tecnica_nota||"";
     if(S.canEdit&&S.db){
@@ -700,6 +718,7 @@ body>*:not(#printroot){display:none!important}
     h+='<div class="actions"><button class="btn" data-copy="1">Copia ricetta</button>';
     if(S.canEdit&&S.db){
       h+='<button class="btn" data-edit="1">Modifica ricetta</button>';
+      if((r.ing||[]).length)h+='<button class="btn" data-collega="1">'+(S.collega?'Chiudi collegamenti':'Collega preparazioni')+'</button>';
       if(r.cat!=="blend"&&(r.ing||[]).length)h+='<button class="btn" data-mkblend-open="1">Crea blend</button>';
       h+='<button class="btn" data-toggle-stato="1">'+(inc(r)?'Segna come completa':'Segna come incompleta')+'</button>';
       h+='<button class="btn danger'+(S.confirmDel?' sure':'')+'" data-del="1">'+(S.confirmDel?'Conferma: elimina per sempre':'Elimina ricetta')+'</button>';
@@ -867,6 +886,7 @@ body>*:not(#printroot){display:none!important}
     if(t.closest("[data-copy]")){copyRecipe(t.closest("[data-copy]"));return}
     if(t.closest("[data-mkblend-open]")){S.edit=true;S.formErr="";var rb=cur();if(rb)$("main").innerHTML=formBlend(rb);window.scrollTo(0,0);return}
     if(t.closest("[data-mkblend]")){makeBlend();return}
+    if(t.closest("[data-collega]")){S.collega=!S.collega;render();return}
     if(t.closest("[data-edit]")){S.edit=true;S.formErr="";var r=cur();if(r)$("main").innerHTML=formRecipe(r);window.scrollTo(0,0);return}
     if(t.closest("[data-cancel]")){var wasNew=S.creating;S.creating=false;S.edit=false;S.formErr="";if(wasNew){go(S.tab)}else render();return}
     if(t.closest("[data-save]")){saveForm();return}
@@ -878,6 +898,14 @@ body>*:not(#printroot){display:none!important}
     }
   });
   $("main").addEventListener("change",function(e){
+    if(e.target.getAttribute&&e.target.getAttribute("data-coll")!=null){
+      var rc=cur();if(!rc||!S.db)return;
+      var ci=+e.target.getAttribute("data-coll"),ck=collKey(split((rc.ing||[])[ci]||"",1).t);if(!ck)return;
+      var cl=Object.assign({},rc.coll||{}),cv=e.target.value;
+      if(cv)cl[ck]=cv;else delete cl[ck];
+      var nc=Object.assign({},rc);if(Object.keys(cl).length)nc.coll=cl;else delete nc.coll;
+      write(rc,nc,function(){});return;
+    }
     if(e.target.id==="techin"){var rt=cur();if(!rt||!S.db)return;write(rt,Object.assign({},rt,{tecnica:e.target.value}),function(){});return}
     if(e.target.id==="glassin"){
       var rg=cur();if(!rg||!S.db)return;var gv=e.target.value;
