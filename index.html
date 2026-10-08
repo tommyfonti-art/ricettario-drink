@@ -89,6 +89,7 @@ h2.grp::after{content:"";flex:1;border-top:1px solid var(--line)}
 h3{font-family:var(--f-display);font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:500;margin:24px 0 6px}
 .d p{margin:0 0 10px;max-width:65ch}
 .dupg{margin:0 0 12px}.dupt{font-weight:600;font-size:.9rem;margin:8px 0 2px}
+.btn[disabled]{opacity:.35}
 .issue{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;margin:0 0 10px}.issue .ih{margin-bottom:4px}.issue .it{font-size:.88rem;color:var(--fg);max-width:65ch}.issue .mrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-top:1px solid var(--line)}.issue .mrow .btn{padding:4px 10px;font-size:.85rem}.issue .ia{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .ctl select{font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg);width:100%;max-width:100%}
 .ctl.one{gap:5px}.ctl.one button{padding:5px 7px}.ctl.one input.tot{width:122px;font-family:inherit;font-size:.82rem}
@@ -175,7 +176,7 @@ body>*:not(#printroot){display:none!important}
   var OZ=30; /* 1 oz = 30 ml, misura da bar */
   var FONTI=["Drink list Manga 2026 (Villain edition)","Drink list Manga 2024/25","Drink list 2023/24","Capodanno","Drink list 2023","Drink list 2022-23","Drink list mare 2022","Cocktail list mare 2021","Menù inverno 2020-21","Tiki night","Tiki list mare 2018","Altre ricette","Lezione Chiarificazione"];
   var EDIT_EMAIL="modifica@ricettario-repub.app";
-  var S={role:null,busy:false,panel:null,creating:false,msg:"",authReady:false,issues:null,delId:null,dup:{},dupg:[],target:null,ricette:null,lezioni:null,menu:null,appunti:null,bicchieri:null,serate:null,srSt:"",tab:"cocktail",q:"",open:null,scale:1,onlyIdx:null,onlyScaled:false,perVal:"",divVal:"",calc:{brix:"",target:"62",qty:""},unit:"ml",err:null,db:null,canEdit:false,edit:false,confirmDel:false,formErr:""};
+  var S={role:null,busy:false,panel:null,creating:false,msg:"",authReady:false,issues:null,delId:null,dup:{},dupg:[],target:null,ricette:null,lezioni:null,menu:null,appunti:null,bicchieri:null,serate:null,impostazioni:null,ord:null,srSt:"",tab:"cocktail",q:"",open:null,scale:1,onlyIdx:null,onlyScaled:false,perVal:"",divVal:"",calc:{brix:"",target:"62",qty:""},unit:"ml",err:null,db:null,canEdit:false,edit:false,confirmDel:false,formErr:""};
   var $=function(id){return document.getElementById(id)};
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
   function norm(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim()}
@@ -401,7 +402,7 @@ body>*:not(#printroot){display:none!important}
     else if(h.indexOf("menu-")===0){S.open={k:"m",id:h.slice(5)}}
     else if(h.indexOf("serata-")===0){S.open={k:"s",id:h.slice(7)}}
     else if(h.indexOf("calcolatore-")===0){S.open={k:"c",id:h.slice(12)}}
-    else if(h==="accesso"||h==="impostazioni"||h==="bicchieri"){S.open=null;S.panel=h}
+    else if(h==="accesso"||h==="impostazioni"||h==="bicchieri"||h==="ordine"){S.open=null;S.panel=h;if(h==="ordine")S.ord=orderIds()}
     else{S.open=null;S.panel=null;if(TABS.some(function(t){return t[0]===h}))S.tab=h}
   }
   function readHash(){parse(location.hash)}
@@ -419,9 +420,17 @@ body>*:not(#printroot){display:none!important}
 
   /* ---- render ---- */
   function counts(){var c={};if(S.ricette)S.ricette.forEach(function(r){if(!inc(r))c[r.cat]=(c[r.cat]||0)+1});if(S.menu)c.menu=S.menu.length;if(S.lezioni)c.lezioni=S.lezioni.length;if(S.appunti)c.appunti=S.appunti.length+(S.serate||[]).length;var iss=S.issues||{};c.controllare=Object.keys(iss).reduce(function(t,k){return t+iss[k].length},0)+(S.dupg||[]).filter(function(g){return g.tipo==="nome"}).length;return c}
+  function orderIds(){
+    var def=TABS.map(function(t){return t[0]});
+    var sv=((S.impostazioni||[]).filter(function(x){return x.id==="ordine"})[0]||{}).lista||[];
+    var out=[];sv.forEach(function(id){if(def.indexOf(id)>=0&&out.indexOf(id)<0)out.push(id)});
+    def.forEach(function(id,i){if(out.indexOf(id)<0){var pos=i>0?out.indexOf(def[i-1]):-1;out.splice(pos+1,0,id)}});
+    return out;
+  }
+  function tabsOrdered(){var m={};TABS.forEach(function(t){m[t[0]]=t});return orderIds().map(function(id){return m[id]})}
   function renderTabs(){
     var c=counts();
-    $("tabs").innerHTML=TABS.filter(function(t){return t[0]!=="menu"||(S.menu&&S.menu.length)}).map(function(t){
+    $("tabs").innerHTML=tabsOrdered().filter(function(t){return t[0]!=="menu"||(S.menu&&S.menu.length)}).map(function(t){
       var sel=!S.open&&!S.q&&S.tab===t[0];
       return '<button role="tab" data-tab="'+t[0]+'" aria-selected="'+sel+'">'+esc(t[1])+(c[t[0]]!=null?'<span class="n">'+c[t[0]]+'</span>':'')+'</button>'}).join("");
   }
@@ -889,7 +898,7 @@ body>*:not(#printroot){display:none!important}
       }
       return;
     }
-    if(t.closest("[data-back]")){var bk=S.panel==="bicchieri"?"impostazioni":S.open&&S.open.k==="m"?"menu":S.open&&S.open.k==="c"?"calcolatori":S.open&&S.open.k==="s"?"appunti":S.open&&S.open.k==="a"?"appunti":S.open&&S.open.k==="l"?"lezioni":S.open&&S.open.k==="e"?"cocktaileng":S.open&&S.open.k==="b"?"libri":S.tab;go(bk);return}
+    if(t.closest("[data-back]")){var bk=S.panel==="bicchieri"||S.panel==="ordine"?"impostazioni":S.open&&S.open.k==="m"?"menu":S.open&&S.open.k==="c"?"calcolatori":S.open&&S.open.k==="s"?"appunti":S.open&&S.open.k==="a"?"appunti":S.open&&S.open.k==="l"?"lezioni":S.open&&S.open.k==="e"?"cocktaileng":S.open&&S.open.k==="b"?"libri":S.tab;go(bk);return}
     var ub=t.closest("button[data-unit]");if(ub){var nu=ub.getAttribute("data-unit");if(S.target!=null&&nu!==S.unit){S.target=Math.round((nu==="oz"?S.target/OZ:S.target*OZ)*100)/100}S.unit=nu;render();return}
     if(t.closest("[data-copy]")){copyRecipe(t.closest("[data-copy]"));return}
     if(t.closest("[data-mkblend-open]")){S.edit=true;S.formErr="";var rb=cur();if(rb)$("main").innerHTML=formBlend(rb);window.scrollTo(0,0);return}
@@ -969,7 +978,7 @@ body>*:not(#printroot){display:none!important}
 
   /* ---- accesso (due password), cifratura e salvataggio su GitHub ---- */
   var GH={o:"tommyfonti-art",r:"ricettario-drink",p:"dati.enc.json",b:"main"};
-  var ITER=200000,SESS="rp_sess",COLS=["ricette","lezioni","menu","appunti","bicchieri","serate"];
+  var ITER=200000,SESS="rp_sess",COLS=["ricette","lezioni","menu","appunti","bicchieri","serate","impostazioni"];
   var enc8=new TextEncoder(),dec8=new TextDecoder();
   function b64e(u){var s="";for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s)}
   function b64d(s){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
@@ -1082,11 +1091,25 @@ body>*:not(#printroot){display:none!important}
         '<h3>Nuovo bicchiere</h3><label for="gnew-n">Nome</label><input id="gnew-n"><label for="gnew-c">Capienza (ml)</label><input id="gnew-c" type="number" min="0" step="any" inputmode="decimal">'+
         '<div class="actions"><button class="btn pri" data-ui="gadd">Aggiungi bicchiere</button></div></div>';
     }
+    if(S.panel==="ordine"){
+      var bko='<button class="back" data-back="1"><b>←</b> Indietro</button>';
+      if(S.role!=="boss")return '<div class="d panel">'+bko+'<h2>Ordine dei menu</h2><p>Solo il capo può cambiare l\'ordine dei menu.</p></div>';
+      var om=(S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+(S.msg?'<div class="okmsg">'+esc(S.msg)+'</div>':'');
+      var ord=S.ord||orderIds(),nm={};TABS.forEach(function(t){nm[t[0]]=t[1]});
+      return '<div class="d panel form">'+bko+'<h2>Ordine dei menu</h2>'+om+
+        '<p>Sposta ogni voce in su o in giù, poi premi «Salva ordine». Vale per tutti.</p>'+
+        (S.db?'':'<p>Prima salva il collegamento a GitHub da Impostazioni.</p>')+
+        ord.map(function(id,i){return '<div class="issue"><p style="margin:0 0 6px"><b>'+(i+1)+'.</b> '+esc(nm[id])+'</p><div class="ia">'+
+          '<button class="btn" data-ui="osu" data-i="'+i+'" aria-label="Sposta '+esc(nm[id])+' in su"'+(i===0?' disabled':'')+'>Su</button>'+
+          '<button class="btn" data-ui="ogiu" data-i="'+i+'" aria-label="Sposta '+esc(nm[id])+' in giù"'+(i===ord.length-1?' disabled':'')+'>Giù</button></div></div>'}).join("")+
+        '<div class="actions"><button class="btn pri" data-ui="osalva">Salva ordine</button><button class="btn" data-ui="oreset">Ripristina ordine originale</button></div></div>';
+    }
     if(S.panel==="impostazioni"){
       if(S.role!=="boss")return '<div class="d panel"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>Impostazioni</h2><p>Solo il capo può cambiare le impostazioni.</p></div>';
       var n=(S.ricette||[]).length,msgs=(S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+(S.msg?'<div class="okmsg">'+esc(S.msg)+'</div>':'');
       return '<div class="d panel form"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>Impostazioni</h2>'+msgs+
         '<h3>Bicchieri</h3><p>Elenco dei bicchieri con la capienza ('+(S.bicchieri||[]).length+').</p><div class="actions"><a class="btn" href="#bicchieri" style="text-decoration:none">Gestisci bicchieri</a></div>'+
+        '<h3>Ordine dei menu</h3><p>Decidi in che ordine appaiono i menu in alto.</p><div class="actions"><a class="btn" href="#ordine" style="text-decoration:none">Cambia ordine dei menu</a></div>'+
         '<h3>Collegamento a GitHub</h3><p>'+(S.tok?'Attivo: puoi modificare le ricette dall\'app.':'Manca. Serve una sola volta per poter salvare le modifiche.')+'</p>'+
         '<label for="tk">Token GitHub</label><input id="tk" type="password" autocomplete="off" autocapitalize="none">'+
         '<label for="tkpw">Password capo (per proteggere il token)</label><input id="tkpw" type="password" autocomplete="current-password" autocapitalize="none">'+
@@ -1114,7 +1137,7 @@ body>*:not(#printroot){display:none!important}
       });
     }).catch(function(e){S.busy=false;S.role=null;flash(e&&e.message==="bad"?"Password sbagliata.":"Non riesco a leggere il ricettario. Controlla la connessione.",1)});
   }
-  function doLogout(){sessClear();S.role=null;S.dk=null;S.dkRaw=null;S.tok=null;S.canEdit=false;S.db=null;S.edit=false;S.panel=null;S.open=null;S.ricette=S.lezioni=S.menu=S.appunti=S.bicchieri=null;S.msg="";S.formErr="";render()}
+  function doLogout(){sessClear();S.role=null;S.dk=null;S.dkRaw=null;S.tok=null;S.canEdit=false;S.db=null;S.edit=false;S.panel=null;S.open=null;S.ricette=S.lezioni=S.menu=S.appunti=S.bicchieri=S.impostazioni=null;S.msg="";S.formErr="";render()}
   function doSaveTok(){
     var tk=($("tk")||{}).value.trim(),pw=($("tkpw")||{}).value||"";
     if(!tk||!pw){flash("Compila token e password capo.",1);return}
@@ -1151,7 +1174,7 @@ body>*:not(#printroot){display:none!important}
   }
   function glassData(n,c){var nome=(n||"").trim();if(!nome)return null;var cap=parseFloat(String(c||"").replace(",","."));var d={nome:nome};if(cap>0)d.capienza=cap;return d}
   function doBackup(){
-    var out={ricette:{},lezioni:{},menu:{},appunti:{},bicchieri:{},serate:{}};
+    var out={ricette:{},lezioni:{},menu:{},appunti:{},bicchieri:{},serate:{},impostazioni:{}};
     COLS.forEach(function(c){(S[c]||[]).forEach(function(r){var o=Object.assign({},r);delete o.id;out[c][r.id]=o})});
     var blob=new Blob([JSON.stringify(out,null,1)],{type:"application/json"});
     var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ricettario-backup-"+new Date().toISOString().slice(0,10)+".json";
@@ -1204,6 +1227,9 @@ body>*:not(#printroot){display:none!important}
     else if(a==="chboss")doChBoss();
     else if(a==="chstaff")doChStaff();
     else if(a==="backup")doBackup();
+    else if(a==="osu"||a==="ogiu"){var oi2=parseInt(b.getAttribute("data-i"),10),oj=a==="osu"?oi2-1:oi2+1;S.ord=S.ord||orderIds();if(oj>=0&&oj<S.ord.length){var ot=S.ord[oi2];S.ord[oi2]=S.ord[oj];S.ord[oj]=ot}S.msg="";S.formErr="";render()}
+    else if(a==="osalva"){if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni.",1);return}S.busy=true;S.db.doc("impostazioni/ordine").set({lista:S.ord||orderIds()}).then(function(){S.busy=false;flash("Ordine salvato.")},function(e){S.busy=false;flash(saveMsg(e),1)})}
+    else if(a==="oreset"){S.ord=TABS.map(function(t){return t[0]});S.msg="";S.formErr="";render()}
     else if(a==="elenco")doElenco();
     else if(a==="pdf")doPdf();
     else if(a==="gsave"){var gi=b.getAttribute("data-id"),gd1=glassData(($("gn-"+gi)||{}).value,($("gc-"+gi)||{}).value);if(!gd1){flash("Il nome non può essere vuoto.",1);return}glassWrite(gi,gd1,"Bicchiere salvato.")}
