@@ -402,7 +402,7 @@ body>*:not(#printroot){display:none!important}
     else if(h.indexOf("menu-")===0){S.open={k:"m",id:h.slice(5)}}
     else if(h.indexOf("serata-")===0){S.open={k:"s",id:h.slice(7)}}
     else if(h.indexOf("calcolatore-")===0){S.open={k:"c",id:h.slice(12)}}
-    else if(h==="accesso"||h==="impostazioni"||h==="bicchieri"||h==="ordine"){S.open=null;S.panel=h;if(h==="ordine")S.ord=orderIds()}
+    else if(h==="accesso"||h==="impostazioni"||h==="bicchieri"||h==="ordine"){S.open=null;S.panel=h;if(h==="ordine"){S.ord=orderIds();S.nomi=Object.assign({},savedNomi())}}
     else{S.open=null;S.panel=null;if(TABS.some(function(t){return t[0]===h}))S.tab=h}
   }
   function readHash(){parse(location.hash)}
@@ -427,7 +427,9 @@ body>*:not(#printroot){display:none!important}
     def.forEach(function(id,i){if(out.indexOf(id)<0){var pos=i>0?out.indexOf(def[i-1]):-1;out.splice(pos+1,0,id)}});
     return out;
   }
-  function tabsOrdered(){var m={};TABS.forEach(function(t){m[t[0]]=t});return orderIds().map(function(id){return m[id]})}
+  function savedNomi(){return ((S.impostazioni||[]).filter(function(x){return x.id==="ordine"})[0]||{}).nomi||{}}
+  function nomiDiff(){var o={},nb=S.nomi||{};TABS.forEach(function(t){var v=(nb[t[0]]||"").trim();if(v&&v!==t[1])o[t[0]]=v});return o}
+  function tabsOrdered(){var m={},nn=savedNomi();TABS.forEach(function(t){m[t[0]]=[t[0],(nn[t[0]]||"").trim()||t[1]]});return orderIds().map(function(id){return m[id]})}
   function renderTabs(){
     var c=counts();
     $("tabs").innerHTML=tabsOrdered().filter(function(t){return t[0]!=="menu"||(S.menu&&S.menu.length)}).map(function(t){
@@ -875,6 +877,7 @@ body>*:not(#printroot){display:none!important}
 
   /* ---- eventi ---- */
   $("tabs").addEventListener("click",function(e){var b=e.target.closest("button[data-tab]");if(!b)return;$("q").value="";S.q="";go(b.getAttribute("data-tab"))});
+  $("main").addEventListener("input",function(e){var id=e.target.id||"";if(id.indexOf("on-")===0){S.nomi=S.nomi||{};S.nomi[id.slice(3)]=e.target.value}});
   var qt;$("q").addEventListener("input",function(e){clearTimeout(qt);var v=e.target.value;qt=setTimeout(function(){S.q=v;if(v&&S.open){try{history.replaceState(null,"","#"+S.tab)}catch(x){}S.open=null;S.edit=false}render()},120)});
   $("main").addEventListener("click",function(e){
     var t=e.target;
@@ -1095,11 +1098,11 @@ body>*:not(#printroot){display:none!important}
       var bko='<button class="back" data-back="1"><b>←</b> Indietro</button>';
       if(S.role!=="boss")return '<div class="d panel">'+bko+'<h2>Ordine dei menu</h2><p>Solo il capo può cambiare l\'ordine dei menu.</p></div>';
       var om=(S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+(S.msg?'<div class="okmsg">'+esc(S.msg)+'</div>':'');
-      var ord=S.ord||orderIds(),nm={};TABS.forEach(function(t){nm[t[0]]=t[1]});
+      var ord=S.ord||orderIds(),nm={},dn0={},nb=S.nomi||{};TABS.forEach(function(t){dn0[t[0]]=t[1];nm[t[0]]=(nb[t[0]]||'').trim()||t[1]});
       return '<div class="d panel form">'+bko+'<h2>Ordine dei menu</h2>'+om+
-        '<p>Sposta ogni voce in su o in giù, poi premi «Salva ordine». Vale per tutti.</p>'+
+        '<p>Sposta ogni voce in su o in giù e, se vuoi, cambia il nome. Poi premi «Salva ordine». Vale per tutti.</p>'+
         (S.db?'':'<p>Prima salva il collegamento a GitHub da Impostazioni.</p>')+
-        ord.map(function(id,i){return '<div class="issue"><p style="margin:0 0 6px"><b>'+(i+1)+'.</b> '+esc(nm[id])+'</p><div class="ia">'+
+        ord.map(function(id,i){return '<div class="issue"><p style="margin:0 0 6px"><b>'+(i+1)+'.</b> '+esc(nm[id])+'</p><label for="on-'+esc(id)+'">Nome del menu</label><input id="on-'+esc(id)+'" value="'+esc(nb[id]||dn0[id])+'" placeholder="'+esc(dn0[id])+'"><div class="ia">'+
           '<button class="btn" data-ui="osu" data-i="'+i+'" aria-label="Sposta '+esc(nm[id])+' in su"'+(i===0?' disabled':'')+'>Su</button>'+
           '<button class="btn" data-ui="ogiu" data-i="'+i+'" aria-label="Sposta '+esc(nm[id])+' in giù"'+(i===ord.length-1?' disabled':'')+'>Giù</button></div></div>'}).join("")+
         '<div class="actions"><button class="btn pri" data-ui="osalva">Salva ordine</button><button class="btn" data-ui="oreset">Ripristina ordine originale</button></div></div>';
@@ -1228,8 +1231,8 @@ body>*:not(#printroot){display:none!important}
     else if(a==="chstaff")doChStaff();
     else if(a==="backup")doBackup();
     else if(a==="osu"||a==="ogiu"){var oi2=parseInt(b.getAttribute("data-i"),10),oj=a==="osu"?oi2-1:oi2+1;S.ord=S.ord||orderIds();if(oj>=0&&oj<S.ord.length){var ot=S.ord[oi2];S.ord[oi2]=S.ord[oj];S.ord[oj]=ot}S.msg="";S.formErr="";render()}
-    else if(a==="osalva"){if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni.",1);return}S.busy=true;S.db.doc("impostazioni/ordine").set({lista:S.ord||orderIds()}).then(function(){S.busy=false;flash("Ordine salvato.")},function(e){S.busy=false;flash(saveMsg(e),1)})}
-    else if(a==="oreset"){S.ord=TABS.map(function(t){return t[0]});S.msg="";S.formErr="";render()}
+    else if(a==="osalva"){if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni.",1);return}S.busy=true;S.db.doc("impostazioni/ordine").set({lista:S.ord||orderIds(),nomi:nomiDiff()}).then(function(){S.busy=false;flash("Ordine salvato.")},function(e){S.busy=false;flash(saveMsg(e),1)})}
+    else if(a==="oreset"){S.nomi={};S.ord=TABS.map(function(t){return t[0]});S.msg="";S.formErr="";render()}
     else if(a==="elenco")doElenco();
     else if(a==="pdf")doPdf();
     else if(a==="gsave"){var gi=b.getAttribute("data-id"),gd1=glassData(($("gn-"+gi)||{}).value,($("gc-"+gi)||{}).value);if(!gd1){flash("Il nome non può essere vuoto.",1);return}glassWrite(gi,gd1,"Bicchiere salvato.")}
