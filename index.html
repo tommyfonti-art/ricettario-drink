@@ -405,7 +405,7 @@ body>*:not(#printroot){display:none!important}
   function ingSid(key){return slug(key).slice(0,60)||"ingrediente"}
   function ingGradi(name){
     var sid=ingSid(norm(name)),sv=(S.ingredienti||[]).filter(function(x){return x.id===sid})[0];
-    if(sv&&sv.gradi!=null&&sv.gradi!=="")return {g:sv.gradi,src:"mio"};
+    if(sv&&sv.gradi!=null&&sv.gradi!=="")return {g:sv.gradi,src:"mio",marca:sv.marca||""};
     var a=ingAuto(name);return a==null?null:{g:a,src:"auto"};
   }
   var ING_C=null;
@@ -425,7 +425,7 @@ body>*:not(#printroot){display:none!important}
     });
     var l=Object.keys(map).map(function(k){
       var o=map[k],best=Object.keys(o.forms).sort(function(a,b){return o.forms[b]-o.forms[a]})[0];
-      var g=ingGradi(best);o.nome=best;o.g=g?g.g:null;o.src=g?g.src:"";return o;
+      var g=ingGradi(best);o.nome=best;o.g=g?g.g:null;o.src=g?g.src:"";o.marca=g&&g.marca?g.marca:"";return o;
     }).sort(function(a,b){return a.nome.localeCompare(b.nome,"it")});
     ING_C={r:S.ricette,i:S.ingredienti,l:l};return l;
   }
@@ -441,7 +441,7 @@ body>*:not(#printroot){display:none!important}
     return l.map(function(o){
       var fonte=o.src==="mio"?"inserito da te":o.src==="auto"?"valore indicativo dalla tabella":"da inserire";
       var campo=ed?'<input type="number" min="0" max="100" step="any" inputmode="decimal" data-ikey="'+esc(o.sid)+'" data-inome="'+esc(o.nome)+'" placeholder="gradi" value="'+(o.g!=null?esc(o.g):"")+'" aria-label="Gradi di '+esc(o.nome)+'">':'<span>'+(o.g!=null?fmt(o.g)+' %':'—')+'</span>';
-      return '<div style="display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><div><b>'+esc(o.nome)+'</b><div class="src" style="margin:0">Usato in '+o.n+(o.n===1?' ricetta':' ricette')+' · '+fonte+'</div></div>'+campo+'</div>';
+      return '<div style="display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><div><b>'+esc(o.nome)+'</b>'+(o.marca?' · '+esc(o.marca):'')+'<div class="src" style="margin:0">Usato in '+o.n+(o.n===1?' ricetta':' ricette')+' · '+fonte+'</div></div>'+campo+'</div>';
     }).join("");
   }
   function renderIngredienti(){
@@ -1052,7 +1052,7 @@ body>*:not(#printroot){display:none!important}
       var iv=String(e.target.value).replace(",",".").trim(),inm=e.target.getAttribute("data-inome")||ik,iv2=parseFloat(iv);
       if(iv!==""&&(isNaN(iv2)||iv2<0||iv2>100)){S.formErr="I gradi devono stare tra 0 e 100.";render();return}
       var dbp=S.db.doc("ingredienti/"+ik);
-      (iv===""?dbp.delete():dbp.set({nome:inm,gradi:iv2})).then(function(){},function(er){S.formErr=saveMsg(er);render()});
+      (iv===""?dbp.delete():dbp.set(Object.assign({nome:inm,gradi:iv2},(function(){var ex=(S.ingredienti||[]).filter(function(x){return x.id===ik})[0];return ex&&ex.marca?{marca:ex.marca}:{}})()))).then(function(){},function(er){S.formErr=saveMsg(er);render()});
       return;
     }
     if(e.target.id&&/^abv-n-\d+$/.test(e.target.id)){
