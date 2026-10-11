@@ -454,6 +454,54 @@ body>*:not(#printroot){display:none!important}
       (S.canEdit&&S.db?'':'<p class="src">Solo il capo può cambiare i gradi.</p>')+
       '<p class="hint">I valori della tabella sono quelli tipici del prodotto più diffuso: controlla quelli che usi più spesso. Le preparazioni fatte da te (blend, homemade, soda, liquori e infusi) non sono qui.</p></div>';
   }
+  /* ---- gradi del drink finito, nella scheda del cocktail ---- */
+  var DIL_TEC={"Shake":25,"Shake double strain":25,"Stir and strain":20,"Throwing":20,"Build":10};
+  var DIL={id:null,v:""};
+  function prepOf(name){
+    var k=norm(name),l=S.ricette||[],k2=k.replace(/ blend$/,"");
+    for(var i=0;i<l.length;i++){var p=l[i];if(p.cat==="cocktail"||p.cat==="analcolico")continue;var pk=norm(p.nome||p.id);if(pk===k||norm(dn(p))===k||(k2!==k&&p.cat==="blend"&&(pk===k2||pk==="blend "+k2)))return p}
+    return null;
+  }
+  function calcAbv(r,depth){
+    var o={vol:0,alc:0,missing:[],skipped:0};
+    var parti=(r.ing||[]).length>0&&(r.ing||[]).every(function(l){return mlOf(String(l))==null&&NUM.test(String(l))});
+    (r.ing||[]).forEach(function(line){
+      line=String(line);
+      var ml=mlOf(line);
+      if(ml==null&&parti){var pm=line.match(NUM);var pv=pm?toNum(pm[1]):NaN;if(!isNaN(pv))ml=pv}
+      if(ml==null){o.skipped++;return}
+      var nm=String(split(line,1).t||"").replace(/\s+/g," ").trim(),g=null,pr=prepOf(nm);
+      if(pr&&pr.id!==r.id&&depth<3){var sub=calcAbv(pr,depth+1);if(!sub.missing.length&&sub.vol>0)g=sub.alc/sub.vol*100}
+      if(g==null){var ig=ingGradi(nm);if(ig&&(!pr||ig.g===0))g=ig.g}
+      if(g==null){if(o.missing.indexOf(nm)<0)o.missing.push(nm);return}
+      o.vol+=ml;o.alc+=ml*g/100;
+    });
+    return o;
+  }
+  function abvRes(r){
+    var o=calcAbv(r,0);
+    if(o.missing.length)return '<p class="src" style="margin:0">Per calcolare i gradi mancano quelli di: '+o.missing.map(esc).join(", ")+'. Scrivili nella sezione <a href="#ingredienti">Ingredienti</a>.</p>';
+    if(!(o.vol>0))return '<p class="src" style="margin:0">Non riesco a calcolare i gradi: mancano le quantità in ml.</p>';
+    var d=DIL.v!==""?cnum(DIL.v):(DIL_TEC[r.tecnica]!=null?DIL_TEC[r.tecnica]:null),g0=o.alc/o.vol*100,gr=o.alc*0.789;
+    var h="";
+    if(o.alc===0)h='<b>Senza alcol</b>';
+    else if(d==null||isNaN(d)||d<0){
+      h='<b>Gradi prima della diluizione: '+fmt(Math.round(g0*10)/10)+' %</b><div class="src" style="margin:4px 0 0">'+(r.tecnica?'Con questa tecnica la diluizione cambia molto: scrivila qui sotto per avere i gradi finali.':'Scegli la tecnica del drink o scrivi la diluizione qui sotto per avere i gradi finali.')+'</div>';
+    }else{
+      var fin=o.vol*(1+d/100),g1=o.alc/fin*100;
+      h='<b>Gradi del drink finito: '+fmt(Math.round(g1*10)/10)+' %</b><div class="src" style="margin:4px 0 0">Prima della diluizione '+fmt(Math.round(g0*10)/10)+' % · volume finale circa '+fmt(Math.round(fin))+' ml · alcol puro '+fmt(Math.round(o.alc*10)/10)+' ml ('+fmt(Math.round(gr*10)/10)+' gr)</div>';
+    }
+    if(o.skipped)h+='<div class="src" style="margin:4px 0 0">Non conto gli ingredienti senza quantità in ml (top, gocce, pezzi): '+o.skipped+'.</div>';
+    return h;
+  }
+  function abvBox(r){
+    if(r.cat!=="cocktail"&&r.cat!=="analcolico")return "";
+    if(!(r.ing||[]).length)return "";
+    if(DIL.id!==r.id){DIL.id=r.id;DIL.v=""}
+    var def=DIL_TEC[r.tecnica];
+    return '<div class="note" style="margin-top:12px"><div id="abvres">'+abvRes(r)+'</div>'+
+      '<div class="form"><label for="dilin" style="margin-top:10px">Diluizione del ghiaccio (%)</label><input id="dilin" type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="'+(def!=null?def:'es. 20')+'" value="'+esc(DIL.v)+'"><p class="hint">Se la lasci vuota uso quella della tecnica (shake 25, stir 20, build 10). Valori indicativi.</p></div></div>';
+  }
   function renderControllare(){
     var secs=S.issues,ng=S.dupg.filter(function(g){return g.tipo==="nome"}),tot=Object.keys(secs).reduce(function(t,k){return t+(k==="nome"?0:secs[k].length)},0)+ng.length;
     if(!tot)return '<div class="empty"><b>Tutto a posto</b>Non c\'è niente da controllare.</div>';
@@ -836,7 +884,7 @@ body>*:not(#printroot){display:none!important}
       var byIdD={};S.ricette.forEach(function(x){byIdD[x.id]=x});
       h+='<div class="note" style="margin-top:14px"><b>Possibile doppione</b>'+dp.map(function(g){return '<br>'+esc(g.label)+': '+g.ids.filter(function(id){return id!==r.id}).map(function(id){var x=byIdD[id];return x?'<a href="#ricetta-'+esc(x.id)+'">'+esc(dn(x))+'</a> <span class="src">'+esc([x.fonte,x.gruppo].filter(Boolean).join(" · "))+'</span>':""}).join(", ")}).join("")+'</div>';
     }
-    h+='<ul class="ing" id="inglist">'+ingHtml(r)+'</ul>';
+    h+='<ul class="ing" id="inglist">'+ingHtml(r)+'</ul>'+abvBox(r);
     if(S.collega&&S.canEdit&&S.db)h+=collegaHtml(r);
     h+='<p class="src" id="convnote" style="margin-top:8px"'+(convNoteHtml()?'':' hidden')+'>'+convNoteHtml()+'</p>';
     var tc=r.tecnica||"",tn=r.tecnica_nota||"";
@@ -1106,6 +1154,7 @@ body>*:not(#printroot){display:none!important}
     },180);
   });
   $("main").addEventListener("input",function(e){
+    if(e.target.id==="dilin"){DIL.v=e.target.value;var rr=cur(),ar=$("abvres");if(rr&&ar)ar.innerHTML=abvRes(rr);return}
     if(e.target.id==="iq"){IUI.q=e.target.value;var il=$("ilist");if(il)il.innerHTML=ingListHtml();return}
   });
   $("main").addEventListener("input",function(e){
