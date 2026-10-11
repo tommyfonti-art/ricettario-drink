@@ -324,7 +324,53 @@ body>*:not(#printroot){display:none!important}
     return h;
   }
   /* elenco dei calcolatori: per aggiungerne uno basta una voce qui e la sua funzione di disegno */
-  var CALCS=[{id:"sciroppi",titolo:"Sciroppi: zucchero da aggiungere",sommario:"Dal grado Brix del liquido ai grammi di zucchero da sciogliere",render:function(){return renderCalc()}}];
+  var CALCS=[{id:"sciroppi",titolo:"Sciroppi: zucchero da aggiungere",sommario:"Dal grado Brix del liquido ai grammi di zucchero da sciogliere",render:function(){return renderCalc()}},
+    {id:"alcol",titolo:"Alcol nel drink: gradazione finale",sommario:"Dagli ingredienti e dalla diluizione ai gradi del drink pronto",render:function(){return renderAbv()}}];
+  /* ---- calcolatore dell'alcol nei drink ---- */
+  var ABV={rows:[{n:"",ml:"",g:""},{n:"",ml:"",g:""},{n:"",ml:"",g:""}],dil:"25"};
+  var ABV_DIL=[["25","Shakerato"],["20","Mescolato"],["10","Nel bicchiere"],["0","Nessuna"]];
+  function abvOut(){
+    var vol=0,alc=0,n=0,bad=false;
+    ABV.rows.forEach(function(r){
+      var ml=cnum(r.ml),g=cnum(r.g);
+      if(isNaN(ml)||ml<=0)return;
+      if(isNaN(g))g=0;
+      if(g<0||g>100){bad=true;return}
+      vol+=ml;alc+=ml*g/100;n++;
+    });
+    if(bad)return '<p class="err">I gradi di ogni ingrediente devono stare tra 0 e 100.</p>';
+    if(!n)return '<p class="src">Scrivi i ml e i gradi di almeno un ingrediente. Per succhi, sciroppi e ghiaccio lascia i gradi vuoti (contano 0).</p>';
+    var d=cnum(ABV.dil);if(isNaN(d)||d<0)d=0;
+    var fin=vol*(1+d/100),g0=alc/vol*100,g1=alc/fin*100,gr=alc*0.789;
+    var h='<ul class="ing" style="margin-top:12px">'+
+      '<li><span class="q">'+fmt(Math.round(g1*10)/10)+' %</span><span class="t"><b>Gradi del drink pronto</b> (dopo la diluizione)</span></li>'+
+      '<li><span class="q">'+fmt(Math.round(g0*10)/10)+' %</span><span class="t">Gradi prima della diluizione</span></li>'+
+      '<li><span class="q">'+fmt(Math.round(fin*10)/10)+' ml</span><span class="t">Volume finale nel bicchiere</span></li>'+
+      '<li><span class="q">'+fmt(Math.round(alc*10)/10)+' ml</span><span class="t">Alcol puro ('+fmt(Math.round(gr*10)/10)+' gr)</span></li>'+
+      '<li><span class="q">'+fmt(Math.round(gr/12*10)/10)+'</span><span class="t">Unità alcoliche (1 unità = 12 gr di alcol)</span></li></ul>';
+    if(alc===0)h+='<p class="note">Senza ingredienti alcolici il drink è analcolico.</p>';
+    return h;
+  }
+  function abvRows(){
+    return ABV.rows.map(function(r,i){
+      return '<div style="display:grid;grid-template-columns:1fr 78px 78px'+(ABV.rows.length>1?' auto':'')+';gap:8px;margin-top:8px;align-items:center">'+
+        '<input id="abv-n-'+i+'" type="text" placeholder="Ingrediente" value="'+esc(r.n)+'" aria-label="Ingrediente '+(i+1)+'">'+
+        '<input id="abv-ml-'+i+'" type="number" min="0" step="any" inputmode="decimal" placeholder="ml" value="'+esc(r.ml)+'" aria-label="Millilitri">'+
+        '<input id="abv-g-'+i+'" type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="gradi" value="'+esc(r.g)+'" aria-label="Gradi alcolici">'+
+        (ABV.rows.length>1?'<button class="btn" type="button" data-abv-del="'+i+'" aria-label="Togli ingrediente">✕</button>':'')+'</div>';
+    }).join("");
+  }
+  function renderAbv(){
+    return '<div class="d form"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>Alcol nel drink: gradazione finale</h2>'+
+      '<p class="src" style="margin:0">Scrivi gli ingredienti con i ml e i gradi di ognuno: ti dico quanti gradi ha il drink pronto, tenendo conto del ghiaccio che si scioglie.</p>'+
+      '<label>Ingredienti (nome, ml, gradi)</label>'+abvRows()+
+      '<div style="margin-top:10px"><button class="btn" type="button" data-abv-add="1">+ Aggiungi ingrediente</button></div>'+
+      '<label for="abv-dil">Diluizione del ghiaccio (% sul volume)</label><input id="abv-dil" type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="25" value="'+esc(ABV.dil)+'">'+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+ABV_DIL.map(function(x){return '<button class="btn" type="button" data-abv-dil="'+x[0]+'">'+x[1]+' '+x[0]+'%</button>'}).join("")+'</div>'+
+      '<p class="hint">Valori indicativi: un drink shakerato si diluisce di circa il 25%, uno mescolato di circa il 20%, uno fatto direttamente nel bicchiere di circa il 10%. Cambialo come vuoi.</p>'+
+      '<div id="abv-out" style="margin-top:16px">'+abvOut()+'</div>'+
+      '<p class="src">Formula: alcol puro = somma di (ml × gradi ÷ 100). Gradi finali = alcol puro ÷ (volume degli ingredienti + diluizione) × 100. Un ml di alcol pesa 0,789 gr.</p></div>';
+  }
   function renderCalc(){
     var c=S.calc;
     return '<div class="d form"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>Sciroppi: quanto zucchero aggiungere</h2>'+
@@ -905,6 +951,9 @@ body>*:not(#printroot){display:none!important}
       }
       return;
     }
+    if(t.closest("[data-abv-add]")){ABV.rows.push({n:"",ml:"",g:""});render();return}
+    var abd=t.closest("[data-abv-del]");if(abd){ABV.rows.splice(+abd.getAttribute("data-abv-del"),1);if(!ABV.rows.length)ABV.rows.push({n:"",ml:"",g:""});render();return}
+    var abl=t.closest("[data-abv-dil]");if(abl){ABV.dil=abl.getAttribute("data-abv-dil");var di=$("abv-dil");if(di)di.value=ABV.dil;var ao=$("abv-out");if(ao)ao.innerHTML=abvOut();return}
     if(t.closest("[data-back]")){var bk=S.panel==="bicchieri"||S.panel==="ordine"?"impostazioni":S.open&&S.open.k==="m"?"menu":S.open&&S.open.k==="c"?"calcolatori":S.open&&S.open.k==="s"?"appunti":S.open&&S.open.k==="a"?"appunti":S.open&&(S.open.k==="l"||S.open.k==="e"||S.open.k==="b")?"librieorsi":S.tab;go(bk);return}
     var ub=t.closest("button[data-unit]");if(ub){var nu=ub.getAttribute("data-unit");if(S.target!=null&&nu!==S.unit){S.target=Math.round((nu==="oz"?S.target/OZ:S.target*OZ)*100)/100}S.unit=nu;render();return}
     if(t.closest("[data-copy]")){copyRecipe(t.closest("[data-copy]"));return}
@@ -966,6 +1015,13 @@ body>*:not(#printroot){display:none!important}
       var set=function(i,h,hide){var el=$(i);if(el){el.innerHTML=h;if(hide)el.hidden=!h}};
       set("inglist",ingHtml(r));set("basenote",baseNoteHtml(r));set("onlynote",onlyNoteHtml(r),1);set("convnote",convNoteHtml(),1);
     },180);
+  });
+  $("main").addEventListener("input",function(e){
+    var id=e.target.id||"";if(id.indexOf("abv-")!==0)return;
+    var m=id.match(/^abv-(n|ml|g)-(\d+)$/);
+    if(m){var row=ABV.rows[+m[2]];if(row)row[m[1]]=e.target.value}
+    else if(id==="abv-dil")ABV.dil=e.target.value;
+    var ao=$("abv-out");if(ao)ao.innerHTML=abvOut();
   });
   $("main").addEventListener("input",function(e){
     var id=e.target.id;if(id.indexOf("calc-")!==0)return;
