@@ -1,4 +1,5 @@
-/* Ricettario Repub: copia dell'app sul telefono, per aprirla anche senza rete.
+/* v2: le pagine si ricontrollano sempre sul sito (niente attesa di 10 minuti della memoria del browser).
+   Ricettario Repub: copia dell'app sul telefono, per aprirla anche senza rete.
    - La pagina e le icone: prima la rete, se non c'è (o è lentissima) la copia salvata.
    - Il file delle ricette (dati.enc.json, sempre cifrato): prima la rete; la copia salvata si aggiorna
      solo con una versione uguale o più nuova (campo "rev"), mai con una più vecchia.
@@ -83,7 +84,7 @@ self.addEventListener("fetch", function (e) {
 
   /* pagina, manifest, icone */
   var chiave = req.mode === "navigate" ? "index.html" : null;
-  e.respondWith(rete(req).then(function (r) {
+  e.respondWith(rete(new Request(req, { cache: "no-cache" })).then(function (r) {
     if (r.ok) e.waitUntil(caches.open(CACHE).then(function (c) { return conData(r).then(function (x) { return c.put(chiave || req, x); }); }));
     return r;
   }).catch(function () { return dallaCopia(req, chiave); }));
