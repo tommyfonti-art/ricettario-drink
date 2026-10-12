@@ -29,6 +29,10 @@ body.locked .search,body.locked .tabs{display:none}
 .panel .form input,.panel .form select{width:100%;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
 .form select{width:100%;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
 .okmsg{color:var(--ok);margin-top:10px}
+.idl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px;margin:12px 0 0;padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.idl span{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.idl b{font-weight:500;overflow-wrap:anywhere}.idl b.no{font-weight:400;font-style:italic;color:var(--muted)}
+@media (min-width:600px){.idl{grid-template-columns:repeat(4,minmax(0,1fr))}}
 /* Layout: un quaderno da bancone. Barra sezioni fissa in alto, elenco a righe raggruppate, scheda ricetta con dosi in monospazio, moltiplicatore, unità ml/oz e modifica a richiesta. */
 :root{
   --bg:#F3F1F6; --surface:#FFFFFF; --fg:#1D1A24; --muted:#6A6478; --line:#DDD8E5;
@@ -905,7 +909,15 @@ body>*:not(#printroot){display:none!important}
     if(inc(r))meta.push('<span class="chip hot">incompleta</span>');
     var un=["ml","oz"].map(function(v){return '<button data-unit="'+v+'" aria-pressed="'+(S.unit===v)+'">'+v+'</button>'}).join("");
     var h='<div class="d"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>'+esc(dn(r))+'</h2><div class="meta">'+meta.join(" ")+'</div>';
+    var tc=r.tecnica||"",tn=r.tecnica_nota||"",isDrink=r.cat==="cocktail"||r.cat==="analcolico",gl=isDrink?glassOf(r):null;
+    /* riga d'identità del drink: si legge al primo colpo d'occhio, prima degli ingredienti */
+    var cell=function(lab,val){return '<div><span>'+lab+'</span>'+(val?'<b>'+esc(val)+'</b>':'<b class="no">da inserire</b>')+'</div>'};
+    if(isDrink)h+='<div class="idl">'+cell('Bicchiere',gl?glassLabel(gl):'')+cell('Ghiaccio',r.ghiaccio)+cell('Tecnica',tc+(tc&&tn?' · ':'')+tn)+cell('Decorazione',r.guarn)+'</div>';
+    else if(tc||tn)h+='<div class="idl">'+cell('Tecnica',tc+(tc&&tn?' · ':'')+tn)+'</div>';
+    h+='<ul class="ing" id="inglist">'+ingHtml(r)+'</ul>';
+    h+='<p class="src" id="convnote" style="margin-top:8px"'+(convNoteHtml()?'':' hidden')+'>'+convNoteHtml()+'</p>';
     var bm=baseMl(r);
+    h+='<h3>Dosi</h3>';
     h+='<div class="ctl one"><span class="lab">Per</span><input id="perin" type="number" min="0" step="any" inputmode="decimal" placeholder="es. 6" value="'+esc(S.perVal)+'" aria-label="Moltiplica per"><span class="lab" style="min-width:0;margin-left:10px">Diviso</span><input id="divin" type="number" min="0" step="any" inputmode="decimal" placeholder="es. 2" value="'+esc(S.divVal)+'" aria-label="Dividi per"></div>';
     if(bm.t>0)h+='<div class="ctl one"><span class="lab">Finale</span><input id="totin" class="tot" type="number" min="0" step="any" inputmode="decimal" placeholder="Quantità finale" value="'+(S.target!=null?esc(S.target):"")+'" aria-label="Quantità finale desiderata"><span class="src" style="margin:0">'+S.unit+'</span></div>';
     var ol=onlyList(r),osel=S.onlyIdx!=null?ol.filter(function(x){return x.i===S.onlyIdx})[0]:null;
@@ -916,30 +928,26 @@ body>*:not(#printroot){display:none!important}
     h+='<p class="note" id="onlynote" style="margin:8px 0 0"'+(onlyNoteHtml(r)?'':' hidden')+'>'+onlyNoteHtml(r)+'</p>';
     h+='<div class="ctl"><span class="lab">Unità</span>'+un+'</div>';
     h+='<p class="src" id="basenote" style="margin:6px 0 0">'+baseNoteHtml(r)+'</p>';
+    h+=abvBox(r);
     var dp=S.dup&&S.dup[r.id];
     if(dp){
       var byIdD={};S.ricette.forEach(function(x){byIdD[x.id]=x});
       h+='<div class="note" style="margin-top:14px"><b>Possibile doppione</b>'+dp.map(function(g){return '<br>'+esc(g.label)+': '+g.ids.filter(function(id){return id!==r.id}).map(function(id){var x=byIdD[id];return x?'<a href="#ricetta-'+esc(x.id)+'">'+esc(dn(x))+'</a> <span class="src">'+esc([x.fonte,x.gruppo].filter(Boolean).join(" · "))+'</span>':""}).join(", ")}).join("")+'</div>';
     }
-    h+='<ul class="ing" id="inglist">'+ingHtml(r)+'</ul>'+abvBox(r);
     if(S.collega&&S.canEdit&&S.db)h+=collegaHtml(r);
-    h+='<p class="src" id="convnote" style="margin-top:8px"'+(convNoteHtml()?'':' hidden')+'>'+convNoteHtml()+'</p>';
-    var tc=r.tecnica||"",tn=r.tecnica_nota||"";
     if(S.canEdit&&S.db){
-      h+='<h3>Tecnica</h3><div class="ctl"><select id="techin" aria-label="Tecnica"><option value="">— nessuna tecnica —</option>'+(tecList(r).indexOf(tc)<0&&tc?[tc]:[]).concat(tecList(r)).map(function(t){return '<option value="'+t+'"'+(tc===t?' selected':'')+'>'+t+'</option>'}).join("")+'</select></div>'+(tn?'<p class="src" style="margin:6px 0 0">'+esc(tn)+'</p>':'');
-    }else if(tc||tn)h+='<h3>Tecnica</h3><p>'+esc(tc+(tc&&tn?" · ":"")+tn)+'</p>';
-    var isDrink=r.cat==="cocktail"||r.cat==="analcolico";var gl=isDrink?glassOf(r):null;
-    if(!isDrink){}
-    else if(S.canEdit&&S.db){
+      h+='<h3>Tecnica</h3><div class="ctl"><select id="techin" aria-label="Tecnica"><option value="">— nessuna tecnica —</option>'+(tecList(r).indexOf(tc)<0&&tc?[tc]:[]).concat(tecList(r)).map(function(t){return '<option value="'+t+'"'+(tc===t?' selected':'')+'>'+t+'</option>'}).join("")+'</select></div>';
+      if(isDrink){
       var gs=(S.bicchieri||[]).slice().sort(byName);
       h+='<h3>Bicchiere</h3><div class="ctl"><select id="glassin" aria-label="Bicchiere"><option value="">— nessun bicchiere —</option>'+gs.map(function(g){return '<option value="'+esc(g.id)+'"'+(r.bicchiere===g.id?' selected':'')+'>'+esc(glassLabel(g))+'</option>'}).join("")+'<option value="__new">+ Aggiungi un bicchiere…</option></select></div>';
-    }else if(gl)h+='<h3>Bicchiere</h3><p>'+esc(glassLabel(gl))+'</p>';
-    if(r.ghiaccio)h+='<h3>Ghiaccio</h3><p>'+esc(r.ghiaccio)+'</p>';
+      }
+    }
+    if(!isDrink&&r.ghiaccio)h+='<h3>Ghiaccio</h3><p>'+esc(r.ghiaccio)+'</p>';
     if(r.descrizione)h+='<h3>Descrizione a menu</h3><p>'+esc(r.descrizione)+'</p>';
     if(r.profilo)h+='<h3>Profilo</h3><p>'+esc(r.profilo)+'</p>';
     if(r.metodo)h+='<h3>Metodo</h3><p>'+esc(r.metodo)+'</p>';
     if(r.proc)h+='<h3>Procedimento</h3><p>'+esc(r.proc)+'</p>';
-    if(r.guarn)h+='<h3>Guarnizione</h3><p>'+esc(r.guarn)+'</p>';
+    if(!isDrink&&r.guarn)h+='<h3>Guarnizione</h3><p>'+esc(r.guarn)+'</p>';
     if(r.note)h+='<h3>Note</h3><div class="note">'+esc(r.note)+'</div>';
     h+='<div class="actions"><button class="btn" data-copy="1">Copia ricetta</button>';
     if(S.canEdit&&S.db){
