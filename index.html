@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<meta name="theme-color" content="#C42B28">
+<meta name="theme-color" content="#1F5C46">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ricettario">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=3">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=4">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Ricettario Repub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,18 +36,18 @@ body.locked .search,body.locked .tabs{display:none}
 @media (min-width:600px){.idl{grid-template-columns:repeat(4,minmax(0,1fr))}}
 /* Layout: un quaderno da bancone. Barra sezioni fissa in alto, elenco a righe raggruppate, scheda ricetta con dosi in monospazio, moltiplicatore, unità ml/oz e modifica a richiesta. */
 :root{
-  --bg:#F3F1F6; --surface:#FFFFFF; --fg:#1D1A24; --muted:#6A6478; --line:#DDD8E5;
-  --accent:#B5301C; --accent-soft:#F6DFDA; --accent-fg:#FFFFFF; --ok:#2C6B57; --tag:#E9E5F0;
+  --bg:#F4F1EA; --surface:#FFFDF8; --fg:#1C2420; --muted:#5F6B64; --line:#DDD8CC;
+  --accent:#1F5C46; --accent-soft:#DCEAE2; --accent-fg:#FFFFFF; --ok:#1F5C46; --tag:#E7E3D8;
   --f-display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
   --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#16141B; --surface:#1F1C27; --fg:#ECE8F2; --muted:#A39CB3; --line:#332F40;
-  --accent:#F0674F; --accent-soft:#3A2420; --accent-fg:#1A0F0D; --ok:#6FCBAE; --tag:#2B2735; color-scheme:dark}}
+  --bg:#121714; --surface:#1B221E; --fg:#E8EFEA; --muted:#9AA89F; --line:#2D3832;
+  --accent:#5FBF98; --accent-soft:#1E3A2E; --accent-fg:#08150F; --ok:#6FCBAE; --tag:#26302B; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#16141B; --surface:#1F1C27; --fg:#ECE8F2; --muted:#A39CB3; --line:#332F40;
-  --accent:#F0674F; --accent-soft:#3A2420; --accent-fg:#1A0F0D; --ok:#6FCBAE; --tag:#2B2735; color-scheme:dark}
+  --bg:#121714; --surface:#1B221E; --fg:#E8EFEA; --muted:#9AA89F; --line:#2D3832;
+  --accent:#5FBF98; --accent-soft:#1E3A2E; --accent-fg:#08150F; --ok:#6FCBAE; --tag:#26302B; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5}
 .wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
@@ -72,7 +72,7 @@ h2.grp::after{content:"";flex:1;border-top:1px solid var(--line)}
 .row .rs{color:var(--muted);font-size:.82rem;font-weight:400}
 .chip{display:inline-block;font-size:.7rem;padding:1px 7px;border-radius:99px;background:var(--tag);color:var(--muted);margin-left:6px;vertical-align:1px;white-space:nowrap;font-weight:400}
 .chip.hot{background:var(--accent-soft);color:var(--accent)}
-.back{font:inherit;display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#fff;border:0;border-radius:99px;padding:6px 14px 6px 10px;cursor:pointer;font-weight:600;font-size:.85rem;margin-bottom:12px}
+.back{font:inherit;display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:var(--accent-fg);border:0;border-radius:99px;padding:6px 14px 6px 10px;cursor:pointer;font-weight:600;font-size:.85rem;margin-bottom:12px}
 .back b{font-size:1.15rem;line-height:1;font-weight:500;margin-top:-2px}
 .rf{margin-left:auto;font:inherit;font-size:1.3rem;line-height:1;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer;padding:0}
 .rf.spin{animation:sp .8s linear infinite}.rf.done{color:var(--ok)}.rf.bad{color:var(--accent)}
