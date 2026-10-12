@@ -23,6 +23,7 @@ img{max-width:100%}[hidden]{display:none!important}
 .bar .btn{padding:6px 12px;font-size:.88rem}
 .bar .st{font-size:.8rem;color:var(--muted)}
 .bar .st.on{color:var(--ok)}
+.bar .st.off{color:var(--accent);font-weight:600;flex-basis:100%}
 body.locked .search,body.locked .tabs{display:none}
 .panel{max-width:420px}
 .panel h2{font-family:var(--f-display);font-size:1.5rem;margin:0 0 8px}
@@ -1264,7 +1265,18 @@ body>*:not(#printroot){display:none!important}
   function newSalt(){return b64e(crypto.getRandomValues(new Uint8Array(16)))}
   function rewrap(pw,raw){var salt=newSalt();return kx(pw,salt).then(function(k){return aesEnc(k,raw).then(function(o){o.salt=salt;return {w:o,k:k}})})}
 
-  function fetchFile(){return fetch("dati.enc.json?v="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http "+r.status);return r.json()})}
+  function fetchFile(){return fetch("dati.enc.json?v="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http "+r.status);var c=r.headers.get("x-copia-locale");S.copia=c==null?null:c;return r.json()})}
+  /* copia sul telefono (vedi sw.js): l'ultimo file cifrato che l'app conosce, mai sostituito da uno più vecchio */
+  var COPIA="ricettario-copia";
+  function salvaCopia(){
+    if(!S.file||!window.caches)return;
+    var f=S.file;
+    try{caches.open(COPIA).then(function(c){return c.match("dati.enc.json").then(function(v){return v?v.json().then(function(j){return +j.rev||0},function(){return -1}):-1}).then(function(rv){
+      if((+f.rev||0)<rv)return;
+      return c.put("dati.enc.json",new Response(JSON.stringify(f),{headers:{"Content-Type":"application/json","x-salvato":new Date().toISOString()}}));
+    })}).catch(function(){})}catch(x){}
+  }
+  function dataCopia(){var d=new Date(S.copia);if(!S.copia||isNaN(d))return "";var z=function(n){return (n<10?"0":"")+n};return " il "+z(d.getDate())+"/"+z(d.getMonth()+1)+" alle "+z(d.getHours())+":"+z(d.getMinutes())}
   function tryRole(file,pw,role){var w=file[role];return kx(pw,w.salt,file.iter).then(function(k){return aesDec(k,w).then(function(raw){return {role:role,raw:new Uint8Array(raw),k:k}})})}
   function unlock(file,pw){
     return tryRole(file,pw,"boss").catch(function(){return null}).then(function(r){return r||tryRole(file,pw,"staff").catch(function(){return null})}).then(function(r){
@@ -1283,7 +1295,7 @@ body>*:not(#printroot){display:none!important}
       S[c]=Object.keys(o).map(function(k){return Object.assign({},o[k],{id:k})});
     });
     S.ricette=S.ricette.map(function(r){r.nome=r.nome||r.id;return r});
-    S.err=null;render();
+    S.err=null;render();salvaCopia();
   }
   function afterAuth(d){
     S.canEdit=S.role==="boss"&&!!S.tok;S.db=S.canEdit?makeDb():null;
@@ -1315,7 +1327,7 @@ body>*:not(#printroot){display:none!important}
   /* lettura diretta da GitHub (non dal sito pubblico); con il collegamento del capo non ha limiti pratici */
   function fetchFresh(){
     var hd={Accept:"application/vnd.github.raw+json"};if(S.tok)hd.Authorization="Bearer "+S.tok;
-    return fetch("https://api.github.com/repos/"+GH.o+"/"+GH.r+"/contents/"+GH.p+"?ref="+GH.b+"&t="+Date.now(),{headers:hd,cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http "+r.status);return r.json()}).catch(function(){return fetchFile()});
+    return fetch("https://api.github.com/repos/"+GH.o+"/"+GH.r+"/contents/"+GH.p+"?ref="+GH.b+"&t="+Date.now(),{headers:hd,cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http "+r.status);S.copia=null;return r.json()}).catch(function(){return fetchFile()});
   }
   /* vero se il file letto è diverso e non più vecchio di quello che l'app ha già */
   function piuNuovo(f){
@@ -1330,7 +1342,7 @@ body>*:not(#printroot){display:none!important}
     fetchFresh().then(function(f){
       if(!piuNuovo(f))return "ok";
       return readData(f,S.dk).then(function(d){if(piuNuovo(f)){S.file=f;setBase(d)}return "ok"});
-    }).catch(function(){return "err"}).then(function(x){btn.classList.remove("spin");btn.classList.add(x==="ok"?"done":"bad");setTimeout(function(){btn.classList.remove("done","bad")},1500)});
+    }).catch(function(){return "err"}).then(function(x){renderBar();var bb=document.querySelector("[data-ui=refresh]");if(bb)btn=bb;btn.classList.remove("spin");btn.classList.add(x==="ok"?"done":"bad");setTimeout(function(){btn.classList.remove("done","bad")},1500)});
   }
   function poll(){
     if(!S.role||S.edit||S.busy||document.hidden)return;
@@ -1338,9 +1350,10 @@ body>*:not(#printroot){display:none!important}
     (S.tok?fetchFresh():fetchFile()).then(function(f){
       if(!piuNuovo(f))return;
       return readData(f,S.dk).then(function(d){if(S.edit||!piuNuovo(f))return;S.file=f;setBase(d)});
-    }).catch(function(){});
+    }).catch(function(){}).then(function(){if(!S.edit)renderBar()});
   }
   setInterval(poll,45000);document.addEventListener("visibilitychange",function(){if(!document.hidden)poll()});
+  window.addEventListener("online",function(){S.lastSave=0;poll()});
 
   function renderGate(){
     $("bar").innerHTML="";$("tabs").innerHTML="";
@@ -1357,6 +1370,7 @@ body>*:not(#printroot){display:none!important}
     else if(S.role==="boss")b.innerHTML='<span class="st">Da collegare</span><a class="btn pri" href="#impostazioni" style="text-decoration:none">Impostazioni</a>'+rf+'<button class="lo" data-ui="logout">esci</button>';
     else if(S.role==="staff")b.innerHTML='<span class="st">Sola lettura</span>'+rf+'<button class="lo" data-ui="logout">esci</button>';
     else b.innerHTML="";
+    if(S.role&&S.copia!=null)b.innerHTML+='<span class="st off">Senza rete: ricette salvate sul telefono'+dataCopia()+'. Per salvare modifiche serve la rete.</span>';
   }
   function renderPanel(){
     if(S.panel==="bicchieri"){
@@ -1558,6 +1572,7 @@ body>*:not(#printroot){display:none!important}
   document.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.id==="pw")doLogin()});
 
   readHash();render();
+  if("serviceWorker" in navigator){try{navigator.serviceWorker.register("sw.js").catch(function(){})}catch(x){}}
   if(!window.crypto||!crypto.subtle){S.formErr="Questo browser non è abbastanza recente per aprire il ricettario.";render()}
   else fetchFile().then(function(f){
     S.file=f;
