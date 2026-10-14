@@ -179,6 +179,7 @@ body>*:not(#printroot){display:none!important}
   var $=function(id){return document.getElementById(id)};
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
   function norm(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim()}
+  function tutte(txt,q){var t=norm(txt);return q.split(" ").every(function(w){return !w||t.indexOf(w)>=0})}
   /* nella sezione Blend il nome compare sempre con «Blend» davanti (se non c'è già) */
   function dn(r){if(!r)return "";var n=String(r.nome||r.id||"");if(r.cat!=="blend")return n;n=n.trim();return /^blend/i.test(n)?n.charAt(0).toUpperCase()+n.slice(1):"Blend "+n}
   /* bicchieri: elenco con capienza in ml; la ricetta ricorda l'id del bicchiere */
@@ -438,7 +439,7 @@ body>*:not(#printroot){display:none!important}
     var l=ingList().filter(function(o){
       if(IUI.fil==="mancano"&&o.g!=null)return false;
       if(IUI.fil==="alcol"&&!(o.g>0))return false;
-      return !q||norm(o.nome).indexOf(q)>=0;
+      return !q||tutte(o.nome,q);
     });
     if(!l.length)return '<p class="src">Nessun ingrediente trovato.</p>';
     return l.map(function(o){
@@ -830,10 +831,10 @@ body>*:not(#printroot){display:none!important}
   function renderList(){
     var q=norm(S.q);
     if(q){
-      var rs=S.ricette.filter(function(r){return haystack(r).indexOf(q)>=0}).sort(byName);
-      var ls=(S.lezioni||[]).filter(function(l){return norm(l.titolo+" "+l.sommario+" "+JSON.stringify(l.sezioni||[])).indexOf(q)>=0});
-      var ls2=LIB.concat(CE).filter(function(l){return norm(l.titolo+" "+l.sommario+" "+JSON.stringify(l.sezioni||[])).indexOf(q)>=0});
-      var as=(S.appunti||[]).filter(function(l){return norm(l.titolo+" "+l.sommario+" "+JSON.stringify(l.sezioni||[])).indexOf(q)>=0});
+      var rs=S.ricette.filter(function(r){return tutte(haystack(r),q)}).sort(byName);
+      var ls=(S.lezioni||[]).filter(function(l){return tutte(l.titolo+" "+l.sommario+" "+JSON.stringify(l.sezioni||[]),q)});
+      var ls2=LIB.concat(CE).filter(function(l){return tutte(l.titolo+" "+l.sommario+" "+JSON.stringify(l.sezioni||[]),q)});
+      var as=(S.appunti||[]).filter(function(l){return tutte(l.titolo+" "+l.sommario+" "+JSON.stringify(l.sezioni||[]),q)});
       if(!rs.length&&!ls.length&&!ls2.length&&!as.length)return '<div class="empty"><b>Nessun risultato</b>Prova con una parola più corta o con il nome di un ingrediente.</div>';
       var h='<div class="list">';
       if(rs.length)h+='<h2 class="grp">Ricette ('+rs.length+')</h2>'+rs.map(function(r){return row(r,true)}).join("");
