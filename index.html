@@ -1106,6 +1106,7 @@ body>*:not(#printroot){display:none!important}
   $("tabs").addEventListener("click",function(e){var b=e.target.closest("button[data-tab]");if(!b)return;$("q").value="";S.q="";go(b.getAttribute("data-tab"))});
   $("main").addEventListener("input",function(e){
     var id=e.target.id||"";
+    if(id==="imp-txt"){S.imp.txt=e.target.value;return}
     if(id.indexOf("on-")===0){S.nomi=S.nomi||{};S.nomi[id.slice(3)]=e.target.value;return}
     /* Impostazioni → Diluizione del ghiaccio: ricorda quello che scrivi e calcola la misura mentre scrivi */
     var dm=id.match(/^dil-(\d+)$/);
@@ -1156,6 +1157,14 @@ body>*:not(#printroot){display:none!important}
     }
   });
   $("main").addEventListener("change",function(e){
+    if(e.target.id==="imp-cat"){S.imp.cat=e.target.value;if(S.imp.prev)render();return}
+    if(e.target.id==="imp-file"){
+      var fl=e.target.files&&e.target.files[0];if(!fl)return;
+      var fr=new FileReader();
+      fr.onload=function(){var t=String(fr.result||"");S.imp.txt=(S.imp.txt.trim()?S.imp.txt.replace(/\s+$/,"")+"\n\n":"")+t;S.imp.prev=true;S.msg="";S.formErr="";render()};
+      fr.onerror=function(){flash("Non riesco a leggere il file.",1)};
+      fr.readAsText(fl,"utf-8");e.target.value="";return;
+    }
     var ik=e.target.getAttribute&&e.target.getAttribute("data-ikey");
     if(ik){
       if(!S.db)return;
@@ -1429,12 +1438,154 @@ body>*:not(#printroot){display:none!important}
         '<div class="actions"><button class="btn pri" data-ui="chboss">Cambia password capo</button></div>'+
         '<h3>Password dipendenti</h3><label for="ps1">Nuova password (almeno 4 caratteri)</label><input id="ps1" type="text" autocomplete="off" autocapitalize="none">'+
         '<div class="actions"><button class="btn pri" data-ui="chstaff">Cambia password dipendenti</button></div>'+
+        impHtml()+
         '<h3>Elenco drink da compilare</h3><p>Scarica un file di testo con tutti i cocktail: per ognuno scrivi bicchiere, ghiaccio, tecnica e decorazione, poi lo mandi a Claude.</p><div class="actions"><button class="btn" data-ui="elenco">Scarica elenco drink</button></div>'+
         '<h3>PDF</h3><p>Scarica il ricettario in PDF per stamparlo o condividerlo. Scegli cosa includere: si apre la finestra di stampa, dove scegli «Salva come PDF».</p><label for="pdfsel">Cosa scaricare</label><select id="pdfsel"><option value="tutto">Tutto il ricettario</option>'+["cocktail","analcolico","homemade","blend","soda","infusione"].map(function(c){return '<option value="'+c+'">'+esc(CATNAME[c])+'</option>'}).join("")+'</select><div class="actions"><button class="btn" data-ui="pdf">Scarica PDF</button></div>'+
         '<h3>Backup</h3><p>Scarica un file con tutti i dati del ricettario: ricette, lezioni, serate, bicchieri, ingredienti e impostazioni ('+n+' ricette).</p>'+
         '<div class="actions"><button class="btn" data-ui="backup">Scarica backup</button></div></div>';
     }
     return "";
+  }
+  /* ---- Impostazioni → Carica liste: un testo diventa una o più ricette ---- */
+  S.imp={txt:"",cat:"cocktail",prev:false};
+  var IMP_ICE=/cubett|cubi\b|chunk|sfera|tritat|ghiacci|crushed|nessun|tower|pebble/i;
+  var IMP_COD={s:"Shake",sd:"Shake double strain",ss:"Stir and strain",b:"Build",bl:"Blend",fb:"Flash blend",t:"Throwing"};
+  function impTec(p){
+    var x=norm(p);if(!x)return "";
+    if(IMP_COD[x])return IMP_COD[x];
+    if(/double/.test(x))return "Shake double strain";
+    if(/stir/.test(x))return "Stir and strain";
+    if(/flash/.test(x))return "Flash blend";
+    if(/throw/.test(x))return "Throwing";
+    if(/blend/.test(x))return "Blend";
+    if(/shake/.test(x))return "Shake";
+    if(/build/.test(x))return "Build";
+    return "";
+  }
+  function impNome(s){
+    s=String(s||"").replace(/[\s.:;,]+$/,"").replace(/^[\s#*\-]+/,"").trim();
+    if(s&&s===s.toUpperCase()&&s!==s.toLowerCase())s=s.toLowerCase();
+    return s.charAt(0).toUpperCase()+s.slice(1);
+  }
+  /* una riga di ingrediente: i numeri senza unità sono ml (le frazioni once); sotto 5 senza unità resta com'è e va controllato */
+  function impIng(l){
+    var t=String(l).replace(/\s+/g," ").trim();
+    var tp=t.match(/^top\s+(.+)$/i);if(tp)return {s:"top "+tp[1],w:false};
+    var m=t.match(NUM);if(!m)return {s:t,w:false};
+    var num=m[1],rest=m[2];
+    if(!rest)return {s:t,w:true};
+    var un=rest.match(UNIT);
+    if(un)return {s:num+" "+un[1].toLowerCase()+(un[2]?" "+un[2]:""),w:false};
+    if(num.indexOf("/")>=0)return {s:num+" oz "+rest,w:false};
+    var n=toNum(num);
+    if(!isNaN(n)&&n<5&&!/[.,]/.test(num))return {s:t,w:true};
+    return {s:num+" ml "+rest,w:false};
+  }
+  /* riga dopo gli ingredienti: bicchiere, ghiaccio, tecnica, decorazione separati da virgole, in qualunque ordine dopo il bicchiere */
+  function impInfo(l){
+    var o={bic:"",ghi:"",tec:"",tn:"",guarn:[]};
+    var parts=String(l||"").split(",").map(function(x){return x.trim()}).filter(Boolean);
+    parts.forEach(function(p,i){
+      var t=impTec(p);
+      if(i===0&&!t&&!IMP_ICE.test(p)){o.bic=p.charAt(0).toUpperCase()+p.slice(1);return}
+      if(!o.tec&&t){
+        o.tec=t;
+        var left=norm(p).replace(/\b(shake|double|strain|stir|and|build|blend|flash|throwing|throw|e|ed|a|il|la|sd|ss|bl|fb)\b/g," ").replace(/\s+/g," ").trim();
+        if(left&&!IMP_COD[norm(p)])o.tn=p;
+        return;
+      }
+      if(!o.ghi&&IMP_ICE.test(p)){o.ghi=p;return}
+      o.guarn.push(p);
+    });
+    return o;
+  }
+  function impGlassId(nome,arr){
+    var x=norm(nome);if(!x)return "";
+    var e=arr.filter(function(g){return norm(g.nome)===x||g.id===slug(nome)})[0];
+    if(e)return e.id;
+    e=arr.filter(function(g){var y=norm(g.nome);return y.length>=5&&x.length>=5&&(y.indexOf(x)>=0||x.indexOf(y)>=0)})[0];
+    return e?e.id:"";
+  }
+  function impParse(text,cat){
+    var lines=String(text||"").replace(/\r/g,"").split("\n").map(function(l){return l.replace(/\s+/g," ").trim()});
+    var isI=function(l){return /^\d/.test(l)||(/^top\s/i.test(l)&&l.indexOf(",")<0)};
+    var isG=function(l){return /bicc|bicch|tiki|mug|levitas|savage|\bpub\b|top class|calice|coppa|flute|tumbler|highball|rocks|collins|boccale|tazza|lowball|nick|coupe/i.test(l)};
+    var anyIng=lines.some(isI),list=[],cur=null,i,open=function(n){cur={nome:n,ing:[],info:"",note:[]};list.push(cur);return cur};
+    for(i=0;i<lines.length;i++){
+      var l=lines[i];
+      if(!l){cur=null;continue}
+      if(!anyIng){open(impNome(l));continue}
+      if(/^note?\s*:/i.test(l)){if(!cur)open("");cur.note.push(l.replace(/^note?\s*:\s*/i,""));continue}
+      if(isI(l)){if(!cur)open("");cur.ing.push(l);continue}
+      if(!cur){open(impNome(l));continue}
+      if(!cur.ing.length){cur.note.push(l);continue}
+      var nx=lines[i+1];
+      if(!cur.nome&&!cur.info&&l.indexOf(",")<0&&nx&&!isI(nx)){cur.nome=impNome(l);continue}
+      if(!cur.info&&l.indexOf(",")<0&&!isG(l)&&!impTec(l)&&!IMP_ICE.test(l)){cur.ing.push(l);continue}
+      if(!cur.info){cur.info=l;continue}
+      open(impNome(l));
+    }
+    var sn=0,warn=0,gl=(S.bicchieri||[]).map(function(g){return {id:g.id,nome:g.nome}}),nuovi=[];
+    var out=list.map(function(c){
+      var w=0,inf=impInfo(c.info);
+      var ing=c.ing.map(function(x){var q=impIng(x);if(q.w)w++;return q.s});
+      var r={nome:c.nome,cat:cat,ing:ing,ghiaccio:inf.ghi,tecnica:inf.tec,tecnica_nota:inf.tn,guarn:inf.guarn.join(", "),note:c.note.join("\n"),bicNome:inf.bic,w:w};
+      if(!r.nome){sn++;r.nome="Ricetta senza nome "+sn;r.senza=true}
+      if(cat==="cocktail"&&/analcolic/i.test(r.nome))r.cat="analcolico";
+      if(!ing.length||r.senza)r.stato="incompleta";
+      r.doppia=(S.ricette||[]).some(function(x){return norm(x.nome)===norm(r.nome)&&x.cat===r.cat});
+      if(inf.bic&&!impGlassId(inf.bic,gl)&&nuovi.indexOf(inf.bic)<0)nuovi.push(inf.bic);
+      warn+=w;return r;
+    });
+    return {list:out,nuovi:nuovi,warn:warn};
+  }
+  function impHtml(){
+    var I=S.imp,h='<h3>Carica liste di ricette</h3><p>Incolla una lista o scegli un file di testo: ogni drink diventa una ricetta. Per ogni drink scrivi il nome, poi un ingrediente per riga con la quantità davanti (i numeri senza unità sono ml, le frazioni once), poi una riga con bicchiere, ghiaccio, tecnica e decorazione separati da virgole. Lascia una riga vuota tra un drink e l\'altro. Se la lista ha solo nomi (uno per riga) le ricette nascono incomplete, da completare dopo.</p>'+
+      '<label for="imp-cat">Sezione delle ricette</label><select id="imp-cat">'+catOptions(I.cat)+'</select>'+
+      '<label for="imp-file">Scegli un file di testo</label><input id="imp-file" type="file" accept=".txt,.md,.csv,text/plain">'+
+      '<label for="imp-txt">Oppure incolla qui la lista</label><textarea id="imp-txt" rows="10" autocapitalize="none">'+esc(I.txt)+'</textarea>'+
+      '<div class="actions"><button class="btn pri" data-ui="impprev">Controlla la lista</button><button class="btn" data-ui="impclear">Svuota</button></div>';
+    if(I.prev){
+      var P=impParse(I.txt,I.cat);
+      if(!P.list.length)h+='<p class="hint">Non ho trovato ricette in questo testo.</p>';
+      else{
+        h+='<p><b>'+P.list.length+' ricette da aggiungere</b>'+(P.nuovi.length?'. Bicchieri nuovi che creo: '+esc(P.nuovi.join(", ")):'')+(P.warn?'. '+P.warn+' quantità senza unità sotto 5: restano come scritte, da controllare':'')+'.</p><div class="list">'+
+        P.list.map(function(r){
+          var b=[];
+          b.push(CATNAME[r.cat]||r.cat);
+          b.push(r.ing.length?r.ing.length+" ingredienti":"solo nome");
+          if(r.bicNome)b.push(r.bicNome);
+          if(r.tecnica)b.push(r.tecnica);
+          if(r.ghiaccio)b.push(r.ghiaccio);
+          if(r.guarn)b.push(r.guarn);
+          if(r.stato==="incompleta")b.push("incompleta");
+          if(r.senza)b.push("manca il nome");
+          if(r.doppia)b.push("stesso nome di una ricetta già presente: finisce in «Da controllare»");
+          return '<div class="row"><span class="rn">'+esc(r.nome)+'<div class="rs">'+esc(b.join(" · "))+'</div></span></div>';
+        }).join("")+'</div><div class="actions"><button class="btn pri" data-ui="impadd">Aggiungi '+P.list.length+' ricette</button></div>';
+      }
+    }
+    return h;
+  }
+  function impAdd(){
+    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni.",1);return}
+    var P=impParse(S.imp.txt,S.imp.cat);
+    if(!P.list.length){flash("Non ho trovato ricette nella lista.",1);return}
+    S.busy=true;S.msg="";S.formErr="";
+    applyOp(function(d){
+      d.ricette=d.ricette||{};d.bicchieri=d.bicchieri||{};
+      P.list.forEach(function(r){
+        var arr=Object.keys(d.bicchieri).map(function(k){return {id:k,nome:(d.bicchieri[k]||{}).nome||k}});
+        var bid=r.bicNome?impGlassId(r.bicNome,arr):"";
+        if(r.bicNome&&!bid){bid=slug(r.bicNome);var b0=bid,k=2;while(d.bicchieri[bid]){bid=b0+"-"+k;k++}d.bicchieri[bid]={nome:r.bicNome}}
+        var id=slug(r.nome),base=id,n=2;
+        while(d.ricette[id]){id=base+"-"+n;n++}
+        var rec={nome:r.nome,cat:r.cat,ing:r.ing,bicchiere:bid,ghiaccio:r.ghiaccio,tecnica:r.tecnica,tecnica_nota:r.tecnica_nota,guarn:r.guarn,note:r.note,stato:r.stato};
+        d.ricette[id]=clean(rec);
+      });
+    },"Caricamento lista dal sito: "+P.list.length+" ricette").then(function(){
+      S.busy=false;S.imp.txt="";S.imp.prev=false;flash(P.list.length+" ricette aggiunte"+(P.list.some(function(r){return r.stato==="incompleta"})?": quelle incomplete le trovi in «Incompleti»":"")+".");
+    },function(e){S.busy=false;flash(saveMsg(e),1)});
   }
   function flash(msg,err){S.msg=err?"":msg;S.formErr=err?msg:"";render()}
   function doLogin(){
@@ -1550,6 +1701,9 @@ body>*:not(#printroot){display:none!important}
     else if(a==="dsalva")doDilSalva();
     else if(a==="dreset"){var dd={};TECNICHE.forEach(function(tt){dd[tt]=DIL_DEF[tt]!=null?String(DIL_DEF[tt]):""});S.dilForm=dd;S.msg="Valori di partenza rimessi: premi «Salva diluizioni» per tenerli.";S.formErr="";render()}
     else if(a==="elenco")doElenco();
+    else if(a==="impprev"){var ti=$("imp-txt");if(ti)S.imp.txt=ti.value;S.imp.prev=true;S.msg="";S.formErr="";render()}
+    else if(a==="impclear"){S.imp.txt="";S.imp.prev=false;render()}
+    else if(a==="impadd"){if(!S.busy)impAdd()}
     else if(a==="pdf")doPdf();
     else if(a==="gsave"){var gi=b.getAttribute("data-id"),gd1=glassData(($("gn-"+gi)||{}).value,($("gc-"+gi)||{}).value);if(!gd1){flash("Il nome non può essere vuoto.",1);return}glassWrite(gi,gd1,"Bicchiere salvato.")}
     else if(a==="gdel"){var gi2=b.getAttribute("data-id"),us=(S.ricette||[]).filter(function(x){return x.bicchiere===gi2}).length;
