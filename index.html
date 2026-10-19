@@ -1622,6 +1622,7 @@ body>*:not(#printroot){display:none!important}
     if(e.target.id==="un-thr"){S.un.thr=+e.target.value||60;render();return}
     if(e.target.id==="aud-rate"){AUD.rate=parseFloat(e.target.value)||1;if(AUD.playing)audRestart();return}
     if(e.target.id==="cn-cat"){if(S.collNew)S.collNew.cat=e.target.value;return}
+    if(e.target.id==="imp-tipo"){S.imp.tipo=e.target.value;var ti2=$("imp-txt");if(ti2)S.imp.txt=ti2.value;render();return}
     if(e.target.id==="imp-cat"){S.imp.cat=e.target.value;if(S.imp.prev)render();return}
     if(e.target.id==="imp-file"){
       var fl=e.target.files&&e.target.files[0];if(!fl)return;
@@ -1926,7 +1927,7 @@ body>*:not(#printroot){display:none!important}
     return "";
   }
   /* ---- Impostazioni → Carica liste: un testo diventa una o più ricette ---- */
-  S.imp={txt:"",cat:"cocktail",prev:false};
+  S.imp={txt:"",cat:"cocktail",prev:false,tipo:"auto"};
   var IMP_ICE=/cubett|cubi\b|chunk|sfera|tritat|ghiacci|crushed|nessun|tower|pebble/i;
   var IMP_COD={s:"Shake",sd:"Shake double strain",ss:"Stir and strain",b:"Build",bl:"Blend",fb:"Flash blend",t:"Throwing"};
   function impTec(p){
@@ -2018,14 +2019,63 @@ body>*:not(#printroot){display:none!important}
     });
     return {list:out,nuovi:nuovi,warn:warn};
   }
+  /* ---- Carica liste: capisce da solo se il testo è una lista di drink o una lezione/corso ---- */
+  function impTipo(text){
+    var L=String(text||"").replace(/\r/g,"").split("\n").map(function(l){return l.trim()}).filter(Boolean);
+    if(!L.length)return {tipo:"ricette",perche:""};
+    var ing=L.filter(function(l){return NUM.test(l)&&!/^\d+[.)]\s/.test(l)&&l.length<=60}).length,r=ing/L.length;
+    var kw=/\b(lezione|lezioni|corso|masterclass|workshop|seminario|appunti|formazione)\b/i.test(L.slice(0,2).join(" "));
+    var tot=L.join(" ").length,avg=tot/L.length;
+    if(ing>=3&&r>=0.3&&!(kw&&r<0.5))return {tipo:"ricette",perche:"ci sono righe con quantità"};
+    if(kw)return {tipo:"lezione",perche:"all'inizio si parla di una lezione o di un corso"};
+    if(avg>=60||tot>=400)return {tipo:"lezione",perche:"è un testo discorsivo, senza quantità"};
+    return {tipo:"ricette",perche:"sono righe brevi, come un elenco di nomi"};
+  }
+  function impLez(text){
+    var raw=String(text||"").replace(/\r/g,"").split("\n").map(function(l){return l.replace(/\s+/g," ").trim().replace(/^#+\s*/,"").replace(/\*\*/g,"")});
+    var L=raw.filter(function(l){return l});
+    if(!L.length)return null;
+    var titolo=L.shift().replace(/^(lezione|corso|appunti|masterclass|workshop)\s*(n\.?\s*\d+)?\s*[:\-–—]\s*/i,"").replace(/[\s:.]+$/,"");
+    titolo=titolo.charAt(0).toUpperCase()+titolo.slice(1);
+    var isB=function(l){return /^([-•*–]|\d+[.)])\s+/.test(l)};
+    var isH=function(l,nx){
+      if(!nx||isB(l)||l.length>60)return false;
+      if(/:$/.test(l))return true;
+      if(/[.!?;,]$/.test(l))return false;
+      if(l===l.toUpperCase()&&l!==l.toLowerCase())return true;
+      return isB(nx)||nx.length>=50;
+    };
+    var sez=[],pts=null,nb=0;
+    for(var i=0;i<L.length;i++){
+      var l=L[i],nx=L[i+1];
+      if(isB(l)){if(!pts){pts=[];sez.push({titolo:"",punti:pts})}pts.push(l.replace(/^([-•*–]|\d+[.)])\s+/,""));nb++;continue}
+      pts=null;
+      if(isH(l,nx)){var h=l.replace(/:$/,"");sez.push({titolo:h.charAt(0).toUpperCase()+h.slice(1)});continue}
+      sez.push({titolo:"",testo:l});
+    }
+    var sommario="";
+    if(sez.length>1&&sez[0].testo&&sez[0].testo.length<=300){sommario=sez[0].testo;sez.shift()}
+    var nt=sez.filter(function(x){return x.titolo}).length;
+    return {titolo:titolo||"Lezione senza titolo",sommario:sommario,sezioni:sez,nt:nt,nb:nb,doppia:(S.lezioni||[]).some(function(x){return norm(x.titolo)===norm(titolo)})};
+  }
   function impHtml(){
-    var I=S.imp,h='<h3>Carica liste di ricette</h3><p>Incolla una lista o scegli un file di testo: ogni drink diventa una ricetta. Per ogni drink scrivi il nome, poi un ingrediente per riga con la quantità davanti (i numeri senza unità sono ml, le frazioni once), poi una riga con bicchiere, ghiaccio, tecnica e decorazione separati da virgole. Lascia una riga vuota tra un drink e l\'altro. Se la lista ha solo nomi (uno per riga) le ricette nascono incomplete, da completare dopo.</p>'+
-      '<label for="imp-cat">Sezione delle ricette</label><select id="imp-cat">'+catOptions(I.cat)+'</select>'+
+    var I=S.imp,auto=I.tipo==="auto"?impTipo(I.txt):null,tipo=I.tipo==="auto"?auto.tipo:I.tipo;
+    var h='<h3>Carica liste, ricette o lezioni</h3><p>Incolla un testo o scegli un file: capisco da solo se è una lista di drink o una lezione/corso e ti dico dove lo metto, prima di aggiungere.</p>'+
+      '<p class="hint"><b>Drink:</b> per ognuno il nome, poi un ingrediente per riga con la quantità davanti (i numeri senza unità sono ml, le frazioni once), poi una riga con bicchiere, ghiaccio, tecnica e decorazione separati da virgole. Riga vuota tra un drink e l\'altro. Se la lista ha solo nomi le ricette nascono incomplete. <b>Lezioni:</b> la prima riga è il titolo; le righe brevi seguite da testo diventano titoli di paragrafo e le righe con trattino o numero diventano elenchi.</p>'+
+      '<label for="imp-tipo">Cosa sto caricando</label><select id="imp-tipo"><option value="auto"'+(I.tipo==="auto"?' selected':'')+'>Decidi tu</option><option value="ricette"'+(I.tipo==="ricette"?' selected':'')+'>Una lista di drink o ricette</option><option value="lezione"'+(I.tipo==="lezione"?' selected':'')+'>Una lezione o un corso</option></select>'+
+      (tipo!=="lezione"?'<label for="imp-cat">Sezione delle ricette</label><select id="imp-cat">'+catOptions(I.cat)+'</select>':'')+
       '<label for="imp-file">Scegli un file di testo</label><input id="imp-file" type="file" accept=".txt,.md,.csv,text/plain">'+
-      '<label for="imp-txt">Oppure incolla qui la lista</label><textarea id="imp-txt" rows="10" autocapitalize="none">'+esc(I.txt)+'</textarea>'+
-      '<div class="actions"><button class="btn pri" data-ui="impprev">Controlla la lista</button><button class="btn" data-ui="impclear">Svuota</button></div>';
+      '<label for="imp-txt">Oppure incolla qui il testo</label><textarea id="imp-txt" rows="10" autocapitalize="none">'+esc(I.txt)+'</textarea>'+
+      '<div class="actions"><button class="btn pri" data-ui="impprev">Controlla</button><button class="btn" data-ui="impclear">Svuota</button></div>';
     if(I.prev){
-      var P=impParse(I.txt,I.cat);
+      if(auto&&I.txt.trim())h+='<p class="hint">Ho capito che è '+(auto.tipo==="lezione"?'una lezione o un corso':'una lista di drink')+' ('+esc(auto.perche)+'). Se non è così, cambia «Cosa sto caricando».</p>';
+      if(tipo==="lezione"){
+        var Z=impLez(I.txt);
+        if(!Z)h+='<p class="hint">Non ho trovato testo da aggiungere.</p>';
+        else h+='<p><b>La aggiungo a Libri e corsi, in «Corsi e lezioni».</b></p><div class="list"><div class="row"><span class="rn">'+esc(Z.titolo)+'<div class="rs">'+esc([Z.sezioni.length+" blocchi",Z.nt?Z.nt+" titoli di paragrafo":"nessun titolo di paragrafo",Z.nb?Z.nb+" punti elenco":"",Z.sommario?"con riassunto in alto":"",Z.doppia?"stesso titolo di una lezione già presente":""].filter(Boolean).join(" · "))+'</div></span></div></div>'+
+          '<div class="actions"><button class="btn pri" data-ui="impaddl">Aggiungi ai corsi</button></div>';
+      }else{
+        var P=impParse(I.txt,I.cat);
       if(!P.list.length)h+='<p class="hint">Non ho trovato ricette in questo testo.</p>';
       else{
         h+='<p><b>'+P.list.length+' ricette da aggiungere</b>'+(P.nuovi.length?'. Bicchieri nuovi che creo: '+esc(P.nuovi.join(", ")):'')+(P.warn?'. '+P.warn+' quantità senza unità sotto 5: restano come scritte, da controllare':'')+'.</p><div class="list">'+
@@ -2043,8 +2093,24 @@ body>*:not(#printroot){display:none!important}
           return '<div class="row"><span class="rn">'+esc(r.nome)+'<div class="rs">'+esc(b.join(" · "))+'</div></span></div>';
         }).join("")+'</div><div class="actions"><button class="btn pri" data-ui="impadd">Aggiungi '+P.list.length+' ricette</button></div>';
       }
+      }
     }
     return h;
+  }
+  function impAddL(){
+    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.",1);return}
+    var Z=impLez(S.imp.txt);
+    if(!Z){flash("Non ho trovato testo da aggiungere.",1);return}
+    S.busy=true;S.msg="";S.formErr="";var nid="";
+    applyOp(function(d){
+      d.lezioni=d.lezioni||{};
+      var id=slug(Z.titolo),base=id,n=2;while(d.lezioni[id]){id=base+"-"+n;n++}
+      var mx=0;Object.keys(d.lezioni).forEach(function(k){var o=+(d.lezioni[k]||{}).ordine||99;if(o>mx)mx=o});
+      var rec={titolo:Z.titolo,sezioni:Z.sezioni,ordine:mx+1};if(Z.sommario)rec.sommario=Z.sommario;
+      d.lezioni[id]=rec;nid=id;
+    },"Lezione aggiunta dal sito: "+Z.titolo).then(function(){
+      S.busy=false;S.imp.txt="";S.imp.prev=false;go("lezione-"+nid);
+    },function(e){S.busy=false;flash(saveMsg(e),1)});
   }
   function impAdd(){
     if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.",1);return}
@@ -2183,6 +2249,7 @@ body>*:not(#printroot){display:none!important}
     else if(a==="impprev"){var ti=$("imp-txt");if(ti)S.imp.txt=ti.value;S.imp.prev=true;S.msg="";S.formErr="";render()}
     else if(a==="impclear"){S.imp.txt="";S.imp.prev=false;render()}
     else if(a==="impadd"){if(!S.busy)impAdd()}
+    else if(a==="impaddl"){if(!S.busy)impAddL()}
     else if(a==="pdf")doPdf();
     else if(a==="gsave"){var gi=b.getAttribute("data-id"),gd1=glassData(($("gn-"+gi)||{}).value,($("gc-"+gi)||{}).value);if(!gd1){flash("Il nome non può essere vuoto.",1);return}glassWrite(gi,gd1,"Bicchiere salvato.")}
     else if(a==="gdel"){var gi2=b.getAttribute("data-id"),us=(S.ricette||[]).filter(function(x){return x.bicchiere===gi2}).length;
