@@ -10,7 +10,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=4">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Ricettario Repub</title>
+<title>Ricettario Thomas Fonti</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -153,13 +153,17 @@ body.lg-l .wrap{max-width:980px}
 details.issue summary{cursor:pointer}
 input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:8px}
 .sr-nn{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg)}
+.gear{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:var(--fg)}
+.gear.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.bar .gear{margin-left:auto}
+.bar .gear+.rf{margin-left:0}
 </style>
 </head>
 <body>
 
 <div class="wrap">
   <header class="top">
-    <h1>Ricettario Repub</h1>
+    <h1>Ricettario Thomas Fonti</h1>
     <div class="bar" id="bar"></div>
     <div class="search"><input id="q" type="search" placeholder="Cerca ricetta o ingrediente" autocomplete="off" aria-label="Cerca"></div>
   </header>
@@ -1865,8 +1869,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function renderBar(){
     var b=$("bar");if(!b)return;
     var rf='<button class="rf" data-ui="refresh" aria-label="Aggiorna">&#8635;</button>';
-    if(S.role==="boss"&&S.canEdit)b.innerHTML='<button class="btn pri" data-ui="nuova">+ Nuova ricetta</button><a class="btn" href="#impostazioni" style="text-decoration:none">Impostazioni</a>'+rf+'<button class="lo" data-ui="logout">esci</button>';
-    else if(S.role==="boss")b.innerHTML='<span class="st">Da collegare</span><a class="btn pri" href="#impostazioni" style="text-decoration:none">Impostazioni</a>'+rf+'<button class="lo" data-ui="logout">esci</button>';
+    if(S.role==="boss"&&S.canEdit)b.innerHTML='<button class="btn pri" data-ui="nuova">+ Nuova ricetta</button><a class="rf gear" href="#impostazioni" aria-label="Impostazioni" title="Impostazioni"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>'+rf;
+    else if(S.role==="boss")b.innerHTML='<span class="st">Da collegare</span><a class="rf gear pri" href="#impostazioni" aria-label="Impostazioni" title="Impostazioni"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>'+rf;
     else if(S.role==="staff")b.innerHTML='<span class="st">Sola lettura</span>'+rf+'<button class="lo" data-ui="logout">esci</button>';
     else b.innerHTML="";
     if(S.role&&S.copia!=null)b.innerHTML+='<span class="st off">Senza rete: ricette salvate sul telefono'+dataCopia()+'. Per salvare modifiche serve la rete.</span>';
@@ -1928,16 +1932,11 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       var bks='<button class="back" data-back="1"><b>←</b> Indietro</button>';
       if(S.role!=="boss")return '<div class="d panel">'+bks+'<h2>Sicurezza e accesso</h2><p>Solo il capo può vedere questa pagina.</p></div>';
       var sm=(S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+(S.msg?'<div class="okmsg">'+esc(S.msg)+'</div>':'');
-      return '<div class="d panel form">'+bks+'<h2>Sicurezza e accesso</h2>'+sm+'<p class="sub">Qui gestisci il collegamento a GitHub (serve per salvare le modifiche) e le password dell\'app.</p>'+
+      return '<div class="d panel form">'+bks+'<h2>Sicurezza e accesso</h2>'+sm+'<p class="sub">Qui gestisci il collegamento a GitHub (serve per salvare le modifiche) .</p>'+
         '<h3>Collegamento a GitHub</h3><p>'+(S.tok?'Attivo: puoi modificare le ricette dall\'app.':'Manca. Serve una sola volta per poter salvare le modifiche.')+'</p>'+
         '<label for="tk">Token GitHub</label><input id="tk" type="password" autocomplete="off" autocapitalize="none">'+
         '<label for="tkpw">Password capo (per proteggere il token)</label><input id="tkpw" type="password" autocomplete="current-password" autocapitalize="none">'+
-        '<div class="actions"><button class="btn pri" data-ui="savetok">Salva collegamento</button></div>'+
-        '<h3>Password capo</h3><label for="pb1">Nuova password (almeno 6 caratteri)</label><input id="pb1" type="password" autocomplete="new-password" autocapitalize="none">'+
-        '<label for="pb2">Ripeti la nuova password</label><input id="pb2" type="password" autocomplete="new-password" autocapitalize="none">'+
-        '<div class="actions"><button class="btn pri" data-ui="chboss">Cambia password capo</button></div>'+
-        '<h3>Password dipendenti</h3><label for="ps1">Nuova password (almeno 4 caratteri)</label><input id="ps1" type="text" autocomplete="off" autocapitalize="none">'+
-        '<div class="actions"><button class="btn pri" data-ui="chstaff">Cambia password dipendenti</button></div>'+'</div>';
+        '<div class="actions"><button class="btn pri" data-ui="savetok">Salva collegamento</button></div></div>';
     }
     if(S.panel==="impostazioni"){
       if(S.role!=="boss")return '<div class="d panel"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>Impostazioni</h2><p>Solo il capo può cambiare le impostazioni.</p></div>';
@@ -2297,8 +2296,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
      Impostazioni a pagine (20 ottobre): Colori, Layout, Gestione, Strumenti, Sicurezza.
      Le scelte stanno in impostazioni/aspetto, impostazioni/liste, impostazioni/preferiti, impostazioni/simili.
      =================================================================== */
-  var PANX=["colori","layout","gestione","strumenti","tecniche","liste","cronologia","sostituisci"];
-  var PANBACK={colori:"impostazioni",layout:"impostazioni",gestione:"impostazioni",strumenti:"impostazioni",sicurezza:"impostazioni",bicchieri:"gestione",diluizioni:"gestione",tecniche:"gestione",liste:"gestione",ordine:"layout",cronologia:"strumenti",sostituisci:"strumenti"};
+  var PANX=["account","colori","layout","gestione","strumenti","tecniche","liste","cronologia","sostituisci"];
+  var PANBACK={account:"impostazioni",colori:"impostazioni",layout:"impostazioni",gestione:"impostazioni",strumenti:"impostazioni",sicurezza:"impostazioni",bicchieri:"gestione",diluizioni:"gestione",tecniche:"gestione",liste:"gestione",ordine:"layout",cronologia:"strumenti",sostituisci:"strumenti"};
   function panBack(){return S.panel&&PANBACK[S.panel]||null}
   function panEnter(h){
     S.msg="";S.formErr="";
@@ -2487,7 +2486,18 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       hubCard("layout","Layout","Dimensione del testo, spazi, larghezza e ordine dei menu in alto.")+
       hubCard("gestione","Gestione","Bicchieri, tecniche, ghiaccio, decorazioni e diluizioni.")+
       hubCard("strumenti","Strumenti","Copia di sicurezza, cronologia e annulla, cambia un ingrediente ovunque, carica liste, PDF.")+
-      hubCard("sicurezza","Sicurezza e accesso",S.tok?"Collegamento a GitHub attivo. Token e password.":"Il collegamento a GitHub manca: senza non puoi salvare le modifiche.")+'</div>';
+      hubCard("account","Account","Esci, cambia la password del capo e quella dei dipendenti.")+
+      hubCard("sicurezza","Collegamento a GitHub",S.tok?"Collegamento a GitHub attivo. Token e password.":"Il collegamento a GitHub manca: senza non puoi salvare le modifiche.")+'</div>';
+  }
+  function panAccount(){
+    var g=bossOnly("Account");if(g)return g;
+    return '<div class="d panel form">'+panHead("Account")+
+      '<h3>Esci</h3><p>Esci da questo dispositivo: per rientrare serve la password.</p><div class="actions" style="margin-top:6px"><button class="btn" data-ui="logout">Esci dall\'account</button></div>'+
+      '<h3>Password capo</h3><label for="pb1">Nuova password (almeno 6 caratteri)</label><input id="pb1" type="password" autocomplete="new-password" autocapitalize="none">'+
+      '<label for="pb2">Ripeti la nuova password</label><input id="pb2" type="password" autocomplete="new-password" autocapitalize="none">'+
+      '<div class="actions"><button class="btn pri" data-ui="chboss">Cambia password capo</button></div>'+
+      '<h3>Password dipendenti</h3><label for="ps1">Nuova password (almeno 4 caratteri)</label><input id="ps1" type="text" autocomplete="off" autocapitalize="none">'+
+      '<div class="actions"><button class="btn pri" data-ui="chstaff">Cambia password dipendenti</button></div></div>';
   }
   function panGestione(){
     var g=bossOnly("Gestione");if(g)return g;
@@ -2513,6 +2523,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     switch(S.panel){
       case "impostazioni":return panHub();
       case "colori":return panColori();
+      case "account":return panAccount();
       case "layout":return panLayout();
       case "gestione":return panGestione();
       case "strumenti":return panStrumenti();
