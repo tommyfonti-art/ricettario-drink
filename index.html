@@ -504,7 +504,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return '<ul class="ing"><li><span class="q">'+fmt(Math.round(x*10)/10)+' %</span><span class="t"><b>Diluizione</b> · '+fmt(Math.round((d-p)*10)/10)+' gr d\'acqua su '+fmt(p)+' gr di ingredienti</span></li></ul>';
   }
   function doDilSalva(){
-    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.",1);return}
+    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.",1);return}
     var F=S.dilForm||dilFormNow(),val={},bad=null;
     TECNICHE.forEach(function(t){
       var s=String(F[t]==null?"":F[t]).replace(",",".").trim();
@@ -574,6 +574,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
            ["senza","Ingredienti senza quantità","Righe di ingredienti scritte senza la quantità davanti."],
            ["nome","Stesso nome","Spesso sono varianti di edizioni diverse: cancella solo se sono davvero uguali."]];
     var h='<div class="list">'+(S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'');
+    if(S.canEdit&&S.db)h+='<div class="note" style="margin-bottom:12px"><b>Controllo rapido</b><p style="margin:4px 0 8px">Un drink alla volta: sistemi quello che manca e passi subito al prossimo.</p><a class="btn pri" href="#rapido" style="text-decoration:none">Apri il controllo rapido</a></div>';
     T.forEach(function(t){
       if(t[0]==="nome"){
         if(!ng.length)return;
@@ -941,7 +942,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   }
   function collSave(){
     var r=cur(),N=S.collNew;if(!r||!N)return;
-    if(!S.db){N.err="Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.";render();return}
+    if(!S.db){N.err="Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.";render();return}
     var nome=(N.nome||"").trim();if(!nome){N.err="Scrivi il nome della preparazione.";render();return}
     var ing=(N.ing||"").split("\n").map(function(x){return x.trim()}).filter(Boolean).map(function(x){return impIng(x).s});
     var ck=collKey(split((r.ing||[])[N.i]||"",1).t);if(!ck){N.err="Non riesco a leggere l'ingrediente.";render();return}
@@ -1208,7 +1209,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
 
   /* ---- scrittura (solo chi può modificare) ---- */
   function clean(o){var d={};Object.keys(o).forEach(function(k){var v=o[k];if(k==="id")return;if(v===""||v==null||(Array.isArray(v)&&!v.length))return;d[k]=v});return d}
-  function saveMsg(e){var st=e&&e.status;if(st===401||st===403)return "Il collegamento a GitHub non è valido o è scaduto. Rifallo da Impostazioni → Sicurezza e accesso.";if(st===404)return "Il collegamento a GitHub non ha i permessi sul ricettario. Rifallo da Impostazioni → Sicurezza e accesso.";if(!navigator.onLine||(e&&/fetch|network/i.test(e.message||"")))return "Manca la connessione: la modifica non è stata salvata. Riprova.";return "Non sono riuscito a salvare ("+((e&&e.message)||"errore")+"). Riprova."}
+  function saveMsg(e){var st=e&&e.status;if(st===401||st===403)return "Il collegamento a GitHub non è valido o è scaduto. Rifallo da Impostazioni → Collegamento a GitHub.";if(st===404)return "Il collegamento a GitHub non ha i permessi sul ricettario. Rifallo da Impostazioni → Collegamento a GitHub.";if(!navigator.onLine||(e&&/fetch|network/i.test(e.message||"")))return "Manca la connessione: la modifica non è stata salvata. Riprova.";return "Non sono riuscito a salvare ("+((e&&e.message)||"errore")+"). Riprova."}
   /* salva solo i campi cambiati, applicati sull'ultima versione presa da GitHub: se nel frattempo
      un altro campo della stessa ricetta è cambiato (su un altro dispositivo o da Claude), resta com'è */
   function write(r,next,after){
@@ -1883,7 +1884,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       var gm=(S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+(S.msg?'<div class="okmsg">'+esc(S.msg)+'</div>':'');
       var gl2=(S.bicchieri||[]).slice().sort(byName);
       return '<div class="d panel form">'+back+'<h2>Bicchieri</h2>'+gm+
-        (S.db?'':'<p>Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.</p>')+
+        (S.db?'':'<p>Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.</p>')+
         gl2.map(function(g){var used=(S.ricette||[]).filter(function(x){return x.bicchiere===g.id}).length;
           return '<div class="issue"><label for="gn-'+esc(g.id)+'">Nome</label><input id="gn-'+esc(g.id)+'" value="'+esc(g.nome)+'">'+
             '<label for="gc-'+esc(g.id)+'">Capienza (ml)</label><input id="gc-'+esc(g.id)+'" type="number" min="0" step="any" inputmode="decimal" value="'+(g.capienza?esc(g.capienza):"")+'">'+
@@ -1899,7 +1900,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       var ord=S.ord||orderIds(),nm={},dn0={},nb=S.nomi||{};TABS.forEach(function(t){dn0[t[0]]=t[1];nm[t[0]]=(nb[t[0]]||'').trim()||t[1]});
       return '<div class="d panel form">'+bko+'<h2>Menu in alto</h2>'+om+
         '<p>Qui decidi quali menu ci sono in alto, in che ordine e come si chiamano. Sposta ogni voce in su o in giù, cambia il nome se vuoi, poi premi «Salva ordine». Le sezioni create da te si possono anche eliminare. Vale per tutti.</p>'+
-        (S.db?'':'<p>Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.</p>')+
+        (S.db?'':'<p>Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.</p>')+
         ord.map(function(id,i){var mine=sezById(id),sure=S.szSure===id;return '<div class="issue"><p style="margin:0 0 6px"><b>'+(i+1)+'.</b> '+esc(nm[id])+(mine?' <span class="chip">'+(mine.tipo==="menu"?'menu':'ricette')+'</span>':'')+'</p><label for="on-'+esc(id)+'">Nome del menu</label><input id="on-'+esc(id)+'" value="'+esc(nb[id]||dn0[id])+'" placeholder="'+esc(dn0[id])+'"><div class="ia">'+
           '<button class="btn" data-ui="osu" data-i="'+i+'" aria-label="Sposta '+esc(nm[id])+' in su"'+(i===0?' disabled':'')+'>Su</button>'+
           '<button class="btn" data-ui="ogiu" data-i="'+i+'" aria-label="Sposta '+esc(nm[id])+' in giù"'+(i===ord.length-1?' disabled':'')+'>Giù</button>'+
@@ -1918,7 +1919,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       var mis=S.dilMis||{p:"",d:""};
       return '<div class="d panel form">'+bkd+'<h2>Diluizione del ghiaccio</h2>'+dmsg+
         '<p>Quanta acqua aggiunge il ghiaccio, in percentuale sul volume degli ingredienti. Serve per i gradi del drink finito, nella scheda dei cocktail e nel calcolatore.</p>'+
-        (S.db?'':'<p>Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.</p>')+
+        (S.db?'':'<p>Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.</p>')+
         TECNICHE.map(function(t,i){return '<label for="dil-'+i+'">'+esc(t)+' (%)</label><input id="dil-'+i+'" type="number" min="0" max="300" step="any" inputmode="decimal" placeholder="vuoto: la scrivi nella scheda" value="'+esc(DF[t])+'">'}).join("")+
         '<p class="hint">Valori di partenza: shake 63 e stir 50, misurati da Dave Arnold (whiskey sour shakerato e Manhattan mescolato). Throwing 20 e build 10 sono quelli di prima, da tarare. Blend e flash blend dipendono dal ghiaccio che metti: lasciali vuoti e scrivili nella scheda.</p>'+
         '<div class="actions"><button class="btn pri" data-ui="dsalva">Salva diluizioni</button><button class="btn" data-ui="dreset">Valori di partenza</button></div>'+
@@ -2126,7 +2127,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return h;
   }
   function impAddL(){
-    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.",1);return}
+    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.",1);return}
     var Z=impLez(S.imp.txt);
     if(!Z){flash("Non ho trovato testo da aggiungere.",1);return}
     S.busy=true;S.msg="";S.formErr="";var nid="";
@@ -2141,7 +2142,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(e){S.busy=false;flash(saveMsg(e),1)});
   }
   function impAdd(){
-    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.",1);return}
+    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.",1);return}
     var P=impParse(S.imp.txt,S.imp.cat);
     if(!P.list.length){flash("Non ho trovato ricette nella lista.",1);return}
     S.busy=true;S.msg="";S.formErr="";
@@ -2201,7 +2202,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     rewrap(p,S.dkRaw).then(function(r){return commit(function(file){var f=Object.assign({},file);f.staff=r.w;return Promise.resolve(f)},"Password dipendenti cambiata")}).then(function(nf){S.file=nf;S.lastSave=Date.now();S.busy=false;flash("Password dipendenti cambiata. Comunicala ai dipendenti.")},function(e){S.busy=false;flash(saveMsg(e),1)});
   }
   function glassWrite(id,d,msg){
-    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.",1);return}
+    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.",1);return}
     var dc=S.db.doc("bicchieri/"+id);
     S.busy=true;
     (d===null?dc.delete():dc.set(d)).then(function(){S.busy=false;flash(msg)},function(e){S.busy=false;flash(saveMsg(e),1)});
@@ -2269,7 +2270,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     else if(a==="chstaff")doChStaff();
     else if(a==="backup")doBackup();
     else if(a==="osu"||a==="ogiu"){var oi2=parseInt(b.getAttribute("data-i"),10),oj=a==="osu"?oi2-1:oi2+1;S.ord=S.ord||orderIds();if(oj>=0&&oj<S.ord.length){var ot=S.ord[oi2];S.ord[oi2]=S.ord[oj];S.ord[oj]=ot}S.msg="";S.formErr="";render()}
-    else if(a==="osalva"){if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.",1);return}S.busy=true;S.db.doc("impostazioni/ordine").set({lista:S.ord||orderIds(),nomi:nomiDiff()}).then(function(){S.busy=false;flash("Ordine salvato.")},function(e){S.busy=false;flash(saveMsg(e),1)})}
+    else if(a==="osalva"){if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.",1);return}S.busy=true;S.db.doc("impostazioni/ordine").set({lista:S.ord||orderIds(),nomi:nomiDiff()}).then(function(){S.busy=false;flash("Ordine salvato.")},function(e){S.busy=false;flash(saveMsg(e),1)})}
     else if(a==="oreset"){S.nomi={};S.ord=TABS.map(function(t){return t[0]});S.msg="";S.formErr="";render()}
     else if(a==="dsalva")doDilSalva();
     else if(a==="dreset"){var dd={};TECNICHE.forEach(function(tt){dd[tt]=DIL_DEF[tt]!=null?String(DIL_DEF[tt]):""});S.dilForm=dd;S.msg="Valori di partenza rimessi: premi «Salva diluizioni» per tenerli.";S.formErr="";render()}
@@ -2296,8 +2297,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
      Impostazioni a pagine (20 ottobre): Colori, Layout, Gestione, Strumenti, Sicurezza.
      Le scelte stanno in impostazioni/aspetto, impostazioni/liste, impostazioni/preferiti, impostazioni/simili.
      =================================================================== */
-  var PANX=["account","colori","layout","gestione","strumenti","tecniche","liste","cronologia","sostituisci"];
-  var PANBACK={account:"impostazioni",colori:"impostazioni",layout:"impostazioni",gestione:"impostazioni",strumenti:"impostazioni",sicurezza:"impostazioni",bicchieri:"gestione",diluizioni:"gestione",tecniche:"gestione",liste:"gestione",ordine:"layout",cronologia:"strumenti",sostituisci:"strumenti"};
+  var PANX=["rapido","account","colori","layout","gestione","strumenti","tecniche","liste","cronologia","sostituisci"];
+  var PANBACK={rapido:"controllare",account:"impostazioni",colori:"impostazioni",layout:"impostazioni",gestione:"impostazioni",strumenti:"impostazioni",sicurezza:"impostazioni",bicchieri:"gestione",diluizioni:"gestione",tecniche:"gestione",liste:"gestione",ordine:"layout",cronologia:"strumenti",sostituisci:"strumenti"};
   function panBack(){return S.panel&&PANBACK[S.panel]||null}
   function panEnter(h){
     S.msg="";S.formErr="";
@@ -2318,7 +2319,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return S.db.doc("impostazioni/"+id).set(o);
   }
   function impSave(id,patch,msg){
-    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.",1);return Promise.resolve()}
+    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.",1);return Promise.resolve()}
     S.busy=true;
     return impPatch(id,patch).then(function(){S.busy=false;if(msg)flash(msg)},function(e){S.busy=false;flash(saveMsg(e),1)});
   }
@@ -2330,7 +2331,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return '<div class="d panel"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>'+esc(titolo)+'</h2><p>Solo il capo può cambiare le impostazioni.</p></div>';
   }
   function hubCard(href,titolo,testo){return '<a class="lezcard" href="#'+href+'"><strong>'+esc(titolo)+'</strong><span>'+esc(testo)+'</span></a>'}
-  function noDb(){return S.db?'':'<p class="err">Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.</p>'}
+  function noDb(){return S.db?'':'<p class="err">Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.</p>'}
 
   /* ---- colori e layout ---- */
   var COL_DEF={bg:"#F4F1EA",surface:"#FFFDF8",fg:"#1C2420",accent:"#1F5C46",accfg:"#FFFFFF",line:"#DDD8CC"};
@@ -2456,7 +2457,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       listBlock("guarn","Decorazioni","Le guarnizioni che usi più spesso.","Nuova decorazione","Per esempio: Fetta di arancia")+'</div>';
   }
   function listaClick(act,b){
-    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.",1);return}
+    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.",1);return}
     var k=b.getAttribute("data-k"),arr=listCur(k),patch={};
     var nomi={tec:"tecnica",tecHm:"tecnica",ghiaccio:"ghiaccio",guarn:"decorazione"};
     if(act==="add"){
@@ -2524,6 +2525,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       case "impostazioni":return panHub();
       case "colori":return panColori();
       case "account":return panAccount();
+      case "rapido":return panRapido();
       case "layout":return panLayout();
       case "gestione":return panGestione();
       case "strumenti":return panStrumenti();
@@ -2538,7 +2540,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   /* ---- ripristino da file e cronologia ---- */
   function doRipristina(){
     var fi=$("rip-file"),fl=fi&&fi.files&&fi.files[0];
-    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.",1);return}
+    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.",1);return}
     if(!fl){flash("Scegli prima il file di copia di sicurezza.",1);return}
     var fr=new FileReader();
     fr.onerror=function(){flash("Non riesco a leggere il file.",1)};
@@ -2650,7 +2652,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   }
   function sostRun(){
     var Q=S.sost;if(!Q)return;
-    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Sicurezza e accesso.",1);return}
+    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.",1);return}
     var ds=sostNames(Q),a=String(Q.a||"").trim();
     if(!ds.length||!a)return;
     var done=0;
@@ -3011,6 +3013,131 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     try{rec.start()}catch(x){DET.rec=null;btn.textContent="Detta a voce"}
   }
 
+
+  /* ---- controllo rapido: un drink alla volta ---- */
+  var RAP_T=[["campi","Campi da compilare (bicchiere, ghiaccio, tecnica, decorazione)","campi"],["senza","Ingredienti senza quantità","senza"],["num","Numeri da controllare","numeri"],["nota","Note da verificare","nota"]];
+  function rapState(){return S.rap||(S.rap={tipo:"",cat:"",skip:[],cur:"",val:{},vid:""})}
+  function rapQueue(){
+    var R=rapState(),L=(S.issues&&S.issues[R.tipo])||[];
+    return L.filter(function(it){return !R.cat||it.r.cat===R.cat});
+  }
+  function rapItem(){
+    var R=rapState(),Q=rapQueue().filter(function(it){return R.skip.indexOf(it.r.id)<0});
+    if(!Q.length)return null;
+    var f=Q.filter(function(it){return it.r.id===R.cur})[0];
+    return f||Q[0];
+  }
+  function rapNext(id){
+    var R=rapState(),Q=rapQueue().filter(function(it){return R.skip.indexOf(it.r.id)<0&&it.r.id!==id});
+    if(!Q.length)return "";
+    var all=rapQueue(),pos=-1;
+    all.forEach(function(it,i){if(it.r.id===id)pos=i});
+    for(var i=pos+1;i<all.length;i++){if(all[i].r.id!==id&&R.skip.indexOf(all[i].r.id)<0)return all[i].r.id}
+    return Q[0].r.id;
+  }
+  function rapEff(r,k){var R=rapState();return R.vid===r.id&&R.val[k]!==undefined?R.val[k]:(r[k]||"")}
+  function rapChips(k,list,cur){
+    return '<div class="ia" style="margin-top:6px">'+list.slice(0,8).map(function(x){return '<button class="btn'+(norm(x)===norm(cur)?' pri':'')+'" data-x="rp-set" data-k="'+k+'" data-v="'+esc(x)+'">'+esc(x)+'</button>'}).join("")+'</div>';
+  }
+  function rapField(r,k,lab,body){
+    var miss=!String(rapEff(r,k)).trim();
+    return '<div style="margin:12px 0;padding:'+(miss?'8px 10px':'0')+';'+(miss?'border:2px solid #c0392b;border-radius:10px':'')+'"><label for="rp-'+k+'" style="'+(miss?'color:#c0392b;font-weight:700':'')+'">'+lab+(miss?' — manca':'')+'</label>'+body+'</div>';
+  }
+  function panRapido(){
+    var g=bossOnly("Controllo rapido");if(g)return g;
+    var R=rapState(),H=panHead("Controllo rapido");
+    if(!S.db)return '<div class="d panel">'+H+noDb()+'</div>';
+    if(!R.tipo){
+      var S2=S.issues||{};
+      var tip=RAP_T.map(function(t){var n=(S2[t[0]]||[]).length;return '<option value="'+t[0]+'">'+esc(t[1])+' ('+n+')</option>'}).join("");
+      var names=(S.ricette||[]).filter(function(r){return r.cat==="cocktail"||r.cat==="analcolico"}).map(function(r){return '<option value="'+esc(dn(r))+'">'}).join("");
+      return '<div class="d panel form">'+H+'<p class="sub">Scegli cosa controllare. Ti mostro un drink alla volta, con in rosso quello che manca.</p>'+
+        '<label for="rp-tipo">Cosa controllare</label><select id="rp-tipo">'+tip+'</select>'+
+        '<label for="rp-cat">Quali drink</label><select id="rp-cat">'+optH("","Cocktail e analcolici","")+optH("cocktail","Solo cocktail","")+optH("analcolico","Solo analcolici","")+optH("homemade","Solo homemade","")+optH("blend","Solo blend","")+optH("soda","Solo soda","")+optH("infusione","Solo liquori e infusi","")+'</select>'+
+        '<label for="rp-da">Parti da questo drink (facoltativo)</label><input id="rp-da" list="rp-dl" autocomplete="off" placeholder="Scrivi il nome, oppure lascia vuoto"><datalist id="rp-dl">'+names+'</datalist>'+
+        '<div class="actions"><button class="btn pri" data-x="rp-start">Comincia</button></div></div>';
+    }
+    var Qa=rapQueue(),left=Qa.filter(function(it){return R.skip.indexOf(it.r.id)<0}).length,sk=Qa.length-left;
+    var top='<p class="sub" style="margin:0 0 8px"><b>Ne restano '+left+'</b>'+(sk?' · saltati '+sk:'')+' <button class="btn" data-x="rp-stop" style="margin-left:6px">Cambia scelta</button></p>';
+    var it=rapItem();
+    if(!it){
+      return '<div class="d panel form">'+H+top+'<div class="empty"><b>'+(sk?'Hai finito, restano solo i saltati':'Tutto a posto')+'</b>'+(sk?'Puoi riguardarli.':'Non c\'è altro da controllare qui.')+'</div>'+(sk?'<div class="actions"><button class="btn pri" data-x="rp-again">Riguarda i saltati ('+sk+')</button></div>':'')+'</div>';
+    }
+    var r=it.r;
+    if(R.vid!==r.id){R.vid=r.id;R.val={}}
+    R.cur=r.id;
+    var h='<div class="d panel form">'+H+top+'<h3 style="margin-top:4px">'+esc(dn(r))+'</h3><p class="src" style="margin:0 0 8px">'+esc([CATNAME[r.cat],r.fonte,r.gruppo].filter(Boolean).join(" · "))+'</p>';
+    if(R.tipo==="campi"){
+      var gs=(S.bicchieri||[]).slice().sort(function(a,b){return String(a.nome).localeCompare(String(b.nome),"it")});
+      var bv=rapEff(r,"bicchiere"),tv=rapEff(r,"tecnica"),gv=rapEff(r,"ghiaccio"),dv=rapEff(r,"guarn");
+      h+=rapField(r,"bicchiere","Bicchiere",'<select id="rp-bicchiere"><option value="">— scegli —</option>'+gs.map(function(x){return optH(x.id,x.nome||x.id,bv)}).join("")+'</select>');
+      h+=rapField(r,"ghiaccio","Ghiaccio",'<input id="rp-ghiaccio" list="dl-ghi" autocomplete="off" value="'+esc(gv)+'">'+rapChips("ghiaccio",sugg("ghiaccio"),gv));
+      h+=rapField(r,"tecnica","Tecnica",'<select id="rp-tecnica"><option value="">— scegli —</option>'+TECNICHE.map(function(x){return optH(x,x,tv)}).join("")+'</select>');
+      h+=rapField(r,"guarn","Decorazione",'<input id="rp-guarn" list="dl-guarn" autocomplete="off" value="'+esc(dv)+'">'+rapChips("guarn",sugg("guarn"),dv)+'<p class="hint">Se il drink non ha decorazione, premi «Va bene così».</p>');
+      h+=datalistH("dl-ghi","ghiaccio")+datalistH("dl-guarn","guarn");
+      h+='<h4 style="margin:12px 0 4px">Ingredienti</h4><ul class="src" style="margin:0 0 8px;padding-left:18px">'+(r.ing||[]).map(function(x){return '<li>'+esc(x)+'</li>'}).join("")+'</ul>';
+    }else{
+      h+='<div class="err" style="white-space:pre-line">'+esc(it.text)+'</div>';
+      h+='<label for="rp-ing">Ingredienti (uno per riga)</label><textarea id="rp-ing" rows="'+Math.max(4,Math.min(12,(r.ing||[]).length+1))+'">'+esc((R.vid===r.id&&R.val.ing!==undefined?R.val.ing:(r.ing||[]).join("\n")))+'</textarea>';
+      if(R.tipo==="nota")h+='<label for="rp-note">Nota</label><textarea id="rp-note" rows="3">'+esc(R.val.note!==undefined?R.val.note:(r.note||""))+'</textarea>';
+    }
+    h+='<div class="actions" style="margin-top:12px"><button class="btn pri" data-x="rp-save">Salva e vai al prossimo</button><button class="btn" data-x="rp-ok">Va bene così</button><button class="btn" data-x="rp-skip">Salta</button></div></div>';
+    return h;
+  }
+  function rapPatch(r){
+    var R=rapState(),p={};
+    if(R.vid!==r.id)return p;
+    if(R.tipo==="campi"){["bicchiere","ghiaccio","tecnica","guarn"].forEach(function(k){if(R.val[k]!==undefined&&String(R.val[k]).trim()!==String(r[k]||"").trim())p[k]=String(R.val[k]).trim()})}
+    else{
+      if(R.val.ing!==undefined){var ing=String(R.val.ing).split("\n").map(function(x){return x.trim()}).filter(Boolean);if(JSON.stringify(ing)!==JSON.stringify(r.ing||[]))p.ing=ing}
+      if(R.val.note!==undefined&&R.val.note!==(r.note||""))p.note=R.val.note;
+    }
+    return p;
+  }
+  function rapGo(r,patch,okKind){
+    var R=rapState(),nx=Object.assign({},r,patch);
+    if(okKind)nx.ok=(r.ok||[]).concat([okKind]);
+    var nid=rapNext(r.id);
+    if(R.savT&&Date.now()-R.savT<15000)return;
+    R.savT=Date.now();
+    write(r,nx,function(){R.savT=0;R.cur=nid;R.vid="";R.val={};render();window.scrollTo(0,0)});
+  }
+  function rapFull(r){var R=rapState();return ["bicchiere","ghiaccio","tecnica","guarn"].every(function(k){return String(rapEff(r,k)).trim()})}
+  function rapStage(k,v){
+    var it=rapItem();if(!it)return;var r=it.r,R=rapState();
+    if(R.vid!==r.id){R.vid=r.id;R.val={}}
+    R.val[k]=v;
+    setTimeout(function(){
+      if(S.panel!=="rapido")return;
+      if(R.tipo==="campi"&&rapFull(r)){rapGo(r,rapPatch(r),null);return}
+      render();
+    },0);
+  }
+  function rapClick(a,b){
+    var R=rapState(),it,r;
+    if(a==="rp-start"){
+      R.tipo=($("rp-tipo")||{}).value||"campi";R.cat=($("rp-cat")||{}).value||"";R.skip=[];R.val={};R.vid="";R.cur="";
+      if(!R.cat&&R.tipo==="campi")R.cat="";
+      var nm=norm(($("rp-da")||{}).value||"");
+      if(nm){var f=rapQueue().filter(function(x){return norm(dn(x.r))===nm})[0];if(f)R.cur=f.r.id;else{R.tipo="";flash("Il drink «"+($("rp-da")||{}).value+"» non ha niente da controllare qui. Lascia vuoto per partire dall'inizio.",1);return}}
+      render();return;
+    }
+    if(a==="rp-stop"){R.tipo="";R.cur="";R.vid="";R.val={};render();return}
+    if(a==="rp-again"){R.skip=[];render();return}
+    it=rapItem();if(!it)return;r=it.r;
+    if(a==="rp-set"){rapStage(b.getAttribute("data-k"),b.getAttribute("data-v"));return}
+    if(a==="rp-skip"){R.skip.push(r.id);R.cur=rapNext(r.id);R.vid="";R.val={};render();window.scrollTo(0,0);return}
+    if(a==="rp-save"){
+      var p=rapPatch(r);
+      if(!Object.keys(p).length){R.skip.push(r.id);R.cur=rapNext(r.id);R.vid="";R.val={};render();window.scrollTo(0,0);return}
+      rapGo(r,p,null);return;
+    }
+    if(a==="rp-ok"){
+      var kd=RAP_T.filter(function(t){return t[0]===R.tipo})[0][2];
+      rapGo(r,rapPatch(r),kd);return;
+    }
+  }
+
   /* ---- tasti e campi nuovi ---- */
   document.addEventListener("click",function(e){
     var d=e.target.closest&&e.target.closest("[data-detta]");
@@ -3032,6 +3159,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       Q.prev=sostScan(S.ricette,Q);S.msg="";S.formErr="";render();
     }
     else if(a==="sx-run")sostRun();
+    else if(a.indexOf("rp-")===0)rapClick(a,b);
     else if(a==="simi-unisci")simiClick("unisci",b);
     else if(a==="simi-diversi")simiClick("diversi",b);
     else if(a==="fav"){r=cur();if(r)toggleFav(r)}
@@ -3064,6 +3192,11 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(id==="sx-cont"&&S.sost){S.sost.cont=e.target.checked;S.sost.prev=null;var bx2=$("sx-box");if(bx2)bx2.innerHTML="";return}
     if(id==="c-sez"||id==="c-tec"||id==="c-bic"||id==="c-gr"){S.cerca[id.slice(2)]=e.target.value;cercaUpd();return}
     if(id==="c-pref"){S.cerca.pref=e.target.checked;cercaUpd();return}
+    if(S.panel==="rapido"&&id.indexOf("rp-")===0){
+      var rk=id.slice(3);
+      if(rk==="bicchiere"||rk==="ghiaccio"||rk==="tecnica"||rk==="guarn"){rapStage(rk,e.target.value);return}
+      if(rk==="ing"||rk==="note"){var ri=rapItem(),RR=rapState();if(ri){if(RR.vid!==ri.r.id){RR.vid=ri.r.id;RR.val={}}RR.val[rk]=e.target.value}return}
+    }
     if(id==="fotoin"){var fl=e.target.files&&e.target.files[0];e.target.value="";if(fl)fotoSave(fl);return}
     if(e.target.className&&String(e.target.className).indexOf("sp-ck")>=0&&S.open&&S.open.k==="s"){
       var sr=serataModel(S.open.id);if(!sr)return;
