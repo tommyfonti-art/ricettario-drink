@@ -151,6 +151,15 @@ body.lg-s .wrap{max-width:560px}
 body.lg-l .wrap{max-width:980px}
 .d h2.grp{font-size:.78rem;line-height:1.5;margin:26px 0 6px;text-wrap:initial}
 details.issue summary{cursor:pointer}
+/* riquadro compatto della diluizione nella scheda del drink */
+details.dilbox{margin-top:12px;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 6px 6px 0;max-width:65ch;padding:0 12px}
+details.dilbox summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 0;min-height:44px}
+details.dilbox summary::-webkit-details-marker{display:none}
+details.dilbox summary::after{content:"";margin-left:auto;flex:none;width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
+details.dilbox[open] summary::after{transform:rotate(225deg) translateY(-2px)}
+details.dilbox .dsep{opacity:.5}
+details.dilbox>div:not(.form){padding-bottom:4px}
+details.dilbox .form{padding-bottom:10px}
 input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:8px}
 .sr-nn{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg)}
 .gear{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:var(--fg)}
@@ -489,6 +498,14 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
      Il capo li cambia in Impostazioni → Diluizione del ghiaccio (salvati in impostazioni/diluizioni, campo "valori"). */
   var DIL_DEF={"Shake":63,"Shake double strain":63,"Stir and strain":50,"Throwing":20,"Build":10};
   function dilSaved(){return ((S.impostazioni||[]).filter(function(x){return x.id==="diluizioni"})[0]||{}).valori||null}
+  /* interruttore «Mostra la diluizione nel drink» (Impostazioni → Diluizione del ghiaccio): acceso se non è mai stato toccato */
+  function dilMostra(){var d=(S.impostazioni||[]).filter(function(x){return x.id==="diluizioni"})[0]||{};return d.mostra!==false}
+  function doDilMostra(){
+    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.",1);return}
+    var nuovo=!dilMostra(),o={mostra:nuovo},sv=dilSaved();if(sv)o.valori=sv;
+    S.busy=true;flash("Salvo…");
+    S.db.doc("impostazioni/diluizioni").set(o).then(function(){S.busy=false;flash(nuovo?"La diluizione si vede di nuovo nella scheda dei drink.":"La diluizione è nascosta nella scheda dei drink.")},function(e){S.busy=false;flash(saveMsg(e),1)});
+  }
   function dilTec(t){
     if(!t)return null;
     var sv=dilSaved();
@@ -515,7 +532,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     });
     if(bad){flash("Controlla il valore di «"+bad+"»: deve essere un numero tra 0 e 300.",1);return}
     S.busy=true;flash("Salvo…");
-    S.db.doc("impostazioni/diluizioni").set({valori:val}).then(function(){S.busy=false;S.dilForm=null;flash("Diluizioni salvate. Valgono subito in tutte le schede.")},function(e){S.busy=false;flash(saveMsg(e),1)});
+    S.db.doc("impostazioni/diluizioni").set({valori:val,mostra:dilMostra()}).then(function(){S.busy=false;S.dilForm=null;flash("Diluizioni salvate. Valgono subito in tutte le schede.")},function(e){S.busy=false;flash(saveMsg(e),1)});
   }
   var DIL={id:null,v:""};
   function prepOf(name){
@@ -559,9 +576,15 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(r.cat!=="cocktail"&&r.cat!=="analcolico")return "";
     if(!(r.ing||[]).length)return "";
     if(DIL.id!==r.id){DIL.id=r.id;DIL.v=""}
+    if(!dilMostra())return "";
     var def=dilTec(r.tecnica);
-    return '<div class="note" style="margin-top:12px"><div id="abvres">'+abvRes(r)+'</div>'+
-      '<div class="form"><label for="dilin" style="margin-top:10px">Diluizione del ghiaccio (%)</label><input id="dilin" type="number" min="0" max="300" step="any" inputmode="decimal" placeholder="'+(def!=null?esc(fmt(def)):'es. 50')+'" value="'+esc(DIL.v)+'"><p class="hint">'+(def!=null?'Se la lasci vuota uso quella della tecnica ('+esc(r.tecnica)+': '+esc(fmt(def))+' %).':'Scrivi qui la diluizione per avere i gradi finali.')+' I valori per ogni tecnica si cambiano in Impostazioni → Diluizione del ghiaccio.</p></div></div>';
+    return '<details class="dilbox"><summary>'+dilSummary(r)+'</summary><div id="abvres">'+abvRes(r)+'</div>'+
+      '<div class="form"><label for="dilin" style="margin-top:10px">Diluizione del ghiaccio (%)</label><input id="dilin" type="number" min="0" max="300" step="any" inputmode="decimal" placeholder="'+(def!=null?esc(fmt(def)):'es. 50')+'" value="'+esc(DIL.v)+'"><p class="hint">'+(def!=null?'Se la lasci vuota uso quella della tecnica ('+esc(r.tecnica)+': '+esc(fmt(def))+' %).':'Scrivi qui la diluizione per avere i gradi finali.')+' I valori per ogni tecnica si cambiano in Impostazioni → Diluizione del ghiaccio.</p></div></details>';
+  }
+  /* riga chiusa del riquadro: solo «Diluizione», percentuale e tecnica; la freccia la disegna lo stile */
+  function dilSummary(r){
+    var d=DIL.v!==""?cnum(DIL.v):dilTec(r.tecnica),p=(d==null||isNaN(d))?"—":fmt(d)+" %";
+    return '<b>Diluizione</b><span class="dsep">·</span><span>'+esc(p)+'</span><span class="dsep">·</span><span class="dtec">'+esc(r.tecnica||"—")+'</span>';
   }
   function renderControllare(){
     var secs=S.issues,ng=S.dupg.filter(function(g){return g.tipo==="nome"}),tot=Object.keys(secs).reduce(function(t,k){return t+(k==="nome"?0:secs[k].length)},0)+ng.length+(S.simili||[]).length;
@@ -1723,7 +1746,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },180);
   });
   $("main").addEventListener("input",function(e){
-    if(e.target.id==="dilin"){DIL.v=e.target.value;var rr=cur(),ar=$("abvres");if(rr&&ar)ar.innerHTML=abvRes(rr);return}
+    if(e.target.id==="dilin"){DIL.v=e.target.value;var rr=cur(),ar=$("abvres");if(rr&&ar){ar.innerHTML=abvRes(rr);var sm=e.target.closest("details.dilbox");sm=sm&&sm.querySelector("summary");if(sm)sm.innerHTML=dilSummary(rr)}return}
     if(e.target.id==="iq"){IUI.q=e.target.value;var il=$("ilist");if(il)il.innerHTML=ingListHtml();return}
   });
   $("main").addEventListener("input",function(e){
@@ -1918,6 +1941,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       var DF=S.dilForm||dilFormNow();S.dilForm=DF;
       var mis=S.dilMis||{p:"",d:""};
       return '<div class="d panel form">'+bkd+'<h2>Diluizione del ghiaccio</h2>'+dmsg+
+        '<div class="note" style="margin-bottom:14px;display:flex;align-items:center;gap:12px;justify-content:space-between"><span><b>Mostra la diluizione nel drink</b><br><span class="src">'+(dilMostra()?'Nella scheda c\'è la riga con la percentuale.':'Nella scheda la riga non si vede.')+'</span></span><button class="btn'+(dilMostra()?' pri':'')+'" data-ui="dmostra" role="switch" aria-checked="'+(dilMostra()?'true':'false')+'" aria-label="Mostra la diluizione nel drink">'+(dilMostra()?'Sì':'No')+'</button></div>'+
         '<p>Quanta acqua aggiunge il ghiaccio, in percentuale sul volume degli ingredienti. Serve per i gradi del drink finito, nella scheda dei cocktail e nel calcolatore.</p>'+
         (S.db?'':'<p>Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.</p>')+
         TECNICHE.map(function(t,i){return '<label for="dil-'+i+'">'+esc(t)+' (%)</label><input id="dil-'+i+'" type="number" min="0" max="300" step="any" inputmode="decimal" placeholder="vuoto: la scrivi nella scheda" value="'+esc(DF[t])+'">'}).join("")+
@@ -2273,6 +2297,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     else if(a==="osalva"){if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.",1);return}S.busy=true;S.db.doc("impostazioni/ordine").set({lista:S.ord||orderIds(),nomi:nomiDiff()}).then(function(){S.busy=false;flash("Ordine salvato.")},function(e){S.busy=false;flash(saveMsg(e),1)})}
     else if(a==="oreset"){S.nomi={};S.ord=TABS.map(function(t){return t[0]});S.msg="";S.formErr="";render()}
     else if(a==="dsalva")doDilSalva();
+    else if(a==="dmostra")doDilMostra();
     else if(a==="dreset"){var dd={};TECNICHE.forEach(function(tt){dd[tt]=DIL_DEF[tt]!=null?String(DIL_DEF[tt]):""});S.dilForm=dd;S.msg="Valori di partenza rimessi: premi «Salva diluizioni» per tenerli.";S.formErr="";render()}
     else if(a==="elenco")doElenco();
     else if(a==="impprev"){var ti=$("imp-txt");if(ti)S.imp.txt=ti.value;S.imp.prev=true;S.msg="";S.formErr="";render()}
