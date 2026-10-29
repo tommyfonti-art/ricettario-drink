@@ -1115,7 +1115,10 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },"Crea blend dal sito: "+id).then(function(){S.edit=false;S.formErr="";go("ricetta-"+rid)},function(e){formError(saveMsg(e))});
   }
   /* ---- audiolibro: legge ad alta voce un libro o una lezione con la voce italiana del telefono ---- */
-  var AUD={id:null,segs:[],i:0,playing:false,rate:1,tok:0,voice:null,err:""};
+  var AUD={id:null,segs:[],i:0,playing:false,rate:1,tok:0,voice:null,err:"",u:null,wd:0,tries:0,unl:null};
+  /* sblocco audio: su iPhone un suono silenzioso fa trattare la pagina come riproduzione, così la voce non viene zittita dal tasto laterale */
+  function audUnlock(){try{if(!AUD.unl){var w="UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";AUD.unl=new Audio("data:audio/wav;base64,"+w);AUD.unl.loop=false}AUD.unl.play&&AUD.unl.play().catch(function(){})}catch(e){}}
+  try{if(window.speechSynthesis){speechSynthesis.addEventListener("voiceschanged",function(){AUD.voice=null})}}catch(e){}
   function audOk(){return !!(window.speechSynthesis&&window.SpeechSynthesisUtterance)}
   function audSplit(t){
     var fr=String(t).replace(/→/g," porta a ").replace(/≈/g," circa ").replace(/×/g," per ").replace(/°C/g," gradi").match(/[^.!?;:]+[.!?;:]*\s*/g)||[String(t)],out=[],cur="";
@@ -1156,15 +1159,21 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var n=AUD.segs.length;
     el.textContent=AUD.err||(n?(AUD.playing?"Sto leggendo: ":"In pausa: ")+"blocco "+Math.min(AUD.i+1,n)+" di "+n+" ("+Math.round(Math.min(AUD.i,n)/n*100)+" %)":"Premi «Ascolta» per iniziare. Tieni lo schermo acceso.");
   }
-  function audHalt(){AUD.playing=false;AUD.tok++;try{speechSynthesis.cancel()}catch(e){}}
+  function audHalt(){AUD.playing=false;AUD.tok++;clearTimeout(AUD.wd);try{speechSynthesis.cancel()}catch(e){}}
   function audSpeak(){
     if(!AUD.playing)return;
     if(AUD.i>=AUD.segs.length){AUD.playing=false;AUD.i=0;audSave();AUD.err="Finito. Premi «Ascolta» per ripartire dall'inizio.";render();return}
     var tok=++AUD.tok,u=new SpeechSynthesisUtterance(AUD.segs[AUD.i]),v=audVoice();
-    u.lang="it-IT";if(v)u.voice=v;u.rate=AUD.rate;
-    u.onend=function(){if(tok!==AUD.tok||!AUD.playing)return;AUD.i++;audSave();audStatus();audSpeak()};
+    u.lang="it-IT";if(v)u.voice=v;u.rate=AUD.rate;AUD.u=u;clearTimeout(AUD.wd);
+    u.onstart=function(){if(tok!==AUD.tok)return;clearTimeout(AUD.wd);AUD.tries=0};
+    u.onend=function(){if(tok!==AUD.tok||!AUD.playing)return;clearTimeout(AUD.wd);AUD.tries=0;AUD.i++;audSave();audStatus();audSpeak()};
     u.onerror=function(ev){if(tok!==AUD.tok)return;if(ev&&(ev.error==="interrupted"||ev.error==="canceled"))return;AUD.playing=false;AUD.err="La lettura si è fermata ("+((ev&&ev.error)||"errore")+"). Premi «Ascolta» per riprendere.";render()};
     try{speechSynthesis.speak(u)}catch(e){AUD.playing=false}
+    AUD.wd=setTimeout(function(){
+      if(tok!==AUD.tok||!AUD.playing)return;
+      if(AUD.tries<1){AUD.tries++;try{speechSynthesis.cancel()}catch(e){}setTimeout(function(){if(tok===AUD.tok&&AUD.playing){AUD.tok++;audSpeak()}},150);return}
+      AUD.playing=false;AUD.tries=0;AUD.err=v?"Non sento partire la voce. Controlla che il tasto laterale non sia sul silenzioso e che il volume sia alzato, poi premi «Ascolta».":"Sul telefono non trovo una voce italiana. Vai in Impostazioni › Accessibilità › Contenuto letto ad alta voce › Voci, scarica una voce italiana e riprova.";render()
+    },4000);
     audStatus();
   }
   function audRestart(){AUD.tok++;try{speechSynthesis.cancel()}catch(e){}audSpeak()}
@@ -1172,7 +1181,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var l=audBook();if(!l)return;
     if(AUD.id!==l.id){audHalt();AUD.id=l.id;AUD.segs=audSegs(l);AUD.i=Math.min(audLoad(l.id),Math.max(0,AUD.segs.length-1));AUD.err=""}
     AUD.err="";
-    if(a==="play"){if(!audVoice()&&!speechSynthesis.getVoices().length){}AUD.playing=true;try{speechSynthesis.cancel()}catch(e){}render();audSpeak();return}
+    if(a==="play"){audUnlock();AUD.playing=true;AUD.tries=0;try{speechSynthesis.cancel()}catch(e){}render();var t0=AUD.tok;setTimeout(function(){if(AUD.playing&&AUD.tok===t0)audSpeak()},60);return}
     if(a==="pause"){audHalt();audSave();render();return}
     if(a==="start"){AUD.i=0;audSave();if(AUD.playing)audRestart();render();return}
     if(a==="prev"||a==="next"){AUD.i=Math.max(0,Math.min(AUD.segs.length-1,AUD.i+(a==="next"?1:-1)));audSave();if(AUD.playing)audRestart();else audStatus();return}
