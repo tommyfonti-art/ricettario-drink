@@ -1014,10 +1014,10 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       if(ed){
         var gs=(S.bicchieri||[]).slice().sort(byName);
         var gOpts='<option value="">— da scegliere —</option>'+gs.map(function(g){return '<option value="'+esc(g.id)+'"'+(r.bicchiere===g.id?' selected':'')+'>'+esc(glassLabel(g))+'</option>'}).join("")+'<option value="__new">+ Aggiungi un bicchiere…</option>';
-        h+='<div class="idl">'+selCell('Bicchiere','glassin',gOpts)+selCell('Ghiaccio','iceIn',listOpts(sugg("ghiaccio"),r.ghiaccio))+selCell('Tecnica','techin',tecOpts,tn)+selCell('Decorazione','guarnIn',listOpts(sugg("guarn"),r.guarn))+'</div>';
-      }else h+='<div class="idl">'+cell('Bicchiere',gl?glassLabel(gl):'')+cell('Ghiaccio',r.ghiaccio)+cell('Tecnica',tc+(tc&&tn?' · ':'')+tn)+cell('Decorazione',r.guarn)+'</div>';
+        h+='<div class="idl">'+selCell('Bicchiere','glassin',gOpts)+selCell('Ghiaccio','iceIn',listOpts(sugg("ghiaccio"),r.ghiaccio))+selCell('Tecnica','techin',tecOpts)+selCell('Decorazione','guarnIn',listOpts(sugg("guarn"),r.guarn))+'</div>';
+      }else h+='<div class="idl">'+cell('Bicchiere',gl?glassLabel(gl):'')+cell('Ghiaccio',r.ghiaccio)+cell('Tecnica',tc)+cell('Decorazione',r.guarn)+'</div>';
     }else if(ed||tc||tn){
-      h+='<div class="idl">'+(ed?selCell('Tecnica','techin',tecOpts,tn):cell('Tecnica',tc+(tc&&tn?' · ':'')+tn))+'</div>';
+      h+='<div class="idl">'+(ed?selCell('Tecnica','techin',tecOpts):cell('Tecnica',tc))+'</div>';
     }
     if(ed){
       h+='<div class="qa">';
@@ -1053,7 +1053,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(r.metodo)h+='<h3>Metodo</h3><p>'+esc(r.metodo)+'</p>';
     if(r.proc)h+='<h3>Procedimento</h3><p>'+esc(r.proc)+'</p>';
     if(!isDrink&&r.guarn)h+='<h3>Guarnizione</h3><p>'+esc(r.guarn)+'</p>';
-    if(r.note)h+='<h3>Note</h3><div class="note">'+esc(r.note)+'</div>';
+    if(r.note||tn)h+='<h3>Note</h3><div class="note">'+esc([tn,r.note].filter(Boolean).join("\n"))+'</div>';
     h+=notepHtml(r);
     h+=fotoBox(r);
     if(ed)h+='<details class="altro"><summary>Altro</summary><div class="actions"><button class="btn" data-toggle-stato="1">'+(inc(r)?'Segna come completa':'Segna come incompleta')+'</button><button class="btn danger'+(S.confirmDel?' sure':'')+'" data-del="1">'+(S.confirmDel?'Conferma: elimina per sempre':'Elimina ricetta')+'</button></div></details>';
