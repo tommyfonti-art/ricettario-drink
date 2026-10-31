@@ -1065,7 +1065,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return '<div class="d form"><button class="back" data-cancel="1">← '+(nuova?'Annulla':'Annulla modifica')+'</button><h2>'+(nuova?'Nuova ricetta':'Modifica ricetta')+'</h2>'+
       '<label for="e-nome">Nome</label><input id="e-nome" value="'+esc(r.nome||"")+'"><p class="hint">Nella sezione Blend la parola «Blend» compare davanti al nome da sola: non serve scriverla.</p>'+
       '<label for="e-cat">Sezione</label><select id="e-cat">'+catOptions(r.cat||"cocktail")+'</select>'+
-      '<label for="e-gruppo">Gruppo</label><input id="e-gruppo" value="'+esc(r.gruppo||"")+'">'+
+      '<label for="e-gruppo">Gruppo</label><input id="e-gruppo" value="'+esc(r.gruppo||"")+'">'+mqFormHtml(r)+
       '<label for="e-alias">Altri nomi con cui compare negli ingredienti (separati da virgola)</label><input id="e-alias" value="'+esc((r.alias||[]).join(", "))+'">'+
       '<label for="e-ing">Ingredienti</label><textarea id="e-ing" rows="10">'+esc((r.ing||[]).join("\n"))+'</textarea>'+dett("e-ing")+'<p class="hint">Un ingrediente per riga, con la quantità all\'inizio (per esempio: 45 ml Gin, oppure 1 3/4 oz Gin). Le righe senza numero restano come sono.</p>'+
       '<label for="e-tnota">Nota sulla tecnica</label><input id="e-tnota" value="'+esc(r.tecnica_nota||"")+'"><p class="hint">La tecnica si sceglie dalla tendina nella scheda della ricetta; qui puoi aggiungere una nota, per esempio «con tritato».</p>'+
@@ -1277,14 +1277,15 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       ing:$("e-ing").value.split("\n").map(function(x){return x.trim()}).filter(Boolean),
       metodo:$("e-metodo").value.trim(),tecnica_nota:$("e-tnota").value.trim(),proc:$("e-proc").value.trim(),guarn:$("e-guarn").value.trim(),ghiaccio:$("e-ghiaccio").value.trim(),note:$("e-note").value.trim(),
       alias:($("e-alias")?$("e-alias").value:"").split(",").map(function(x){return x.trim()}).filter(Boolean)};
+    var mv=($("e-menu")||{}).value||"";
     if(S.creating){
       var id=slug(nome),base=id,n=2;
       while(S.ricette.some(function(x){return x.id===id})){id=base+"-"+n;n++}
-      write({id:id},vals,function(){S.creating=false;S.edit=false;go("ricetta-"+id)});
+      write({id:id},vals,function(){S.creating=false;S.edit=false;go("ricetta-"+id);mqDopo(id,mv)});
       return;
     }
     var r=cur();if(!r)return;
-    write(r,Object.assign({},r,vals),function(){S.edit=false;render()});
+    write(r,Object.assign({},r,vals),function(){S.edit=false;render();mqDopo(r.id,mv)});
   }
 
 
@@ -1328,7 +1329,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var ed=S.canEdit&&S.db,cur=[];
     mqSezioni().forEach(function(s){var m=menuDoc(s.id);((m&&m.sezioni)||[]).forEach(function(g,gi){if((g.drink||[]).indexOf(r.id)>=0)cur.push({mid:s.id,gi:gi,nome:sezNome(s.id),gr:g.titolo||""})})});
     if(!ed&&!cur.length)return "";
-    var h='<div class="note" style="margin:10px 0"><b>Nei menu</b>';
+    var h='<div class="note" style="margin:10px 0"><b>Gruppo / Menu</b>';
     if(cur.length)h+=cur.map(function(c){return '<div class="mrow"><span>'+esc(c.nome+(c.gr&&c.gr!=="Drink"?" · "+c.gr:""))+'</span>'+(ed?'<button class="btn" data-mq="rm" data-id="'+esc(r.id)+'" data-v="'+esc(c.mid+"|"+c.gi)+'">Togli</button>':'')+'</div>'}).join("");
     else h+='<div class="src">In nessun menu.</div>';
     if(ed){
@@ -1341,6 +1342,22 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       else if(!mqSezioni().length)h+='<p class="hint">Per avere un menu, crealo da Impostazioni → Layout → «Gestisci i menu in alto» → in fondo «Nuova sezione».</p>';
     }
     return h+'</div>';
+  }
+  function mqFormHtml(r){
+    var opts="",dentro=[];
+    mqSezioni().forEach(function(s){
+      var m=menuDoc(s.id),G=(m&&m.sezioni&&m.sezioni.length)?m.sezioni:[{titolo:"Drink",drink:[]}];
+      G.forEach(function(g,gi){
+        if(r&&r.id&&(g.drink||[]).indexOf(r.id)>=0){dentro.push(sezNome(s.id)+(G.length>1?" · "+(g.titolo||("Gruppo "+(gi+1))):""));return}
+        opts+='<option value="'+esc(s.id+"|"+gi)+'">'+esc("Metti in: "+sezNome(s.id)+(G.length>1?" · "+(g.titolo||("Gruppo "+(gi+1))):""))+'</option>';
+      });
+    });
+    if(!opts&&!dentro.length)return "";
+    return '<label for="e-menu">Gruppo / Menu</label><select id="e-menu"><option value="">Non cambiare</option>'+opts+'</select>'+
+      '<p class="src" style="margin:4px 0 0">'+(dentro.length?'Già in: '+esc(dentro.join(", "))+'. ':'')+'La scelta vale quando premi «Salva».</p>';
+  }
+  function mqDopo(id,val){
+    if(!val)return;var rr=unById(id);if(!rr)return;var p=val.split("|");mqApply(rr,"add",p[0],+p[1]);
   }
   function mqClick(el){
     var act=el.getAttribute("data-mq"),id=el.getAttribute("data-id"),r=unById(id);
