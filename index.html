@@ -1338,7 +1338,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
         G.forEach(function(g,gi){if((g.drink||[]).indexOf(r.id)>=0)return;opts+='<option value="'+esc(s.id+"|"+gi)+'">'+esc(sezNome(s.id)+(G.length>1?" · "+(g.titolo||("Gruppo "+(gi+1))):""))+'</option>'});
       });
       if(opts)h+='<label for="mq-sel" style="margin-top:8px">Aggiungi a un menu</label><select id="mq-sel">'+opts+'</select><div class="actions"><button class="btn pri" data-mq="add" data-id="'+esc(r.id)+'">Aggiungi al menu</button></div>';
-      else if(!mqSezioni().length)h+='<p class="hint">Per avere un menu, crealo da Impostazioni → Menu in alto → «Nuova sezione».</p>';
+      else if(!mqSezioni().length)h+='<p class="hint">Per avere un menu, crealo da Impostazioni → Layout → «Gestisci i menu in alto» → in fondo «Nuova sezione».</p>';
     }
     return h+'</div>';
   }
