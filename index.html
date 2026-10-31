@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-10-24b">
+<head><meta name="versione-app" content="2026-10-31a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -865,9 +865,11 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var rm=t.closest("button[data-srrm]");
     if(rm&&S.open&&S.open.k==="s"&&S.db){var sr=serataModel(S.open.id);if(!sr)return;sr.drink.splice(parseInt(rm.getAttribute("data-srrm"),10),1);S.srSt="Salvataggio…";render();srQueueSave(sr);return}
     if(t.closest("[data-srnew]")&&S.db){
-      var nm=(prompt("Nome della serata")||"").trim();if(!nm)return;
-      var sid=slug(nm),k=2,base=sid;while((S.serate||[]).some(function(x){return x.id===sid})){sid=base+"-"+k;k++}
-      S.db.doc("serate/"+sid).set({titolo:nm,totale:100,drink:[]}).then(function(){go("serata-"+sid)},function(er){S.formErr=saveMsg(er);render()});return}
+      askBox("Nome della serata",[{ph:"Nome"}],function(v){
+        var nm=(v[0]||"").trim();if(!nm)return;
+        var sid=slug(nm),k=2,base=sid;while((S.serate||[]).some(function(x){return x.id===sid})){sid=base+"-"+k;k++}
+        S.db.doc("serate/"+sid).set({titolo:nm,totale:100,drink:[]}).then(function(){go("serata-"+sid)},function(er){S.formErr=saveMsg(er);render()});
+      });return}
     if(t.closest("[data-srdelete]")&&S.db&&S.open&&S.open.k==="s"){
       var sd=serataModel(S.open.id);if(!sd)return;
       if(confirm("Eliminare la serata «"+sd.titolo+"»? Le ricette dei drink restano."))S.db.doc("serate/"+sd.id).delete().then(function(){go("appunti")},function(er){S.formErr=saveMsg(er);render()});
@@ -1793,6 +1795,21 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       S.db.doc("ricette/"+r3.id).delete().then(function(){go(S.tab)},function(er){S.confirmDel=false;S.formErr=saveMsg(er);render()});
     }
   });
+  /* finestrella dell'app al posto di prompt(): il browser a volte blocca i prompt e non succedeva niente */
+  function askBox(titolo,campi,onOk,onCancel,okLabel){
+    if(!document.getElementById("askbox-css")){var st=document.createElement("style");st.id="askbox-css";st.textContent=".askbox{position:fixed;inset:0;z-index:99999;background:rgba(28,36,32,.45);display:flex;align-items:center;justify-content:center;padding:16px}.askbox form{width:100%;max-width:340px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 8px 28px rgba(0,0,0,.18)}.askbox h3{margin:0 0 10px;font-size:1.05rem}.askbox input{display:block;width:100%;box-sizing:border-box;margin:0 0 10px;padding:11px 12px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg)}.askbox .ab-r{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}.askbox button{font:inherit;padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}.askbox button.ok{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600}";document.head.appendChild(st)}
+    var old=document.querySelector(".askbox");if(old)old.remove();
+    var ov=document.createElement("div");ov.className="askbox";
+    var f=document.createElement("form");
+    f.innerHTML="<h3></h3>"+campi.map(function(c,i){return '<input type="text" data-i="'+i+'" autocomplete="off" autocapitalize="sentences" placeholder="'+String(c.ph||"").replace(/"/g,"&quot;")+'"'+(c.num?' inputmode="decimal"':'')+' value="'+String(c.val||"").replace(/"/g,"&quot;")+'">'}).join("")+'<div class="ab-r"><button type="button" class="no">Annulla</button><button type="submit" class="ok">'+(okLabel||"Aggiungi")+'</button></div>';
+    f.querySelector("h3").textContent=titolo;
+    ov.appendChild(f);document.body.appendChild(ov);
+    var chiudi=function(){ov.remove()};
+    f.addEventListener("submit",function(ev){ev.preventDefault();var vals=[].map.call(f.querySelectorAll("input"),function(x){return x.value});chiudi();onOk(vals)});
+    f.querySelector(".no").addEventListener("click",function(){chiudi();if(onCancel)onCancel()});
+    ov.addEventListener("click",function(ev){if(ev.target===ov){chiudi();if(onCancel)onCancel()}});
+    setTimeout(function(){var i=f.querySelector("input");if(i)i.focus()},50);
+  }
   $("main").addEventListener("change",function(e){
     if(e.target.id==="mn-dest"&&S.mn){S.mn.dest=+e.target.value||0;var mr2=$("mn-res");if(mr2)mr2.innerHTML=mnRes();return}
     if(e.target.id==="un-cat"&&!S.edit){S.un.cat=e.target.value;render();return}
@@ -1831,44 +1848,55 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       write(rc,nc,function(){});return;
     }
     if(e.target.id==="iceIn"||e.target.id==="guarnIn"){
-      var rk=cur();if(!rk||!S.db)return;var kk=e.target.id==="iceIn"?"ghiaccio":"guarn",kv=e.target.value,addL=null;
+      var rk=cur();if(!rk||!S.db)return;var kk=e.target.id==="iceIn"?"ghiaccio":"guarn",kv=e.target.value,selK=e.target;
+      var fineK=function(kv2,addL){
+        var nk=Object.assign({},rk);if(kv2)nk[kk]=kv2;else delete nk[kk];
+        var goK=function(){write(rk,nk,function(){})};
+        if(addL)impPatch("liste",addL).then(goK,function(er){S.formErr=saveMsg(er);render()});else goK();
+      };
       if(kv==="__new"){
-        kv=(prompt(kk==="ghiaccio"?"Nome del nuovo ghiaccio":"Nome della nuova decorazione")||"").trim().replace(/\s+/g," ");
-        if(!kv){e.target.value=rk[kk]||"";return}
-        kv=kv.charAt(0).toUpperCase()+kv.slice(1);
-        var sv=impDoc("liste")[kk];
-        if(Array.isArray(sv)&&!sv.some(function(x){return norm(x)===norm(kv)})){addL={};addL[kk]=sv.concat([kv])}
+        askBox(kk==="ghiaccio"?"Nome del nuovo ghiaccio":"Nome della nuova decorazione",[{ph:"Nome"}],function(v){
+          var nv=(v[0]||"").trim().replace(/\s+/g," ");
+          if(!nv){selK.value=rk[kk]||"";return}
+          nv=nv.charAt(0).toUpperCase()+nv.slice(1);
+          var sv=impDoc("liste")[kk],addL=null;
+          if(Array.isArray(sv)&&!sv.some(function(x){return norm(x)===norm(nv)})){addL={};addL[kk]=sv.concat([nv])}
+          fineK(nv,addL);
+        },function(){selK.value=rk[kk]||""});
+        return;
       }
-      var nk=Object.assign({},rk);if(kv)nk[kk]=kv;else delete nk[kk];
-      var goK=function(){write(rk,nk,function(){})};
-      if(addL)impPatch("liste",addL).then(goK,function(er){S.formErr=saveMsg(er);render()});else goK();
+      fineK(kv,null);
       return;
     }
     if(e.target.id==="techin"){
-      var rt=cur();if(!rt||!S.db)return;var tv=e.target.value;
+      var rt=cur();if(!rt||!S.db)return;var tv=e.target.value,selT=e.target;
       if(tv==="__new"){
-        var nt=(prompt("Nome della nuova tecnica")||"").trim().replace(/\s+/g," ");
-        if(!nt){e.target.value=rt.tecnica||"";return}
-        nt=nt.charAt(0).toUpperCase()+nt.slice(1);
-        var tk=tecList(rt)===TECNICHE_HM?"tecHm":"tec",ta=listCur(tk),tf=ta.filter(function(x){return norm(x)===norm(nt)})[0];
-        var fine=function(){write(rt,Object.assign({},rt,{tecnica:tf||nt}),function(){})};
-        if(tf){fine();return}
-        var tp={};tp[tk]=ta.concat([nt]);
-        impPatch("liste",tp).then(fine,function(er){S.formErr=saveMsg(er);render()});
+        askBox("Nome della nuova tecnica",[{ph:"Nome"}],function(v){
+          var nt=(v[0]||"").trim().replace(/\s+/g," ");
+          if(!nt){selT.value=rt.tecnica||"";return}
+          nt=nt.charAt(0).toUpperCase()+nt.slice(1);
+          var tk=tecList(rt)===TECNICHE_HM?"tecHm":"tec",ta=listCur(tk),tf=ta.filter(function(x){return norm(x)===norm(nt)})[0];
+          var fine=function(){write(rt,Object.assign({},rt,{tecnica:tf||nt}),function(){})};
+          if(tf){fine();return}
+          var tp={};tp[tk]=ta.concat([nt]);
+          impPatch("liste",tp).then(fine,function(er){S.formErr=saveMsg(er);render()});
+        },function(){selT.value=rt.tecnica||""});
         return;
       }
       write(rt,Object.assign({},rt,{tecnica:tv}),function(){});return;
     }
     if(e.target.id==="glassin"){
-      var rg=cur();if(!rg||!S.db)return;var gv=e.target.value;
+      var rg=cur();if(!rg||!S.db)return;var gv=e.target.value,selG=e.target;
       if(gv==="__new"){
-        var gn=(prompt("Nome del nuovo bicchiere")||"").trim();
-        if(!gn){e.target.value=rg.bicchiere||"";return}
-        var gcs=prompt("Capienza in ml (puoi lasciare vuoto)")||"",gcap=parseFloat(gcs.replace(",","."));
-        var gid=slug(gn),have=(S.bicchieri||[]).some(function(g){return g.id===gid});
-        var gd={nome:gn};if(gcap>0)gd.capienza=gcap;
-        var assign=function(){write(rg,Object.assign({},rg,{bicchiere:gid}),function(){})};
-        if(have)assign();else S.db.doc("bicchieri/"+gid).set(gd).then(assign,function(er){S.formErr=saveMsg(er);render()});
+        askBox("Nuovo bicchiere",[{ph:"Nome del bicchiere"},{ph:"Capienza in ml (puoi lasciare vuoto)",num:1}],function(v){
+          var gn=(v[0]||"").trim();
+          if(!gn){selG.value=rg.bicchiere||"";return}
+          var gcap=parseFloat(String(v[1]||"").replace(",","."));
+          var gid=slug(gn),have=(S.bicchieri||[]).some(function(g){return g.id===gid});
+          var gd={nome:gn};if(gcap>0)gd.capienza=gcap;
+          var assign=function(){write(rg,Object.assign({},rg,{bicchiere:gid}),function(){})};
+          if(have)assign();else S.db.doc("bicchieri/"+gid).set(gd).then(assign,function(er){S.formErr=saveMsg(er);render()});
+        },function(){selG.value=rg.bicchiere||""});
         return;
       }
       write(rg,Object.assign({},rg,{bicchiere:gv}),function(){});
@@ -2654,7 +2682,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       impSave("liste",patch,"Aggiunto: "+v+".");
     }else if(act==="ren"){
       var ri=+b.getAttribute("data-i"),rt=arr[ri];if(rt==null)return;
-      var nv=prompt("Scrivi il nome come lo vuoi (puoi usare le maiuscole)",rt);if(nv==null)return;
+      askBox("Scrivi il nome come lo vuoi (puoi usare le maiuscole)",[{ph:"Nome",val:rt}],function(vv){
+      var nv=vv[0];
       nv=nv.trim().replace(/\s+/g," ");if(!nv||nv===rt)return;
       if(arr.some(function(x,j){return j!==ri&&norm(x)===norm(nv)})){flash("«"+nv+"» c'è già nell'elenco.",1);return}
       var fld=nomi[k]==="tecnica"?"tecnica":k,n2=0;
@@ -2665,6 +2694,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
         var o=Object.assign({},d.impostazioni.liste||{});o[k]=arr;d.impostazioni.liste=o;
         Object.keys(d.ricette||{}).forEach(function(id){var x=d.ricette[id];if(x&&x[fld]===rt){d.ricette[id]=Object.assign({},x);d.ricette[id][fld]=nv;n2++}});
       },"Cambiato nome nell'elenco: "+rt+" → "+nv).then(function(){S.busy=false;flash("Fatto: «"+nv+"»"+(n2?" (cambiato anche in "+n2+(n2===1?" ricetta":" ricette")+")":"")+".")},function(e){S.busy=false;flash(saveMsg(e),1)});
+      },null,"Salva");
     }else if(act==="del"){
       var i=+b.getAttribute("data-i"),t=arr[i];if(t==null)return;
       var u=listUso(k,t);
