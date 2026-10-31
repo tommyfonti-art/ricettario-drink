@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ricettario">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=4">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=5">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Ricettario Thomas Fonti</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2015,7 +2015,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261031-1040";
+  var BUILD="20261031-1045";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }

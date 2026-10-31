@@ -7,7 +7,7 @@
      l'app la usa per scrivere «Senza rete».
    - I salvataggi verso GitHub non passano di qui. */
 var CACHE = "ricettario-copia";
-var PAGINE = ["./", "index.html", "manifest.webmanifest", "icon.svg", "apple-touch-icon.png"];
+var PAGINE = ["./", "index.html", "manifest.webmanifest", "icon.svg", "apple-touch-icon.png?v=5"];
 var ATTESA = 4000; /* oltre 4 secondi senza risposta si usa la copia */
 
 self.addEventListener("install", function (e) {
