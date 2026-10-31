@@ -2014,10 +2014,19 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(f.data.ct===S.file.data.ct)return false;
     return (+f.rev||0)>=(+S.file.rev||0);
   }
+  /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
+  var BUILD="20261031-1040";
+  function codeNew(){
+    return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
+  }
+  function reloadFresh(){
+    var go=function(){location.reload()};
+    try{if(window.caches)caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k)}))}).then(go,go);else go()}catch(x){go()}
+  }
   function refreshNow(btn){
     if(S.edit||S.busy){alert("Finisci prima la modifica in corso.");return}
     btn.classList.add("spin");
-    fetchFresh().then(function(f){
+    codeNew().then(function(nu){if(nu){reloadFresh();return new Promise(function(){})}return fetchFresh()}).then(function(f){
       if(!piuNuovo(f))return "ok";
       return readData(f,S.dk).then(function(d){if(piuNuovo(f)){S.file=f;setBase(d)}return "ok"});
     }).catch(function(){return "err"}).then(function(x){renderBar();var bb=document.querySelector("[data-ui=refresh]");if(bb)btn=bb;btn.classList.remove("spin");btn.classList.add(x==="ok"?"done":"bad");setTimeout(function(){btn.classList.remove("done","bad")},1500)});
