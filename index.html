@@ -32,7 +32,7 @@ body.locked .search,body.locked .tabs{display:none}
 .okmsg{color:var(--ok);margin-top:10px}
 .idl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px;margin:12px 0 0;padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
 .idl span{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.qa{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}.qa .btn{padding:6px 10px;font-size:.85rem}.idl select{width:100%;margin-top:3px;font:inherit;font-size:.95rem;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg,#fff);color:var(--fg)}.idl>div{min-width:0}.idl .tn{display:block;margin-top:3px;font-size:.78rem;text-transform:none;letter-spacing:0}.idl b{font-weight:500;overflow-wrap:anywhere}.idl b.no{font-weight:400;font-style:italic;color:var(--muted)}
+.fotocard{margin-top:18px;padding:12px;border:1px dashed var(--line);border-radius:12px;background:var(--surface)}.fotocard img{margin-bottom:8px}.nrow{margin-top:8px;gap:8px}.altro{margin:22px 0 8px;color:var(--muted)}.altro summary{cursor:pointer;font-size:.85rem;padding:6px 0}.altro .actions{margin-top:6px}.qa{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}.qa .btn{padding:6px 10px;font-size:.85rem}.idl select{width:100%;margin-top:3px;font:inherit;font-size:.95rem;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg,#fff);color:var(--fg)}.idl>div{min-width:0}.idl .tn{display:block;margin-top:3px;font-size:.78rem;text-transform:none;letter-spacing:0}.idl b{font-weight:500;overflow-wrap:anywhere}.idl b.no{font-weight:400;font-style:italic;color:var(--muted)}
 @media (min-width:600px){.idl{grid-template-columns:repeat(4,minmax(0,1fr))}}
 /* Layout: un quaderno da bancone. Barra sezioni fissa in alto, elenco a righe raggruppate, scheda ricetta con dosi in monospazio, moltiplicatore, unità ml/oz e modifica a richiesta. */
 :root{
@@ -1021,11 +1021,9 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     }
     if(ed){
       h+='<div class="qa">';
-      h+='<button class="btn" data-edit="1">Modifica ricetta</button>';
-      h+='<button class="btn" data-x="fav">'+(isFav(r)?'Togli dai preferiti':'Preferiti')+'</button>';
+      h+='<button class="btn pri" data-edit="1">Modifica ricetta</button>';
       if((r.ing||[]).length)h+='<button class="btn" data-collega="1">'+(S.collega?'Chiudi collegamenti':'Collega preparazioni')+'</button>';
       if(r.cat!=="blend"&&(r.ing||[]).length)h+='<button class="btn" data-mkblend-open="1">Crea blend</button>';
-      h+='<button class="btn" data-toggle-stato="1">'+(inc(r)?'Segna come completa':'Segna come incompleta')+'</button>';
       h+='</div>';
     }
     h+='<ul class="ing" id="inglist">'+ingHtml(r)+'</ul>';
@@ -1058,9 +1056,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(r.note)h+='<h3>Note</h3><div class="note">'+esc(r.note)+'</div>';
     h+=notepHtml(r);
     h+=fotoBox(r);
-    h+='<div class="actions"><button class="btn" data-copy="1">Copia ricetta</button>';
-    if(ed)h+='<button class="btn danger'+(S.confirmDel?' sure':'')+'" data-del="1">'+(S.confirmDel?'Conferma: elimina per sempre':'Elimina ricetta')+'</button>';
-    h+='</div>';
+    if(ed)h+='<details class="altro"><summary>Altro</summary><div class="actions"><button class="btn" data-toggle-stato="1">'+(inc(r)?'Segna come completa':'Segna come incompleta')+'</button><button class="btn danger'+(S.confirmDel?' sure':'')+'" data-del="1">'+(S.confirmDel?'Conferma: elimina per sempre':'Elimina ricetta')+'</button></div></details>';
     if(S.formErr)h+='<div class="err">'+esc(S.formErr)+'</div>';
     
     return h+'</div>';
@@ -2982,7 +2978,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   }
   function notepHtml(r){
     if(S.notepId!==r.id)S.notepMsg="";
-    if(S.canEdit&&S.db)return '<h3>Le mie note</h3><div class="form"><textarea id="notep" rows="3" placeholder="Appunti tuoi su questa ricetta: prove, variazioni, idee">'+esc(r.notep||"")+'</textarea></div>'+dett("notep")+'<div class="actions" style="margin-top:8px"><button class="btn" data-x="notep-save">Salva le note</button></div>'+(S.notepMsg?'<p class="okmsg">'+esc(S.notepMsg)+'</p>':'');
+    if(S.canEdit&&S.db)return '<h3>Le mie note</h3><div class="form"><textarea id="notep" rows="3" placeholder="Appunti tuoi su questa ricetta: prove, variazioni, idee">'+esc(r.notep||"")+'</textarea></div><div class="actions nrow">'+(SR_API?'<button class="btn" type="button" data-detta="notep">Detta a voce</button>':'')+'<button class="btn pri" data-x="notep-save">Salva le note</button></div>'+(S.notepMsg?'<p class="okmsg">'+esc(S.notepMsg)+'</p>':'');
     return r.notep?'<h3>Le mie note</h3><div class="note">'+esc(r.notep)+'</div>':'';
   }
   function saveNotep(){
@@ -3030,7 +3026,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function fotoBox(r){
     var ed=S.canEdit&&S.db;
     if(!r.foto&&!ed)return "";
-    var h='<div id="fotobox" style="margin-top:14px">';
+    var h='<div id="fotobox" class="fotocard">';
     if(r.foto)h+='<img id="fotoimg" data-id="'+esc(r.id)+'" data-v="'+esc(r.foto)+'" alt="Foto di '+esc(dn(r))+'" style="display:none;width:100%;max-height:420px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">';
     h+='<p class="src" id="fotost" style="margin:'+(r.foto?'0':'0 0 6px')+'">'+(r.foto?'Carico la foto…':'')+'</p>';
     if(ed)h+='<div class="actions" style="margin-top:8px"><label class="btn" style="cursor:pointer">'+(r.foto?'Cambia foto':'Aggiungi una foto')+'<input type="file" id="fotoin" accept="image/*" style="display:none"></label>'+(r.foto?'<button class="btn danger" data-x="foto-del">Togli la foto</button>':'')+'</div>';
