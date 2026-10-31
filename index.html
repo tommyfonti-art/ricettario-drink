@@ -1033,13 +1033,6 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     }else if(ed||tc||tn){
       h+='<div class="idl">'+(ed?selCell('Tecnica','techin',tecOpts):cell('Tecnica',tc))+'</div>';
     }
-    if(ed){
-      h+='<div class="qa">';
-      h+='<button class="btn pri" data-edit="1">Modifica ricetta</button>';
-      if((r.ing||[]).length)h+='<button class="btn" data-collega="1">'+(S.collega?'Chiudi collegamenti':'Collega preparazioni')+'</button>';
-      if(r.cat!=="blend"&&(r.ing||[]).length)h+='<button class="btn" data-mkblend-open="1">Crea blend</button>';
-      h+='</div>';
-    }
     h+='<ul class="ing" id="inglist">'+ingHtml(r)+'</ul>';
     h+='<p class="src" id="convnote" style="margin-top:8px"'+(convNoteHtml()?'':' hidden')+'>'+convNoteHtml()+'</p>';
     var bm=baseMl(r);
@@ -1070,6 +1063,13 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(r.note||tn)h+='<h3>Note</h3><div class="note">'+esc([tn,r.note].filter(Boolean).join("\n"))+'</div>';
     h+=notepHtml(r);
     h+=fotoBox(r);
+    if(ed){
+      h+='<div class="qa" style="margin-top:18px">';
+      h+='<button class="btn pri" data-edit="1">Modifica ricetta</button>';
+      if((r.ing||[]).length)h+='<button class="btn" data-collega="1">'+(S.collega?'Chiudi collegamenti':'Collega preparazioni')+'</button>';
+      if(r.cat!=="blend"&&(r.ing||[]).length)h+='<button class="btn" data-mkblend-open="1">Crea blend</button>';
+      h+='</div>';
+    }
     if(ed)h+='<details class="altro"><summary>Altro</summary><div class="actions"><button class="btn" data-toggle-stato="1">'+(inc(r)?'Segna come completa':'Segna come incompleta')+'</button><button class="btn danger'+(S.confirmDel?' sure':'')+'" data-del="1">'+(S.confirmDel?'Conferma: elimina per sempre':'Elimina ricetta')+'</button></div></details>';
     if(S.formErr)h+='<div class="err">'+esc(S.formErr)+'</div>';
     
