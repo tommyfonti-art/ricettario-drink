@@ -32,7 +32,7 @@ body.locked .search,body.locked .tabs{display:none}
 .okmsg{color:var(--ok);margin-top:10px}
 .idl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px;margin:12px 0 0;padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
 .idl span{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.idl select{width:100%;margin-top:3px;font:inherit;font-size:.95rem;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg,#fff);color:var(--fg)}.idl>div{min-width:0}.idl .tn{display:block;margin-top:3px;font-size:.78rem;text-transform:none;letter-spacing:0}.idl b{font-weight:500;overflow-wrap:anywhere}.idl b.no{font-weight:400;font-style:italic;color:var(--muted)}
+.qa{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}.qa .btn{padding:6px 10px;font-size:.85rem}.idl select{width:100%;margin-top:3px;font:inherit;font-size:.95rem;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg,#fff);color:var(--fg)}.idl>div{min-width:0}.idl .tn{display:block;margin-top:3px;font-size:.78rem;text-transform:none;letter-spacing:0}.idl b{font-weight:500;overflow-wrap:anywhere}.idl b.no{font-weight:400;font-style:italic;color:var(--muted)}
 @media (min-width:600px){.idl{grid-template-columns:repeat(4,minmax(0,1fr))}}
 /* Layout: un quaderno da bancone. Barra sezioni fissa in alto, elenco a righe raggruppate, scheda ricetta con dosi in monospazio, moltiplicatore, unità ml/oz e modifica a richiesta. */
 :root{
@@ -1019,6 +1019,15 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     }else if(ed||tc||tn){
       h+='<div class="idl">'+(ed?selCell('Tecnica','techin',tecOpts,tn):cell('Tecnica',tc+(tc&&tn?' · ':'')+tn))+'</div>';
     }
+    if(ed){
+      h+='<div class="qa">';
+      h+='<button class="btn" data-edit="1">Modifica ricetta</button>';
+      h+='<button class="btn" data-x="fav">'+(isFav(r)?'Togli dai preferiti':'Preferiti')+'</button>';
+      if((r.ing||[]).length)h+='<button class="btn" data-collega="1">'+(S.collega?'Chiudi collegamenti':'Collega preparazioni')+'</button>';
+      if(r.cat!=="blend"&&(r.ing||[]).length)h+='<button class="btn" data-mkblend-open="1">Crea blend</button>';
+      h+='<button class="btn" data-toggle-stato="1">'+(inc(r)?'Segna come completa':'Segna come incompleta')+'</button>';
+      h+='</div>';
+    }
     h+='<ul class="ing" id="inglist">'+ingHtml(r)+'</ul>';
     h+='<p class="src" id="convnote" style="margin-top:8px"'+(convNoteHtml()?'':' hidden')+'>'+convNoteHtml()+'</p>';
     var bm=baseMl(r);
@@ -1050,14 +1059,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     h+=notepHtml(r);
     h+=fotoBox(r);
     h+='<div class="actions"><button class="btn" data-copy="1">Copia ricetta</button>';
-    if(S.canEdit&&S.db)h+='<button class="btn" data-x="fav">'+(isFav(r)?'Togli dai preferiti':'Metti tra i preferiti')+'</button>';
-    if(S.canEdit&&S.db){
-      h+='<button class="btn" data-edit="1">Modifica ricetta</button>';
-      if((r.ing||[]).length)h+='<button class="btn" data-collega="1">'+(S.collega?'Chiudi collegamenti':'Collega preparazioni')+'</button>';
-      if(r.cat!=="blend"&&(r.ing||[]).length)h+='<button class="btn" data-mkblend-open="1">Crea blend</button>';
-      h+='<button class="btn" data-toggle-stato="1">'+(inc(r)?'Segna come completa':'Segna come incompleta')+'</button>';
-      h+='<button class="btn danger'+(S.confirmDel?' sure':'')+'" data-del="1">'+(S.confirmDel?'Conferma: elimina per sempre':'Elimina ricetta')+'</button>';
-    }
+    if(ed)h+='<button class="btn danger'+(S.confirmDel?' sure':'')+'" data-del="1">'+(S.confirmDel?'Conferma: elimina per sempre':'Elimina ricetta')+'</button>';
     h+='</div>';
     if(S.formErr)h+='<div class="err">'+esc(S.formErr)+'</div>';
     
