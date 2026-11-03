@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-10-31a">
+<head><meta name="versione-app" content="2026-11-03a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -170,6 +170,42 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
 .gear.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 .bar .gear{margin-left:auto}
 .bar .gear+.rf{margin-left:0}
+/* ---- 3 novembre: iPad (tablet appoggiato al bancone) ----
+   Da 768 px in su: scritte e tasti più grandi, menu in alto su più righe (niente scorrimento a lato).
+   Da 900 px in su (iPad in orizzontale): titolo e ricerca sulla stessa riga, elenco su due colonne,
+   scheda del drink su due colonne (ingredienti a sinistra, dosi a destra). Sotto i 768 px non cambia niente. */
+.dcols{display:block}
+@media (min-width:768px){
+  html{font-size:calc(17.5px*var(--tz,1))}
+  body{font-size:calc(17px*var(--tz,1))}
+  .btn,.back,.ctl button{min-height:46px}
+  .ctl button{padding:8px 14px;font-size:.95rem}
+  .ctl input,.ctl select,.form input,.form select,.search input,.sr-nn{min-height:46px}
+  .ctl input{width:96px}
+  .ctl.one input.tot{width:150px}
+  .row{padding-block:15px}
+  .ing li{padding-block:12px}
+  nav.tabs{position:static;flex-wrap:wrap;overflow:visible;-webkit-mask-image:none;mask-image:none;gap:0 6px}
+  nav.tabs button{min-height:50px;padding:10px 14px}
+  .pn button{width:50px;height:50px}
+}
+@media (min-width:900px){
+  body:not(.lg-s):not(.lg-l) .wrap{max-width:1140px}
+  body.lg-l .wrap{max-width:1240px}
+  header.top{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,44%);column-gap:24px;align-items:center;padding-block:16px 10px}
+  header.top h1{grid-column:1;grid-row:1}
+  header.top .bar{grid-column:1;grid-row:2;margin-top:6px}
+  header.top .search{grid-column:2;grid-row:1/span 2;margin-top:0}
+  .list:has(>.row){column-count:2;column-gap:40px}
+  .list:has(>.row)>*:not(.row){column-span:all}
+  .list>.row{break-inside:avoid}
+  .dcols{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);grid-template-rows:auto 1fr;column-gap:40px;align-items:start}
+  .dca{grid-column:1;grid-row:1;min-width:0}
+  .dcb{grid-column:2;grid-row:1/span 2;min-width:0}
+  .dcc{grid-column:1;grid-row:2;min-width:0}
+  .dcb>h3:first-child{margin-top:16px}
+  .d h2{font-size:2rem}
+}
 </style>
 </head>
 <body>
@@ -1107,6 +1143,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       h+='<div class="idl">'+(ed?selCell('Tecnica','techin',tecOpts):cell('Tecnica',tc))+'</div>';
     }
     var subs=subsOf(r),ar=actRec(r);
+    h+='<div class="dcols"><div class="dca">';
     if(subs.length)h+='<h3 class="blkh">'+esc(dn(r))+'</h3>';
     h+='<ul class="ing" id="inglist">'+ingHtml(r,scOf(r,r))+'</ul>';
     subs.forEach(function(x,n){
@@ -1117,6 +1154,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       h+='</div>';
     });
     h+='<p class="src" id="convnote" style="margin-top:8px"'+(convNoteHtml()?'':' hidden')+'>'+convNoteHtml()+'</p>';
+    h+='</div><div class="dcb">';
     var bm=baseMl(ar);
     h+='<h3>Dosi</h3>';
     var subsD=subs.filter(function(x){return !(x.copia&&x.copia.da===r.id)});
@@ -1138,6 +1176,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       h+='<div class="note" style="margin-top:14px"><b>Possibile doppione</b>'+dp.map(function(g){return '<br>'+esc(g.label)+': '+g.ids.filter(function(id){return id!==r.id}).map(function(id){var x=byIdD[id];return x?'<a href="#ricetta-'+esc(x.id)+'">'+esc(dn(x))+'</a> <span class="src">'+esc([x.fonte,x.gruppo].filter(Boolean).join(" · "))+'</span>':""}).join(", ")}).join("")+'</div>';
     }
     if(S.collega&&S.canEdit&&S.db)h+=collegaHtml(r);
+    h+='</div><div class="dcc">';
     if(!isDrink&&r.ghiaccio)h+='<h3>Ghiaccio</h3><p>'+esc(r.ghiaccio)+'</p>';
     if(r.descrizione)h+='<h3>Descrizione a menu</h3><p>'+esc(r.descrizione)+'</p>';
     if(r.profilo)h+='<h3>Profilo</h3><p>'+esc(r.profilo)+'</p>';
@@ -1146,6 +1185,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(!isDrink&&r.guarn)h+='<h3>Guarnizione</h3><p>'+esc(r.guarn)+'</p>';
     if(r.note||tn)h+='<h3>Note</h3><div class="note">'+esc([tn,r.note].filter(Boolean).join("\n"))+'</div>';
     h+=notepHtml(r);
+    h+='</div></div>';
     h+=fotoBox(r);
     if(ed){
       h+='<div class="qa" style="margin-top:18px">';
@@ -3685,6 +3725,23 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var raw=b64d(sess.dk);
     return dkKey(raw).then(function(k){return readData(f,k).then(function(d){S.role=sess.role;S.dk=k;S.dkRaw=raw;S.tok=sess.tok||null;afterAuth(d)})}).catch(function(){sessClear()});
   }).catch(function(){S.formErr="Non riesco a leggere il ricettario. Controlla la connessione e riprova.";render()});
+})();
+</script>
+
+<script>
+/* iPad al bancone: lo schermo non si spegne finché l'app è aperta (solo su schermi larghi, non sul telefono) */
+(function(){
+  try{
+    if(!navigator.wakeLock||!window.matchMedia||!matchMedia("(min-width:768px)").matches)return;
+    var blocco=null;
+    function chiedi(){
+      if(document.hidden||blocco)return;
+      navigator.wakeLock.request("screen").then(function(b){blocco=b;b.addEventListener("release",function(){blocco=null})}).catch(function(){});
+    }
+    chiedi();
+    document.addEventListener("visibilitychange",function(){if(!document.hidden)chiedi()});
+    document.addEventListener("touchstart",chiedi,{passive:true});
+  }catch(e){}
 })();
 </script>
 
