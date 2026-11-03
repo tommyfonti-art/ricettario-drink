@@ -668,7 +668,44 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function readHash(){parse(location.hash)}
   function reset(){S.calc.target="62";S.creating=false;S.msg="";S.panel=null;S.target=null;S.scale=1;S.perVal="";S.divVal="";S.onlyIdx=null;S.onlyScaled=false;S.blk=null;S.subq="";S.edit=false;S.confirmDel=false;S.collega=false;S.formErr="";S.szMsg="";S.szSure=null;S.mn=null}
   /* la navigazione non dipende dall'hash del browser: lo stato sta nella pagina, l'hash si aggiorna solo se possibile */
-  function go(h){reset();parse(h);try{history.replaceState(null,"","#"+h)}catch(e){}render();window.scrollTo(0,0)}
+  /* cronologia dentro l'app: «Indietro» torna alla schermata di prima (es. dal blend al drink da cui sei entrato),
+     con la stessa posizione nella pagina, la stessa ricerca e le stesse dosi. Le frecce ‹ › scorrono l'elenco senza allungare la cronologia. */
+  var NAV=[],NAVMAX=60,NAVK={r:"ricetta-",e:"ce-",b:"libro-",l:"lezione-",a:"appunto-",m:"menu-",s:"serata-",c:"calcolatore-"};
+  function navCur(){if(S.open&&NAVK[S.open.k])return NAVK[S.open.k]+S.open.id;if(S.panel)return S.panel;return S.tab}
+  function navSnap(){
+    var e={h:navCur(),tab:S.tab,q:S.q||"",y:window.scrollY||window.pageYOffset||0};
+    if(S.open&&S.open.k==="r")e.d={scale:S.scale,perVal:S.perVal,divVal:S.divVal,target:S.target,onlyIdx:S.onlyIdx,onlyScaled:S.onlyScaled,blk:S.blk};
+    return e;
+  }
+  function navPush(){var c=navSnap(),top=NAV[NAV.length-1];if(top&&top.h===c.h&&top.tab===c.tab&&top.q===c.q)NAV[NAV.length-1]=c;else NAV.push(c);if(NAV.length>NAVMAX)NAV.splice(0,NAV.length-NAVMAX)}
+  function navSave(){try{sessionStorage.setItem("ricettario-nav",JSON.stringify({h:navCur(),st:NAV}))}catch(e){}}
+  function navLoad(){try{var o=JSON.parse(sessionStorage.getItem("ricettario-nav")||"null"),h=String(location.hash||"").replace(/^#/,"");try{h=decodeURIComponent(h)}catch(x){}if(o&&o.st&&o.st.length&&h&&o.h===h)NAV=o.st.slice(-NAVMAX)}catch(e){}}
+  function navReset(){NAV=[];navSave()}
+  /* una schermata salvata non vale più se la ricetta o la serata nel frattempo è stata eliminata */
+  function navOk(e){
+    var h=e&&e.h||"";if(!h)return false;
+    if(h.indexOf("ricetta-")===0)return !S.ricette||S.ricette.some(function(x){return x.id===h.slice(8)});
+    if(h.indexOf("serata-")===0)return !S.serate||!!serataModel(h.slice(7));
+    return true;
+  }
+  function navBack(fb){
+    var c=navCur(),e=null;
+    while(NAV.length){var x=NAV.pop();if(x.h!==c&&navOk(x)){e=x;break}}
+    if(!e){go(fb||S.tab,"sostituisci");return}
+    if(e.tab)S.tab=e.tab;S.q=e.q||"";var qi=$("q");if(qi&&qi.value!==S.q)qi.value=S.q;
+    go(e.h,"indietro",e);
+  }
+  /* modo: niente = schermata nuova (si ricorda quella di prima); "laterale" = frecce ‹ ›; "sostituisci" = senza ricordare; "indietro" = ritorno */
+  function go(h,modo,e){
+    if(!modo){var c=navCur(),top=NAV[NAV.length-1];if(h!==c){if(top&&top.h===h){navBack(h);return}navPush()}}
+    reset();parse(h);
+    if(modo==="indietro"&&e&&e.d&&S.open&&S.open.k==="r")Object.keys(e.d).forEach(function(k){S[k]=e.d[k]});
+    try{history.replaceState(null,"","#"+h)}catch(x){}
+    render();
+    var y=modo==="indietro"&&e&&e.y>0?e.y:0;window.scrollTo(0,y);
+    if(y)setTimeout(function(){window.scrollTo(0,y)},80);
+    navSave();
+  }
   window.addEventListener("hashchange",function(){reset();readHash();render()});
   document.addEventListener("click",function(e){
     var a=e.target.closest&&e.target.closest('a[href^="#"]');
@@ -876,7 +913,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       });return}
     if(t.closest("[data-srdelete]")&&S.db&&S.open&&S.open.k==="s"){
       var sd=serataModel(S.open.id);if(!sd)return;
-      if(confirm("Eliminare la serata «"+sd.titolo+"»? Le ricette dei drink restano."))S.db.doc("serate/"+sd.id).delete().then(function(){go("appunti")},function(er){S.formErr=saveMsg(er);render()});
+      if(confirm("Eliminare la serata «"+sd.titolo+"»? Le ricette dei drink restano."))S.db.doc("serate/"+sd.id).delete().then(function(){navBack("appunti")},function(er){S.formErr=saveMsg(er);render()});
     }
   });
   function detailMenu(m){
@@ -1385,7 +1422,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(S.creating){
       var id=slug(nome),base=id,n=2;
       while(S.ricette.some(function(x){return x.id===id})){id=base+"-"+n;n++}
-      write({id:id},vals,function(){S.creating=false;S.edit=false;go("ricetta-"+id);mqDopo(id,mv)});
+      write({id:id},vals,function(){S.creating=false;S.edit=false;go("ricetta-"+id,"sostituisci");mqDopo(id,mv)});
       return;
     }
     var r=cur();if(!r)return;
@@ -1810,7 +1847,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   }
 
   /* ---- eventi ---- */
-  $("tabs").addEventListener("click",function(e){var b=e.target.closest("button[data-tab]");if(!b)return;$("q").value="";S.q="";go(b.getAttribute("data-tab"))});
+  $("tabs").addEventListener("click",function(e){var b=e.target.closest("button[data-tab]");if(!b)return;$("q").value="";S.q="";NAV=[];go(b.getAttribute("data-tab"),"sostituisci")});
   $("main").addEventListener("input",function(e){
     var id=e.target.id||"";
     if(id==="qa-q"){S.qaQ=e.target.value;S.qaMid=e.target.getAttribute("data-mid");var qr=$("qa-res");if(qr)qr.innerHTML=qaRes(e.target.getAttribute("data-mid"),S.qaQ);return}
@@ -1859,8 +1896,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(t.closest("[data-abv-add]")){ABV.rows.push({n:"",ml:"",g:""});render();return}
     var abd=t.closest("[data-abv-del]");if(abd){ABV.rows.splice(+abd.getAttribute("data-abv-del"),1);if(!ABV.rows.length)ABV.rows.push({n:"",ml:"",g:""});render();return}
     var abl=t.closest("[data-abv-dil]");if(abl){ABV.dil=abl.getAttribute("data-abv-dil");var di=$("abv-dil");if(di)di.value=ABV.dil;var ao=$("abv-out");if(ao)ao.innerHTML=abvOut();return}
-    var nvb=t.closest("[data-nav]");if(nvb){if(nvb.disabled)return;var nr=cur();if(!nr)return;var NL=navList(nr),ni=navIdx(NL,nr)+(+nvb.getAttribute("data-nav"));if(NL[ni])go("ricetta-"+NL[ni].id);return}
-    if(t.closest("[data-back]")){var bk=panBack()||(S.panel==="bicchieri"||S.panel==="ordine"||S.panel==="diluizioni"||S.panel==="sicurezza"?"impostazioni":S.open&&S.open.k==="m"?"menu":S.open&&S.open.k==="c"?"calcolatori":S.open&&S.open.k==="s"?"appunti":S.open&&S.open.k==="a"?"appunti":S.open&&(S.open.k==="l"||S.open.k==="e"||S.open.k==="b")?"librieorsi":S.tab);go(bk);return}
+    var nvb=t.closest("[data-nav]");if(nvb){if(nvb.disabled)return;var nr=cur();if(!nr)return;var NL=navList(nr),ni=navIdx(NL,nr)+(+nvb.getAttribute("data-nav"));if(NL[ni])go("ricetta-"+NL[ni].id,"laterale");return}
+    if(t.closest("[data-back]")){var bk=panBack()||(S.panel==="bicchieri"||S.panel==="ordine"||S.panel==="diluizioni"||S.panel==="sicurezza"?"impostazioni":S.open&&S.open.k==="m"?"menu":S.open&&S.open.k==="c"?"calcolatori":S.open&&S.open.k==="s"?"appunti":S.open&&S.open.k==="a"?"appunti":S.open&&(S.open.k==="l"||S.open.k==="e"||S.open.k==="b")?"librieorsi":S.tab);navBack(bk);return}
     var ub=t.closest("button[data-unit]");if(ub){var nu=ub.getAttribute("data-unit");if(S.target!=null&&nu!==S.unit){S.target=Math.round((nu==="oz"?S.target/OZ:S.target*OZ)*100)/100}S.unit=nu;render();return}
     if(t.closest("[data-copy]")){copyRecipe(t.closest("[data-copy]"));return}
     if(t.closest("[data-mkblend-open]")){S.edit=true;S.formErr="";var rb=cur();if(rb)$("main").innerHTML=formBlend(rb);window.scrollTo(0,0);return}
@@ -1877,13 +1914,13 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var aub=t.closest("[data-aud]");if(aub){audAct(aub.getAttribute("data-aud"));return}
     if(t.closest("[data-collega]")){S.collega=!S.collega;S.collNew=null;render();return}
     if(t.closest("[data-edit]")){S.edit=true;S.formErr="";var r=cur();if(r)$("main").innerHTML=formRecipe(r);window.scrollTo(0,0);return}
-    if(t.closest("[data-cancel]")){var wasNew=S.creating;S.creating=false;S.edit=false;S.formErr="";if(wasNew){go(S.tab)}else render();return}
+    if(t.closest("[data-cancel]")){var wasNew=S.creating;S.creating=false;S.edit=false;S.formErr="";if(wasNew){navBack(S.tab)}else render();return}
     if(t.closest("[data-save]")){saveForm();return}
     if(t.closest("[data-toggle-stato]")){var r2=cur();if(!r2)return;var n2=Object.assign({},r2);if(inc(r2))delete n2.stato;else n2.stato="incompleta";write(r2,n2,function(){S.formErr=""});return}
     if(t.closest("[data-del]")){
       var r3=cur();if(!r3)return;
       if(!S.confirmDel){S.confirmDel=true;render();return}
-      S.db.doc("ricette/"+r3.id).delete().then(function(){go(S.tab)},function(er){S.confirmDel=false;S.formErr=saveMsg(er);render()});
+      S.db.doc("ricette/"+r3.id).delete().then(function(){navBack(S.tab)},function(er){S.confirmDel=false;S.formErr=saveMsg(er);render()});
     }
   });
   /* finestrella dell'app al posto di prompt(): il browser a volte blocca i prompt e non succedeva niente */
@@ -2135,7 +2172,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261102-1915";
+  var BUILD="20261103-0830";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
@@ -2472,11 +2509,11 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     (S.file?Promise.resolve(S.file):fetchFile().then(function(f){S.file=f;return f})).then(function(f){
       return unlock(f,pw).then(function(r){
         S.role=r.role;S.dkRaw=r.raw;S.tok=r.tok;
-        return dkKey(r.raw).then(function(k){S.dk=k;return readData(f,k)}).then(function(d){S.busy=false;S.formErr="";S.msg="";sessSave();S.panel=null;afterAuth(d);go(S.tab)});
+        return dkKey(r.raw).then(function(k){S.dk=k;return readData(f,k)}).then(function(d){S.busy=false;S.formErr="";S.msg="";sessSave();S.panel=null;afterAuth(d);NAV=[];go(S.tab,"sostituisci")});
       });
     }).catch(function(e){S.busy=false;S.role=null;flash(e&&e.message==="bad"?"Password sbagliata.":"Non riesco a leggere il ricettario. Controlla la connessione.",1)});
   }
-  function doLogout(){sessClear();S.role=null;S.dk=null;S.dkRaw=null;S.tok=null;S.canEdit=false;S.db=null;S.edit=false;S.panel=null;S.open=null;S.ricette=S.lezioni=S.menu=S.appunti=S.bicchieri=S.impostazioni=null;S.msg="";S.formErr="";render()}
+  function doLogout(){navReset();sessClear();S.role=null;S.dk=null;S.dkRaw=null;S.tok=null;S.canEdit=false;S.db=null;S.edit=false;S.panel=null;S.open=null;S.ricette=S.lezioni=S.menu=S.appunti=S.bicchieri=S.impostazioni=null;S.msg="";S.formErr="";render()}
   function doSaveTok(){
     var tk=($("tk")||{}).value.trim(),pw=($("tkpw")||{}).value||"";
     if(!tk||!pw){flash("Compila token e password capo.",1);return}
@@ -2594,6 +2631,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       glassWrite(gi3,gd2,"Bicchiere aggiunto.")}
     else if(a==="nuova"){
       var cat=CATNAME[S.tab]?S.tab:"cocktail";
+      if(!S.creating)navPush();
       reset();S.open=null;S.creating=true;S.edit=true;S.formErr="";
       $("main").innerHTML=formRecipe({cat:cat});window.scrollTo(0,0);
     }
@@ -3529,7 +3567,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
 
   document.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.id==="pw")doLogin()});
 
-  readHash();render();
+  navLoad();readHash();render();
   if("serviceWorker" in navigator){try{navigator.serviceWorker.register("sw.js").catch(function(){})}catch(x){}}
   if(!window.crypto||!crypto.subtle){S.formErr="Questo browser non è abbastanza recente per aprire il ricettario.";render()}
   else fetchFile().then(function(f){
