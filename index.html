@@ -1227,14 +1227,58 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var L=collAll(r).filter(function(x){return have.indexOf(x.id)<0&&collMatch(x,q)});
     return '<option value="">— scegli —</option>'+L.map(function(x){return '<option value="'+esc(x.id)+'">'+esc(dn(x)+(inc(x)?" (incompleta)":"")+" · "+(CATNAME[x.cat]||x.cat))+'</option>'}).join("");
   }
+  /* «Rifai senza blend»: la riga del blend nel drink torna ai suoi ingredienti, con le dosi per un drink */
+  function blendLines(r){
+    var out=[];(r.ing||[]).forEach(function(t,i){var b=linkFor(split(t,1).t,r);if(b&&b.cat==="blend"&&b.id!==r.id&&!(b.copia&&b.copia.da))out.push({i:i,b:b})});return out;
+  }
+  function scioglPlan(r,i){
+    var b=linkFor(split(r.ing[i],1).t,r);if(!b)return {err:"Non trovo la ricetta del blend."};
+    var T=baseMl(b).t,q=mlOf(r.ing[i]);
+    if(!(T>0))return {err:"Nel blend «"+dn(b)+"» non ci sono quantità in ml: non riesco a calcolare le dosi per un drink."};
+    if(q==null||!(q>0))return {err:"Nella riga «"+r.ing[i]+"» manca la quantità in ml del blend."};
+    var k=q/T,keep=S.unit;S.unit="ml";
+    var exp=(b.ing||[]).map(function(t){var sp=split(t,k);return (sp.q?sp.q+" ":"")+sp.t});
+    S.unit=keep;
+    var nuovi=[];(r.ing||[]).forEach(function(t,j){if(j===i)nuovi=nuovi.concat(exp);else nuovi.push(t)});
+    var altri=(r.ing||[]).filter(function(t,j){return j!==i}).map(ingKey).filter(Boolean);
+    var conf=exp.map(ingKey).filter(function(k2){return k2&&altri.indexOf(k2)>=0});
+    return {b:b,ing:nuovi,fuori:altri,conf:conf,ck:collKey(split(r.ing[i],1).t)};
+  }
+  function formSciogli(r,BL){
+    var cur2=BL.filter(function(x){return x.i===S.sciI})[0]||BL[0];S.sciI=cur2.i;
+    var P=scioglPlan(r,cur2.i),h='<p class="src" style="margin:0">Nel drink «'+esc(dn(r))+'» al posto della riga del blend tornano i suoi ingredienti, con le dosi per un drink. Il blend resta sotto, come seconda ricetta.</p>';
+    if(BL.length>1)h+='<label>Quale blend</label><div class="ctl">'+BL.map(function(x){return '<button data-scii="'+x.i+'" aria-pressed="'+(x.i===cur2.i)+'">'+esc(dn(x.b))+'</button>'}).join("")+'</div>';
+    if(P.err)return h+'<div class="err">'+esc(P.err)+'</div><div class="actions"><button class="btn" data-cancel="1">Annulla</button></div>';
+    h+='<label>Ricetta del drink, come diventa</label><ul class="ing">'+P.ing.map(function(t){var sp=split(t,1);return '<li><span class="q">'+esc(sp.q)+'</span><span class="t">'+esc(sp.t)+'</span></li>'}).join("")+'</ul>';
+    if(P.conf.length)h+='<p class="note" style="margin:10px 0">Nel drink c\'è già «'+esc(P.conf.join(", "))+'» anche fuori dal blend: per non fare confusione il blend resta separato (non collegato). Se vuoi collegarlo, prima unisci quelle righe.</p>';
+    else h+='<label style="display:flex;gap:10px;align-items:baseline;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--fg);margin:14px 0 4px"><input type="checkbox" id="sci-col" checked style="width:auto"> <span>Collega il blend al drink: se cambi il drink, il blend si aggiorna da solo. Le dosi del blend diventano quelle per un drink; per prepararne di più usa «Dosi».</span></label>'+
+      '<p class="hint">Senza il segno il blend resta com\'è, con le sue dosi di adesso, ma non si aggiorna da solo.</p>';
+    return h+(S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+'<div class="actions"><button class="btn pri" data-sciogli="1">Rifai la ricetta</button><button class="btn" data-cancel="1">Annulla</button></div>';
+  }
+  function doSciogli(){
+    var r=cur();if(!r||!S.db)return;
+    var P=scioglPlan(r,S.sciI);if(P.err){formError(P.err);return}
+    var col=!P.conf.length&&$("sci-col")&&$("sci-col").checked,rid=r.id,bid=P.b.id;
+    S.formErr="";
+    applyOp(function(d){
+      d.ricette=d.ricette||{};
+      var nx=Object.assign({},d.ricette[rid]||r);delete nx.id;
+      nx.ing=P.ing;
+      nx.sub=(nx.sub||[]).filter(function(x){return x!==bid}).concat([bid]);
+      if(nx.coll&&P.ck&&nx.coll[P.ck]){var cl=Object.assign({},nx.coll);delete cl[P.ck];nx.coll=cl}
+      d.ricette[rid]=clean(nx);
+      if(col&&d.ricette[bid]){var bx=Object.assign({},d.ricette[bid]);bx.ing_prima=bx.ing_prima||bx.ing;bx.copia={da:rid,fuori:P.fuori};d.ricette[bid]=bx}
+    },"Rifai senza blend dal sito: "+rid+" ← "+bid).then(function(){S.edit=false;S.formErr="";S.subMode=null;go("ricetta-"+rid,"sostituisci")},function(e){formError(saveMsg(e))});
+  }
   function formSub(r){
-    var dup=S.subMode==="duplica";
+    var dup=S.subMode==="duplica",BL=blendLines(r),sci=S.subMode==="sciogli"&&BL.length;
     var rows=(r.ing||[]).map(function(t,i){
       return '<label style="display:flex;gap:10px;align-items:baseline;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--fg);margin:8px 0"><input type="checkbox" class="s-ing" data-i="'+i+'"'+(dup?' checked':'')+' style="width:auto"> <span>'+esc(t)+'</span></label>';
     }).join("");
     return '<div class="d form"><button class="back" data-cancel="1">← Annulla</button><h2>Dividi in due ricette</h2>'+
       ((r.ing||[]).length?
-      '<div class="ctl" style="margin:10px 0 4px"><button data-submode="sposta" aria-pressed="'+!dup+'">Sposta gli ingredienti</button><button data-submode="duplica" aria-pressed="'+dup+'">Duplica come blend</button></div>':'')+
+      '<div class="ctl" style="margin:10px 0 4px;flex-wrap:wrap"><button style="font-family:inherit" data-submode="sposta" aria-pressed="'+(!dup&&!sci)+'">Sposta gli ingredienti</button><button style="font-family:inherit" data-submode="duplica" aria-pressed="'+dup+'">Duplica come blend</button>'+(BL.length?'<button style="font-family:inherit" data-submode="sciogli" aria-pressed="'+!!sci+'">Rifai senza blend</button>':'')+'</div>':'')+
+      (sci?formSciogli(r,BL)+'</div>':'')+(sci?'':
       (dup?'<p class="src" style="margin:0">Il drink «'+esc(dn(r))+'» resta com\'è, con tutti gli ingredienti. Sotto compare anche la versione con il blend, che trovi pure nella sua sezione. Le due ricette restano collegate: se cambi il drink, il blend si aggiorna da solo.</p>'
         :'<p class="src" style="margin:0">Dal drink «'+esc(dn(r))+'». Gli ingredienti che segni diventano una ricetta a sé, che trovi nella sua sezione e anche qui, sotto gli ingredienti del drink.</p>')+
       ((r.ing||[]).length?
@@ -1249,7 +1293,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       '<input id="s-cerca" type="search" placeholder="Cerca una preparazione…" autocomplete="off" autocapitalize="none" value="'+esc(S.subq||"")+'">'+
       '<select id="s-esist" style="margin-top:6px">'+subOpts(r)+'</select>'+
       (S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+
-      '<div class="actions"><button class="btn" data-subadd="1">Aggiungi a questa pagina</button><button class="btn" data-cancel="1">Annulla</button></div></div>';
+      '<div class="actions"><button class="btn" data-subadd="1">Aggiungi a questa pagina</button><button class="btn" data-cancel="1">Annulla</button></div></div>');
   }
   function makeSub(){
     var r=cur();if(!r||!S.db)return;
@@ -1959,8 +2003,10 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(t.closest("[data-mkblend-open]")){S.edit=true;S.formErr="";var rb=cur();if(rb)$("main").innerHTML=formBlend(rb);window.scrollTo(0,0);return}
     if(t.closest("[data-mkblend]")){makeBlend();return}
     var smb=t.closest("[data-submode]");if(smb){S.subMode=smb.getAttribute("data-submode");S.formErr="";var rsm=cur();if(rsm)$("main").innerHTML=formSub(rsm);return}
-    if(t.closest("[data-mksub-open]")){S.subMode=null;S.edit=true;S.formErr="";S.subq="";var rs=cur();if(rs)$("main").innerHTML=formSub(rs);window.scrollTo(0,0);return}
+    if(t.closest("[data-mksub-open]")){S.subMode=null;S.sciI=null;S.edit=true;S.formErr="";S.subq="";var rs=cur();if(rs)$("main").innerHTML=formSub(rs);window.scrollTo(0,0);return}
     if(t.closest("[data-mksub]")){makeSub();return}
+    var scb=t.closest("[data-scii]");if(scb){S.sciI=+scb.getAttribute("data-scii");S.formErr="";var rsc=cur();if(rsc)$("main").innerHTML=formSub(rsc);return}
+    if(t.closest("[data-sciogli]")){doSciogli();return}
     if(t.closest("[data-subadd]")){subAdd();return}
     var sdb=t.closest("[data-subdel]");if(sdb){var rd=cur();if(!rd)return;var sid=sdb.getAttribute("data-subdel");if(S.blk===sid){S.blk=null;S.scale=1;S.perVal="";S.divVal="";S.target=null;S.onlyIdx=null;S.onlyScaled=false}write(rd,Object.assign({},rd,{sub:(rd.sub||[]).filter(function(x){return x!==sid})}),function(){render()});return}
     var bkb=t.closest("button[data-blk]");if(bkb){S.blk=bkb.getAttribute("data-blk")||null;S.scale=1;S.perVal="";S.divVal="";S.target=null;S.onlyIdx=null;S.onlyScaled=false;render();return}
@@ -2229,7 +2275,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261103-0900";
+  var BUILD="20261103-0945";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
