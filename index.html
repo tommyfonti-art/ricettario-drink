@@ -987,10 +987,17 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       if(JSON.stringify(ni)!==JSON.stringify(x.ing||[]))x.ing=ni;
     });
   }
+  /* righe del blocco sotto il drink: per un blend collegato si vede il drink fatto con il blend (riga del blend + ciò che resta fuori) */
+  function subIngHtml(x,r){
+    if(!(x.copia&&x.copia.da===r.id))return ingHtml(x,scOf(x,r));
+    var tb=baseMl(x).t,fu=x.copia.fuori||[],cc={};cc[collKey(dn(x))]=x.id;
+    var vr={id:"__conblend",coll:cc,ing:[(tb>0?fmt(tb)+" ml ":"")+dn(x)].concat((r.ing||[]).filter(function(t){return fu.indexOf(ingKey(t))>=0}))};
+    return ingHtml(vr,scOf(r,r));
+  }
   function srcOf(x){return x&&x.copia&&x.copia.da?S.ricette.filter(function(y){return y.id===x.copia.da})[0]:null}
   function subsOf(r){return ((r&&r.sub)||[]).map(function(id){return S.ricette.filter(function(x){return x.id===id})[0]}).filter(Boolean)}
   /* la ricetta su cui lavorano le Dosi: il drink oppure la preparazione scelta in «Ricetta» */
-  function actRec(r){if(!r||!S.blk)return r;return subsOf(r).filter(function(x){return x.id===S.blk})[0]||r}
+  function actRec(r){if(!r||!S.blk)return r;return subsOf(r).filter(function(x){return x.id===S.blk&&!(x.copia&&x.copia.da===r.id)})[0]||r}
   function scOf(x,r){return actRec(r)===x?S.scale:1}
   function ingHtml(r,sc){var k=sc==null?S.scale:sc;return (r.ing||[]).map(function(t){
       var s=split(t,k),ln=linkFor(s.t,r);
@@ -1103,19 +1110,17 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(subs.length)h+='<h3 class="blkh">'+esc(dn(r))+'</h3>';
     h+='<ul class="ing" id="inglist">'+ingHtml(r,scOf(r,r))+'</ul>';
     subs.forEach(function(x,n){
-      h+='<div class="blk"><h3 class="blkh"><a href="#ricetta-'+esc(x.id)+'">'+esc(dn(x))+'</a> <span class="src">'+esc(CATNAME[x.cat]||x.cat)+(x.tecnica?' · '+esc(x.tecnica):'')+'</span></h3>';
-      h+='<ul class="ing" id="inglist-s'+n+'">'+ingHtml(x,scOf(x,r))+'</ul>';
-      if(x.copia&&x.copia.da===r.id){
-        var fuo=(r.ing||[]).filter(function(t){return (x.copia.fuori||[]).indexOf(ingKey(t))>=0}).map(function(t){var sp=split(t,scOf(r,r));return (sp.q?sp.q+" ":"")+sp.t});
-        h+='<p class="src" style="margin:8px 0 2px">Stessa ricetta di sopra, preparata prima'+(fuo.length?'. Al momento aggiungi solo: '+esc(fuo.join(", ")):'')+'.</p>';
-      }
-      if(x.proc)h+='<p class="src" style="margin:10px 0 2px">Procedimento</p><p style="margin-top:0">'+esc(x.proc)+'</p>';
+      if(x.copia&&x.copia.da===r.id)h+='<div class="blk"><h3 class="blkh">'+esc(dn(r))+' <span class="src">con il blend</span></h3>';
+      else h+='<div class="blk"><h3 class="blkh"><a href="#ricetta-'+esc(x.id)+'">'+esc(dn(x))+'</a> <span class="src">'+esc(CATNAME[x.cat]||x.cat)+(x.tecnica?' · '+esc(x.tecnica):'')+'</span></h3>';
+      h+='<ul class="ing" id="inglist-s'+n+'">'+subIngHtml(x,r)+'</ul>';
+      if(x.proc&&!(x.copia&&x.copia.da===r.id))h+='<p class="src" style="margin:10px 0 2px">Procedimento</p><p style="margin-top:0">'+esc(x.proc)+'</p>';
       h+='</div>';
     });
     h+='<p class="src" id="convnote" style="margin-top:8px"'+(convNoteHtml()?'':' hidden')+'>'+convNoteHtml()+'</p>';
     var bm=baseMl(ar);
     h+='<h3>Dosi</h3>';
-    if(subs.length)h+='<div class="ctl"><span class="lab">Ricetta</span>'+[r].concat(subs).map(function(x){return '<button data-blk="'+(x===r?'':esc(x.id))+'" aria-pressed="'+(ar===x)+'">'+esc(x===r?(isDrink?'Drink':dn(x)):dn(x))+'</button>'}).join("")+'</div>';
+    var subsD=subs.filter(function(x){return !(x.copia&&x.copia.da===r.id)});
+    if(subsD.length)h+='<div class="ctl"><span class="lab">Ricetta</span>'+[r].concat(subsD).map(function(x){return '<button data-blk="'+(x===r?'':esc(x.id))+'" aria-pressed="'+(ar===x)+'">'+esc(x===r?(isDrink?'Drink':dn(x)):dn(x))+'</button>'}).join("")+'</div>';
     h+='<div class="ctl one"><span class="lab">Per</span><input id="perin" type="number" min="0" step="any" inputmode="decimal" placeholder="es. 6" value="'+esc(S.perVal)+'" aria-label="Moltiplica per"><span class="lab" style="min-width:0;margin-left:10px">Diviso</span><input id="divin" type="number" min="0" step="any" inputmode="decimal" placeholder="es. 2" value="'+esc(S.divVal)+'" aria-label="Dividi per"></div>';
     if(bm.t>0)h+='<div class="ctl one"><span class="lab">Finale</span><input id="totin" class="tot" type="number" min="0" step="any" inputmode="decimal" placeholder="Quantità finale" value="'+(S.target!=null?esc(S.target):"")+'" aria-label="Quantità finale desiderata"><span class="src" style="margin:0">'+S.unit+'</span></div>';
     var ol=onlyList(ar),osel=S.onlyIdx!=null?ol.filter(function(x){return x.i===S.onlyIdx})[0]:null;
@@ -2151,7 +2156,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       else{var ob=S.onlyIdx!=null?onlyBase(r.ing[S.onlyIdx]):null;if(ob&&ok){S.scale=v/ob.b;S.onlyScaled=true}else{S.scale=1;S.onlyScaled=false}}
       ["perin","divin","totin","onlyval"].forEach(function(o){if(o!==id){var el=$(o);if(el)el.value=""}});
       var set=function(i,h,hide){var el=$(i);if(el){el.innerHTML=h;if(hide)el.hidden=!h}};
-      set("inglist",ingHtml(r0,scOf(r0,r0)));subsOf(r0).forEach(function(x,n){set("inglist-s"+n,ingHtml(x,scOf(x,r0)))});set("basenote",baseNoteHtml(r));set("onlynote",onlyNoteHtml(r),1);set("convnote",convNoteHtml(),1);
+      set("inglist",ingHtml(r0,scOf(r0,r0)));subsOf(r0).forEach(function(x,n){set("inglist-s"+n,subIngHtml(x,r0))});set("basenote",baseNoteHtml(r));set("onlynote",onlyNoteHtml(r),1);set("convnote",convNoteHtml(),1);
     },180);
   });
   $("main").addEventListener("input",function(e){
@@ -2275,7 +2280,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261103-0945";
+  var BUILD="20261103-0850";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
