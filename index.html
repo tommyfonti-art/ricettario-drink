@@ -971,6 +971,23 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return '<div class="list">'+items.slice().sort(byName).map(function(r){return row(r,false)}).join("")+'</div>';
   }
   /* seconda ricetta nella stessa pagina: il drink tiene in «sub» gli id delle preparazioni mostrate sotto i suoi ingredienti */
+  /* ricette collegate («Duplica»): la copia ha copia={da: id della ricetta di origine, fuori: ingredienti lasciati fuori}
+     e i suoi ingredienti si ricalcolano sempre da quelli della ricetta di origine */
+  function ingKey(t){return collKey(split(String(t||""),1).t)}
+  function copiaIng(src,cp,selfName){
+    var fu=(cp&&cp.fuori)||[],sk=selfName?collKey(selfName):"";
+    return (src.ing||[]).filter(function(t){var k=ingKey(t);return fu.indexOf(k)<0&&!(sk&&k===sk)});
+  }
+  function syncCopie(d){
+    var R=d&&d.ricette;if(!R)return;
+    Object.keys(R).forEach(function(k){
+      var x=R[k],cp=x&&x.copia,src=cp&&cp.da&&R[cp.da];
+      if(!src||cp.da===k)return;
+      var ni=copiaIng(src,cp,dn(Object.assign({},x,{id:k})));
+      if(JSON.stringify(ni)!==JSON.stringify(x.ing||[]))x.ing=ni;
+    });
+  }
+  function srcOf(x){return x&&x.copia&&x.copia.da?S.ricette.filter(function(y){return y.id===x.copia.da})[0]:null}
   function subsOf(r){return ((r&&r.sub)||[]).map(function(id){return S.ricette.filter(function(x){return x.id===id})[0]}).filter(Boolean)}
   /* la ricetta su cui lavorano le Dosi: il drink oppure la preparazione scelta in «Ricetta» */
   function actRec(r){if(!r||!S.blk)return r;return subsOf(r).filter(function(x){return x.id===S.blk})[0]||r}
@@ -1064,6 +1081,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(inc(r))meta.push('<span class="chip hot">incompleta</span>');
     var un=["ml","oz"].map(function(v){return '<button data-unit="'+v+'" aria-pressed="'+(S.unit===v)+'">'+v+'</button>'}).join("");
     var h='<div class="d">'+navHtml(r)+'<h2>'+esc(dn(r))+'</h2><div class="meta">'+meta.join(" ")+'</div>';
+    var csrc=srcOf(r);if(csrc)h+='<p class="note" style="margin:8px 0">Collegata a <a href="#ricetta-'+esc(csrc.id)+'">'+esc(dn(csrc))+'</a>: gli ingredienti si prendono da lì. Se cambi il drink, cambia anche questa.</p>';
     var tc=r.tecnica||"",tn=r.tecnica_nota||"",isDrink=r.cat==="cocktail"||r.cat==="analcolico",gl=isDrink?glassOf(r):null;
     /* riga d'identità del drink: si legge al primo colpo d'occhio, prima degli ingredienti */
     var ed=S.canEdit&&S.db;
@@ -1087,6 +1105,10 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     subs.forEach(function(x,n){
       h+='<div class="blk"><h3 class="blkh"><a href="#ricetta-'+esc(x.id)+'">'+esc(dn(x))+'</a> <span class="src">'+esc(CATNAME[x.cat]||x.cat)+(x.tecnica?' · '+esc(x.tecnica):'')+'</span></h3>';
       h+='<ul class="ing" id="inglist-s'+n+'">'+ingHtml(x,scOf(x,r))+'</ul>';
+      if(x.copia&&x.copia.da===r.id){
+        var fuo=(r.ing||[]).filter(function(t){return (x.copia.fuori||[]).indexOf(ingKey(t))>=0}).map(function(t){var sp=split(t,scOf(r,r));return (sp.q?sp.q+" ":"")+sp.t});
+        h+='<p class="src" style="margin:8px 0 2px">Stessa ricetta di sopra, preparata prima'+(fuo.length?'. Al momento aggiungi solo: '+esc(fuo.join(", ")):'')+'.</p>';
+      }
       if(x.proc)h+='<p class="src" style="margin:10px 0 2px">Procedimento</p><p style="margin-top:0">'+esc(x.proc)+'</p>';
       h+='</div>';
     });
@@ -1134,6 +1156,13 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return h+'</div>';
   }
   function catOptions(sel){return Object.keys(CATNAME).map(function(k){return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+esc(CATNAME[k])+'</option>'}).join("")}
+  function copiaFormHtml(r){
+    var src=srcOf(r),fu=(r.copia&&r.copia.fuori)||[];
+    return '<label>Ingredienti</label><p class="hint" style="margin-top:0">Collegata a «'+esc(dn(src))+'»: per cambiare dosi o ingredienti modifica il drink. Qui scegli solo cosa va dentro.</p>'+
+      '<textarea id="e-ing" hidden>'+esc((r.ing||[]).join("\n"))+'</textarea>'+
+      (src.ing||[]).map(function(t){var k=ingKey(t);return '<label style="display:flex;gap:10px;align-items:baseline;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--fg);margin:8px 0"><input type="checkbox" class="cp-ing" data-k="'+esc(k)+'"'+(fu.indexOf(k)<0?' checked':'')+' style="width:auto"> <span>'+esc(t)+'</span></label>'}).join("")+
+      '<label style="display:flex;gap:10px;align-items:baseline;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--fg);margin:14px 0 4px"><input type="checkbox" id="cp-on" checked style="width:auto"> <span>Collegata al drink (togli il segno per renderla indipendente)</span></label>';
+  }
   function formRecipe(r){
     var nuova=S.creating;
     return '<div class="d form"><button class="back" data-cancel="1">← '+(nuova?'Annulla':'Annulla modifica')+'</button><h2>'+(nuova?'Nuova ricetta':'Modifica ricetta')+'</h2>'+
@@ -1141,7 +1170,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       '<label for="e-cat">Sezione</label><select id="e-cat">'+catOptions(r.cat||"cocktail")+'</select>'+
       '<label for="e-gruppo">Gruppo</label><input id="e-gruppo" value="'+esc(r.gruppo||"")+'">'+mqFormHtml(r)+
       '<label for="e-alias">Altri nomi con cui compare negli ingredienti (separati da virgola)</label><input id="e-alias" value="'+esc((r.alias||[]).join(", "))+'">'+
-      '<label for="e-ing">Ingredienti</label><textarea id="e-ing" rows="10">'+esc((r.ing||[]).join("\n"))+'</textarea>'+dett("e-ing")+'<p class="hint">Un ingrediente per riga, con la quantità all\'inizio (per esempio: 45 ml Gin, oppure 1 3/4 oz Gin). Le righe senza numero restano come sono.</p>'+
+      (srcOf(r)?copiaFormHtml(r):'<label for="e-ing">Ingredienti</label><textarea id="e-ing" rows="10">'+esc((r.ing||[]).join("\n"))+'</textarea>'+dett("e-ing"))+'<p class="hint">Un ingrediente per riga, con la quantità all\'inizio (per esempio: 45 ml Gin, oppure 1 3/4 oz Gin). Le righe senza numero restano come sono.</p>'+
       '<label for="e-tnota">Nota sulla tecnica</label><input id="e-tnota" value="'+esc(r.tecnica_nota||"")+'"><p class="hint">La tecnica si sceglie dalla tendina nella scheda della ricetta; qui puoi aggiungere una nota, per esempio «con tritato».</p>'+
       '<label for="e-metodo">Metodo</label><input id="e-metodo" value="'+esc(r.metodo||"")+'">'+
       '<label for="e-proc">Procedimento</label><textarea id="e-proc" rows="6">'+esc(r.proc||"")+'</textarea>'+dett("e-proc")+
@@ -1199,19 +1228,23 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return '<option value="">— scegli —</option>'+L.map(function(x){return '<option value="'+esc(x.id)+'">'+esc(dn(x)+(inc(x)?" (incompleta)":"")+" · "+(CATNAME[x.cat]||x.cat))+'</option>'}).join("");
   }
   function formSub(r){
+    var dup=S.subMode==="duplica";
     var rows=(r.ing||[]).map(function(t,i){
-      return '<label style="display:flex;gap:10px;align-items:baseline;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--fg);margin:8px 0"><input type="checkbox" class="s-ing" data-i="'+i+'" style="width:auto"> <span>'+esc(t)+'</span></label>';
+      return '<label style="display:flex;gap:10px;align-items:baseline;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--fg);margin:8px 0"><input type="checkbox" class="s-ing" data-i="'+i+'"'+(dup?' checked':'')+' style="width:auto"> <span>'+esc(t)+'</span></label>';
     }).join("");
     return '<div class="d form"><button class="back" data-cancel="1">← Annulla</button><h2>Dividi in due ricette</h2>'+
-      '<p class="src" style="margin:0">Dal drink «'+esc(dn(r))+'». Gli ingredienti che segni diventano una ricetta a sé, che trovi nella sua sezione e anche qui, sotto gli ingredienti del drink.</p>'+
       ((r.ing||[]).length?
-      '<label for="s-nome">Nome della seconda ricetta</label><input id="s-nome" placeholder="es. Decotto di genziana">'+
-      '<label for="s-cat">Sezione</label><select id="s-cat">'+["homemade","blend","soda","infusione"].map(function(k){return '<option value="'+k+'">'+esc(CATNAME[k])+'</option>'}).join("")+'</select>'+
-      '<label>Ingredienti che vanno nella seconda ricetta</label>'+rows+
-      '<label for="s-q">Quantità che va nel drink (facoltativa)</label><div style="display:flex;gap:8px;align-items:center"><input id="s-q" type="number" min="0" step="any" inputmode="decimal" style="max-width:120px"><span class="src" style="margin:0">ml</span></div>'+
-      '<p class="hint">Se la scrivi, nel drink resta una riga con questa quantità e il nome della seconda ricetta, al posto degli ingredienti spostati. Se nel drink c\'è già una riga per il decotto, lasciala vuota.</p>'+
-      '<label for="s-proc">Procedimento della seconda ricetta (facoltativo)</label><textarea id="s-proc" rows="4"></textarea>'+
-      '<div class="actions"><button class="btn pri" data-mksub="1">Dividi</button><button class="btn" data-cancel="1">Annulla</button></div>':'')+
+      '<div class="ctl" style="margin:10px 0 4px"><button data-submode="sposta" aria-pressed="'+!dup+'">Sposta gli ingredienti</button><button data-submode="duplica" aria-pressed="'+dup+'">Duplica come blend</button></div>':'')+
+      (dup?'<p class="src" style="margin:0">Il drink «'+esc(dn(r))+'» resta com\'è, con tutti gli ingredienti. Sotto compare anche la versione con il blend, che trovi pure nella sua sezione. Le due ricette restano collegate: se cambi il drink, il blend si aggiorna da solo.</p>'
+        :'<p class="src" style="margin:0">Dal drink «'+esc(dn(r))+'». Gli ingredienti che segni diventano una ricetta a sé, che trovi nella sua sezione e anche qui, sotto gli ingredienti del drink.</p>')+
+      ((r.ing||[]).length?
+      '<label for="s-nome">'+(dup?'Nome del blend':'Nome della seconda ricetta')+'</label><input id="s-nome"'+(dup?' value="'+esc(r.nome||"")+'"':' placeholder="es. Decotto di genziana"')+'>'+(dup?'<p class="hint">Davanti al nome compare «Blend» da solo: non serve scriverlo.</p>':'')+
+      '<label for="s-cat">Sezione</label><select id="s-cat">'+["homemade","blend","soda","infusione"].map(function(k){return '<option value="'+k+'"'+(dup&&k==="blend"?' selected':'')+'>'+esc(CATNAME[k])+'</option>'}).join("")+'</select>'+
+      '<label>'+(dup?'Ingredienti che vanno nel blend (togli il segno a quelli da aggiungere al momento, per esempio la soda)':'Ingredienti che vanno nella seconda ricetta')+'</label>'+rows+
+      (dup?'':'<label for="s-q">Quantità che va nel drink (facoltativa)</label><div style="display:flex;gap:8px;align-items:center"><input id="s-q" type="number" min="0" step="any" inputmode="decimal" style="max-width:120px"><span class="src" style="margin:0">ml</span></div>'+
+      '<p class="hint">Se la scrivi, nel drink resta una riga con questa quantità e il nome della seconda ricetta, al posto degli ingredienti spostati. Se nel drink c\'è già una riga per il decotto, lasciala vuota.</p>')+
+      '<label for="s-proc">Procedimento '+(dup?'del blend':'della seconda ricetta')+' (facoltativo)</label><textarea id="s-proc" rows="4"></textarea>'+
+      '<div class="actions"><button class="btn pri" data-mksub="1">'+(dup?'Crea il blend':'Dividi')+'</button><button class="btn" data-cancel="1">Annulla</button></div>':'')+
       '<h3 style="margin-top:22px">Oppure usa una preparazione che esiste già</h3>'+
       '<input id="s-cerca" type="search" placeholder="Cerca una preparazione…" autocomplete="off" autocapitalize="none" value="'+esc(S.subq||"")+'">'+
       '<select id="s-esist" style="margin-top:6px">'+subOpts(r)+'</select>'+
@@ -1229,6 +1262,21 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(S.ricette.some(function(x){return x.cat===cat&&norm(dn(x))===norm(full)})){formError("Esiste già una ricetta con questo nome in "+(CATNAME[cat]||cat)+". Cambia nome, oppure aggiungila qui sotto da «Oppure usa una preparazione che esiste già».");return}
     var id=slug(cat==="blend"?"blend "+nome:nome),base=id,n=2;
     while(S.ricette.some(function(x){return x.id===id})){id=base+"-"+n;n++}
+    if(S.subMode==="duplica"){
+      var fuori=(r.ing||[]).filter(function(x,i){return sel.indexOf(i)<0}).map(ingKey);
+      var drec={nome:nome,cat:cat,copia:{da:r.id,fuori:fuori},proc:$("s-proc").value.trim()};
+      drec.ing=copiaIng(r,drec.copia,full);
+      if(cat==="blend")drec.gruppo="Blend";
+      var drid=r.id;S.formErr="";
+      applyOp(function(d){
+        d.ricette=d.ricette||{};
+        d.ricette[id]=clean(drec);
+        var nx=Object.assign({},d.ricette[drid]||r);delete nx.id;
+        nx.sub=(nx.sub||[]).filter(function(x){return x!==id}).concat([id]);
+        d.ricette[drid]=clean(nx);
+      },"Duplica come blend dal sito: "+drid+" → "+id).then(function(){S.edit=false;S.formErr="";S.subMode=null;go("ricetta-"+drid,"sostituisci")},function(e){formError(saveMsg(e))});
+      return;
+    }
     var q=parseFloat(String($("s-q").value||"").replace(",","."));
     var line=q>0?fmt(q)+" ml "+full:null;
     var moved=sel.map(function(i){return r.ing[i]});
@@ -1426,6 +1474,14 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       return;
     }
     var r=cur();if(!r)return;
+    var csr=srcOf(r);
+    if(csr&&$("cp-on")){
+      if($("cp-on").checked){
+        var fu=[].slice.call(document.querySelectorAll(".cp-ing")).filter(function(c){return !c.checked}).map(function(c){return c.getAttribute("data-k")});
+        vals.copia={da:csr.id,fuori:fu};vals.ing=copiaIng(csr,vals.copia,dn(r));
+        if(!vals.ing.length){formError("Lascia almeno un ingrediente dentro.");return}
+      }else{vals.copia=undefined;vals.ing=copiaIng(csr,r.copia,dn(r))}
+    }
     write(r,Object.assign({},r,vals),function(){S.edit=false;render();mqDopo(r.id,mv)});
   }
 
@@ -1902,7 +1958,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(t.closest("[data-copy]")){copyRecipe(t.closest("[data-copy]"));return}
     if(t.closest("[data-mkblend-open]")){S.edit=true;S.formErr="";var rb=cur();if(rb)$("main").innerHTML=formBlend(rb);window.scrollTo(0,0);return}
     if(t.closest("[data-mkblend]")){makeBlend();return}
-    if(t.closest("[data-mksub-open]")){S.edit=true;S.formErr="";S.subq="";var rs=cur();if(rs)$("main").innerHTML=formSub(rs);window.scrollTo(0,0);return}
+    var smb=t.closest("[data-submode]");if(smb){S.subMode=smb.getAttribute("data-submode");S.formErr="";var rsm=cur();if(rsm)$("main").innerHTML=formSub(rsm);return}
+    if(t.closest("[data-mksub-open]")){S.subMode=null;S.edit=true;S.formErr="";S.subq="";var rs=cur();if(rs)$("main").innerHTML=formSub(rs);window.scrollTo(0,0);return}
     if(t.closest("[data-mksub]")){makeSub();return}
     if(t.closest("[data-subadd]")){subAdd();return}
     var sdb=t.closest("[data-subdel]");if(sdb){var rd=cur();if(!rd)return;var sid=sdb.getAttribute("data-subdel");if(S.blk===sid){S.blk=null;S.scale=1;S.perVal="";S.divVal="";S.target=null;S.onlyIdx=null;S.onlyScaled=false}write(rd,Object.assign({},rd,{sub:(rd.sub||[]).filter(function(x){return x!==sid})}),function(){render()});return}
@@ -2121,7 +2178,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function sessClear(){try{localStorage.removeItem(SESS)}catch(x){}}
 
   function setBase(d){
-    S.raw=d;
+    syncCopie(d);S.raw=d;
     COLS.forEach(function(c){
       var o=d[c]||{};
       S[c]=Object.keys(o).map(function(k){return Object.assign({},o[k],{id:k})});
@@ -2150,7 +2207,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function commit(mut,msg){var p=chain.then(function(){return ghCommitFile(mut,msg,3)});chain=p.catch(function(){});return p}
   function applyOp(fn,msg){
     var out;
-    return commit(function(file){return readData(file,S.dk).then(function(d){fn(d);out=d;return writeData(file,S.dk,d)})},msg).then(function(nf){S.file=nf;S.lastSave=Date.now();setBase(out)});
+    return commit(function(file){return readData(file,S.dk).then(function(d){fn(d);syncCopie(d);out=d;return writeData(file,S.dk,d)})},msg).then(function(nf){S.file=nf;S.lastSave=Date.now();setBase(out)});
   }
   function makeDb(){
     return {doc:function(p){var a=p.split("/");return {
@@ -2172,7 +2229,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261103-0830";
+  var BUILD="20261103-0900";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
