@@ -1217,7 +1217,6 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       (solo?'':'<label for="e-alias">Altri nomi con cui compare negli ingredienti (separati da virgola)</label><input id="e-alias" value="'+esc((r.alias||[]).join(", "))+'">')+
       (srcOf(r)?copiaFormHtml(r):'<label for="e-ing">Ingredienti</label><textarea id="e-ing" rows="10">'+esc((r.ing||[]).join("\n"))+'</textarea>'+dett("e-ing"))+'<p class="hint">Un ingrediente per riga, con la quantità all\'inizio (per esempio: 45 ml Gin, oppure 1 3/4 oz Gin). Le righe senza numero restano come sono.</p>'+
       (solo?'':'<label for="e-tnota">Nota sulla tecnica</label><input id="e-tnota" value="'+esc(r.tecnica_nota||"")+'"><p class="hint">La tecnica si sceglie dalla tendina nella scheda della ricetta; qui puoi aggiungere una nota, per esempio «con tritato».</p>')+
-      '<label for="e-metodo">Metodo</label><input id="e-metodo" value="'+esc(r.metodo||"")+'">'+
       '<label for="e-proc">Procedimento</label><textarea id="e-proc" rows="6">'+esc(r.proc||"")+'</textarea>'+dett("e-proc")+
       (solo?'':'<label for="e-ghiaccio">Ghiaccio</label><input id="e-ghiaccio" list="dl-ghi" autocomplete="off" value="'+esc(r.ghiaccio||"")+'"><p class="hint">Per esempio: cubetti, ghiaccio tritato, sfera, nessuno. Gli elenchi si cambiano da Impostazioni → Gestione.</p>'+datalistH("dl-ghi","ghiaccio")+
       '<label for="e-guarn">Guarnizione</label><input id="e-guarn" list="dl-guarn" autocomplete="off" value="'+esc(r.guarn||"")+'">'+datalistH("dl-guarn","guarn"))+
@@ -1555,7 +1554,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(cv.indexOf("mq:")===0){mv=cv.slice(3);cv=$("e-cat").getAttribute("data-orig")||"cocktail"}
     var vals={nome:nome,cat:cv,gruppo:$("e-gruppo").value.trim(),
       ing:$("e-ing").value.split("\n").map(function(x){return x.trim()}).filter(Boolean),
-      metodo:$("e-metodo").value.trim(),proc:$("e-proc").value.trim(),note:$("e-note").value.trim()};
+      proc:$("e-proc").value.trim(),note:$("e-note").value.trim()};
     if($("e-tnota"))vals.tecnica_nota=$("e-tnota").value.trim();
     if($("e-guarn"))vals.guarn=$("e-guarn").value.trim();
     if($("e-ghiaccio"))vals.ghiaccio=$("e-ghiaccio").value.trim();
