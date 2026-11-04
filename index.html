@@ -1212,8 +1212,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var nuova=S.creating,solo=!(r.cat==="cocktail"||r.cat==="analcolico"||!r.cat);
     return '<div class="d form"><button class="back" data-cancel="1">← '+(nuova?'Annulla':'Annulla modifica')+'</button><h2>'+(nuova?'Nuova ricetta':'Modifica ricetta')+'</h2>'+
       '<label for="e-nome">Nome</label><input id="e-nome" value="'+esc(r.nome||"")+'"><p class="hint">Nella sezione Blend la parola «Blend» compare davanti al nome da sola: non serve scriverla.</p>'+
-      '<label for="e-cat">Sezione</label><select id="e-cat">'+catOptions(r.cat||"cocktail")+'</select>'+
-      '<label for="e-gruppo">Gruppo</label><input id="e-gruppo" value="'+esc(r.gruppo||"")+'">'+mqFormHtml(r)+
+      sezMenuHtml(r)+
+      '<label for="e-gruppo">Gruppo</label><input id="e-gruppo" value="'+esc(r.gruppo||"")+'">'+
       (solo?'':'<label for="e-alias">Altri nomi con cui compare negli ingredienti (separati da virgola)</label><input id="e-alias" value="'+esc((r.alias||[]).join(", "))+'">')+
       (srcOf(r)?copiaFormHtml(r):'<label for="e-ing">Ingredienti</label><textarea id="e-ing" rows="10">'+esc((r.ing||[]).join("\n"))+'</textarea>'+dett("e-ing"))+'<p class="hint">Un ingrediente per riga, con la quantità all\'inizio (per esempio: 45 ml Gin, oppure 1 3/4 oz Gin). Le righe senza numero restano come sono.</p>'+
       (solo?'':'<label for="e-tnota">Nota sulla tecnica</label><input id="e-tnota" value="'+esc(r.tecnica_nota||"")+'"><p class="hint">La tecnica si sceglie dalla tendina nella scheda della ricetta; qui puoi aggiungere una nota, per esempio «con tritato».</p>')+
@@ -1551,14 +1551,15 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function saveForm(){
     var nome=$("e-nome").value.trim();
     if(!nome){formError("Il nome non può essere vuoto.");return}
-    var vals={nome:nome,cat:$("e-cat").value,gruppo:$("e-gruppo").value.trim(),
+    var cv=$("e-cat").value,mv="";
+    if(cv.indexOf("mq:")===0){mv=cv.slice(3);cv=$("e-cat").getAttribute("data-orig")||"cocktail"}
+    var vals={nome:nome,cat:cv,gruppo:$("e-gruppo").value.trim(),
       ing:$("e-ing").value.split("\n").map(function(x){return x.trim()}).filter(Boolean),
       metodo:$("e-metodo").value.trim(),proc:$("e-proc").value.trim(),note:$("e-note").value.trim()};
     if($("e-tnota"))vals.tecnica_nota=$("e-tnota").value.trim();
     if($("e-guarn"))vals.guarn=$("e-guarn").value.trim();
     if($("e-ghiaccio"))vals.ghiaccio=$("e-ghiaccio").value.trim();
     if($("e-alias"))vals.alias=$("e-alias").value.split(",").map(function(x){return x.trim()}).filter(Boolean);
-    var mv=($("e-menu")||{}).value||"";
     if(S.creating){
       var id=slug(nome),base=id,n=2;
       while(S.ricette.some(function(x){return x.id===id})){id=base+"-"+n;n++}
@@ -1644,6 +1645,20 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(!opts&&!dentro.length)return "";
     return '<label for="e-menu">Gruppo / Menu</label><select id="e-menu"><option value="">Non cambiare</option>'+opts+'</select>'+
       '<p class="src" style="margin:4px 0 0">'+(dentro.length?'Già in: '+esc(dentro.join(", "))+'. ':'')+'La scelta vale quando premi «Salva».</p>';
+  }
+  /* un'unica scelta: sezioni (cocktail, homemade, ...e quelle create da te) e menu (es. Menu mitologia) */
+  function sezMenuHtml(r){
+    var cur=r.cat||"cocktail",opts="",dentro=[];
+    mqSezioni().forEach(function(s){
+      var m=menuDoc(s.id),G=(m&&m.sezioni&&m.sezioni.length)?m.sezioni:[{titolo:"Drink",drink:[]}];
+      G.forEach(function(g,gi){
+        var nm=sezNome(s.id)+(G.length>1?" · "+(g.titolo||("Gruppo "+(gi+1))):"");
+        if(r&&r.id&&(g.drink||[]).indexOf(r.id)>=0){dentro.push(nm);return}
+        opts+='<option value="'+esc("mq:"+s.id+"|"+gi)+'">'+esc("Metti anche in: "+nm)+'</option>';
+      });
+    });
+    return '<label for="e-cat">Sposta in</label><select id="e-cat" data-orig="'+esc(cur)+'"><optgroup label="Sezioni">'+catOptions(cur)+'</optgroup>'+(opts?'<optgroup label="Menu">'+opts+'</optgroup>':'')+'</select>'+
+      '<p class="src" style="margin:4px 0 0">'+(dentro.length?'Già nei menu: '+esc(dentro.join(", "))+'. ':'')+'Le sezioni e i menu nuovi che crei da Impostazioni compaiono qui da soli. La scelta vale quando premi «Salva».</p>';
   }
   function mqDopo(id,val){
     if(!val)return;var rr=unById(id);if(!rr)return;var p=val.split("|");mqApply(rr,"add",p[0],+p[1]);
