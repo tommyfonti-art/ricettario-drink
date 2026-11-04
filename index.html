@@ -1209,18 +1209,18 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       '<label style="display:flex;gap:10px;align-items:baseline;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--fg);margin:14px 0 4px"><input type="checkbox" id="cp-on" checked style="width:auto"> <span>Collegata al drink (togli il segno per renderla indipendente)</span></label>';
   }
   function formRecipe(r){
-    var nuova=S.creating;
+    var nuova=S.creating,solo=!(r.cat==="cocktail"||r.cat==="analcolico"||!r.cat);
     return '<div class="d form"><button class="back" data-cancel="1">← '+(nuova?'Annulla':'Annulla modifica')+'</button><h2>'+(nuova?'Nuova ricetta':'Modifica ricetta')+'</h2>'+
       '<label for="e-nome">Nome</label><input id="e-nome" value="'+esc(r.nome||"")+'"><p class="hint">Nella sezione Blend la parola «Blend» compare davanti al nome da sola: non serve scriverla.</p>'+
       '<label for="e-cat">Sezione</label><select id="e-cat">'+catOptions(r.cat||"cocktail")+'</select>'+
       '<label for="e-gruppo">Gruppo</label><input id="e-gruppo" value="'+esc(r.gruppo||"")+'">'+mqFormHtml(r)+
-      '<label for="e-alias">Altri nomi con cui compare negli ingredienti (separati da virgola)</label><input id="e-alias" value="'+esc((r.alias||[]).join(", "))+'">'+
+      (solo?'':'<label for="e-alias">Altri nomi con cui compare negli ingredienti (separati da virgola)</label><input id="e-alias" value="'+esc((r.alias||[]).join(", "))+'">')+
       (srcOf(r)?copiaFormHtml(r):'<label for="e-ing">Ingredienti</label><textarea id="e-ing" rows="10">'+esc((r.ing||[]).join("\n"))+'</textarea>'+dett("e-ing"))+'<p class="hint">Un ingrediente per riga, con la quantità all\'inizio (per esempio: 45 ml Gin, oppure 1 3/4 oz Gin). Le righe senza numero restano come sono.</p>'+
-      '<label for="e-tnota">Nota sulla tecnica</label><input id="e-tnota" value="'+esc(r.tecnica_nota||"")+'"><p class="hint">La tecnica si sceglie dalla tendina nella scheda della ricetta; qui puoi aggiungere una nota, per esempio «con tritato».</p>'+
+      (solo?'':'<label for="e-tnota">Nota sulla tecnica</label><input id="e-tnota" value="'+esc(r.tecnica_nota||"")+'"><p class="hint">La tecnica si sceglie dalla tendina nella scheda della ricetta; qui puoi aggiungere una nota, per esempio «con tritato».</p>')+
       '<label for="e-metodo">Metodo</label><input id="e-metodo" value="'+esc(r.metodo||"")+'">'+
       '<label for="e-proc">Procedimento</label><textarea id="e-proc" rows="6">'+esc(r.proc||"")+'</textarea>'+dett("e-proc")+
-      '<label for="e-ghiaccio">Ghiaccio</label><input id="e-ghiaccio" list="dl-ghi" autocomplete="off" value="'+esc(r.ghiaccio||"")+'"><p class="hint">Per esempio: cubetti, ghiaccio tritato, sfera, nessuno. Gli elenchi si cambiano da Impostazioni → Gestione.</p>'+datalistH("dl-ghi","ghiaccio")+
-      '<label for="e-guarn">Guarnizione</label><input id="e-guarn" list="dl-guarn" autocomplete="off" value="'+esc(r.guarn||"")+'">'+datalistH("dl-guarn","guarn")+
+      (solo?'':'<label for="e-ghiaccio">Ghiaccio</label><input id="e-ghiaccio" list="dl-ghi" autocomplete="off" value="'+esc(r.ghiaccio||"")+'"><p class="hint">Per esempio: cubetti, ghiaccio tritato, sfera, nessuno. Gli elenchi si cambiano da Impostazioni → Gestione.</p>'+datalistH("dl-ghi","ghiaccio")+
+      '<label for="e-guarn">Guarnizione</label><input id="e-guarn" list="dl-guarn" autocomplete="off" value="'+esc(r.guarn||"")+'">'+datalistH("dl-guarn","guarn"))+
       '<label for="e-note">Note</label><textarea id="e-note" rows="4">'+esc(r.note||"")+'</textarea>'+dett("e-note")+
       (S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+
       '<div class="actions"><button class="btn pri" data-save="1">'+(nuova?'Aggiungi ricetta':'Salva modifiche')+'</button><button class="btn" data-cancel="1">Annulla</button></div></div>';
@@ -1553,8 +1553,11 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(!nome){formError("Il nome non può essere vuoto.");return}
     var vals={nome:nome,cat:$("e-cat").value,gruppo:$("e-gruppo").value.trim(),
       ing:$("e-ing").value.split("\n").map(function(x){return x.trim()}).filter(Boolean),
-      metodo:$("e-metodo").value.trim(),tecnica_nota:$("e-tnota").value.trim(),proc:$("e-proc").value.trim(),guarn:$("e-guarn").value.trim(),ghiaccio:$("e-ghiaccio").value.trim(),note:$("e-note").value.trim(),
-      alias:($("e-alias")?$("e-alias").value:"").split(",").map(function(x){return x.trim()}).filter(Boolean)};
+      metodo:$("e-metodo").value.trim(),proc:$("e-proc").value.trim(),note:$("e-note").value.trim()};
+    if($("e-tnota"))vals.tecnica_nota=$("e-tnota").value.trim();
+    if($("e-guarn"))vals.guarn=$("e-guarn").value.trim();
+    if($("e-ghiaccio"))vals.ghiaccio=$("e-ghiaccio").value.trim();
+    if($("e-alias"))vals.alias=$("e-alias").value.split(",").map(function(x){return x.trim()}).filter(Boolean);
     var mv=($("e-menu")||{}).value||"";
     if(S.creating){
       var id=slug(nome),base=id,n=2;
