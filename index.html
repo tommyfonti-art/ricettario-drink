@@ -2340,7 +2340,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261103-0850";
+  var BUILD="20261105-0920";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
