@@ -90,7 +90,8 @@ h3{font-family:var(--f-display);font-size:.78rem;text-transform:uppercase;letter
 .dupg{margin:0 0 12px}.dupt{font-weight:600;font-size:.9rem;margin:8px 0 2px}
 .btn[disabled]{opacity:.35}
 .uncmp{display:grid;grid-template-columns:1fr 1fr;gap:8px}.uncol{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;font-size:.88rem;min-width:0;overflow-wrap:anywhere}.uncol ul{margin:4px 0;padding-left:16px}.uncol li{margin:2px 0}.uncol h4{margin:8px 0 2px;font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}@media (max-width:340px){.uncmp{grid-template-columns:1fr}}
-.issue{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;margin:0 0 10px}.issue .ih{margin-bottom:4px}.issue .it{font-size:.88rem;color:var(--fg);max-width:65ch}.issue .mrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-top:1px solid var(--line)}.issue .mrow .btn{padding:4px 10px;font-size:.85rem}.issue .ia{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.issue{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;margin:0 0 10px}.issue .ih{margin-bottom:4px}
+.issue .ih a{color:var(--accent);text-decoration:none;font-weight:600}.issue .it{font-size:.88rem;color:var(--fg);max-width:65ch}.issue .mrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-top:1px solid var(--line)}.issue .mrow .btn{padding:4px 10px;font-size:.85rem}.issue .ia{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .ctl select{font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg);width:100%;max-width:100%}
 .ctl.one{gap:5px}
 .blk{margin-top:16px;padding-top:4px;border-top:1px solid var(--line)}
@@ -766,8 +767,10 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function renderTabs(){
     var c=counts();SEZ.forEach(function(s){if(s.tipo==="menu")c[s.id]=mnCount(s.id)});
     $("tabs").innerHTML=tabsOrdered().filter(function(t){return t[0]!=="menu"||(S.menu&&S.menu.length)}).map(function(t){
-      var sel=!S.open&&!S.q&&S.tab===t[0];
+      var sel=!S.open&&!S.q&&!S.panel&&S.tab===t[0];
       return '<button role="tab" data-tab="'+t[0]+'" aria-selected="'+sel+'">'+esc(t[1])+(c[t[0]]!=null?'<span class="n">'+c[t[0]]+'</span>':'')+'</button>'}).join("");
+    try{var at=$("tabs").querySelector('[aria-selected="true"]'),bx=$("tabs");
+      if(at&&bx.scrollWidth>bx.clientWidth+2){var ra=at.getBoundingClientRect(),rb=bx.getBoundingClientRect();if(ra.left<rb.left||ra.right>rb.right)bx.scrollLeft+=ra.left-rb.left-24}}catch(x){}
   }
   function row(r,showCat,subx,mq){
     var dp=S.dup&&S.dup[r.id];var chips=(isFav(r)?'<span class="chip">preferita</span>':'')+(inc(r)?'<span class="chip hot">incompleta</span>':'')+(dp?'<span class="chip hot">'+(dp.some(function(g){return g.tipo!=='nome'})?'possibile doppione':'stesso nome')+'</span>':'');
@@ -990,7 +993,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(S.tab==="librieorsi"){
       var L=(S.lezioni||[]).slice().sort(function(a,b){return (a.ordine||99)-(b.ordine||99)});
       function cardL(pre,l){return '<a class="lezcard" href="#'+pre+esc(l.id)+'"><strong>'+esc(l.titolo)+'</strong><span>'+esc(l.sommario||"")+'</span></a>'}
-      var hh='<p class="sub">Tutto in un posto solo: i tuoi corsi e lezioni, i riassunti dei libri e gli articoli di Cocktail Engineering.</p><div class="list">';
+      var hh='<p class="sub" style="margin-bottom:18px">Tutto in un posto solo: i tuoi corsi e lezioni, i riassunti dei libri e gli articoli di Cocktail Engineering.</p><div class="list">';
       if(L.length)hh+='<h2 class="grp">Corsi e lezioni ('+L.length+')</h2>'+L.map(function(l){return cardL("lezione-",l)}).join("");
       if(LIB.length)hh+='<h2 class="grp">Libri ('+LIB.length+')</h2>'+LIB.map(function(l){return cardL("libro-",l)}).join("");
       if(CE.length)hh+='<h2 class="grp">Cocktail Engineering ('+CE.length+')</h2>'+CE.map(function(l){return cardL("ce-",l)}).join("");
