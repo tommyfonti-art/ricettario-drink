@@ -85,6 +85,11 @@ h2.grp::after{content:"";flex:1;border-top:1px solid var(--line)}
 .ing .q{font-family:var(--f-mono);font-size:.88rem;min-width:5.6rem;flex:none;font-variant-numeric:tabular-nums}
 .ing .t{flex:1;min-width:0;overflow-wrap:anywhere}
 .ing a{color:var(--accent)}
+/* 9 novembre: ingrediente che apre la sua scheda (sottolineato leggero) e colonna dei grammi nelle preparazioni */
+a.il{color:inherit;text-decoration:underline dotted;text-decoration-color:var(--muted);text-underline-offset:3px}
+.ing a.il{color:inherit}
+.ing .g{flex:none;margin-left:auto;padding-left:8px;font-family:var(--f-mono);font-size:.88rem;font-variant-numeric:tabular-nums;color:var(--muted);text-align:right;white-space:nowrap}
+.ing .g.miss{font-family:var(--f-body);font-style:italic;color:var(--accent)}
 h3{font-family:var(--f-display);font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:500;margin:24px 0 6px}
 .d p{margin:0 0 10px;max-width:65ch}
 .dupg{margin:0 0 12px}.dupt{font-weight:600;font-size:.9rem;margin:8px 0 2px}
@@ -505,9 +510,87 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     });
     var l=Object.keys(map).map(function(k){
       var o=map[k],best=Object.keys(o.forms).sort(function(a,b){return o.forms[b]-o.forms[a]})[0];
-      var g=ingGradi(best);o.nome=best;o.g=g?g.g:null;o.src=g?g.src:"";o.marca=g&&g.marca?g.marca:"";return o;
+      var g=ingGradi(best),dc=ingDoc(o.sid);o.nome=best;o.g=g?g.g:null;o.src=g?g.src:"";o.marca=dc&&dc.marca?dc.marca:"";o.p=dc?pesoNum(dc.peso100):null;return o;
     }).sort(function(a,b){return a.nome.localeCompare(b.nome,"it")});
-    ING_C={r:S.ricette,i:S.ingredienti,l:l};return l;
+    var mp={};l.forEach(function(o){mp[o.sid]=o});
+    ING_C={r:S.ricette,i:S.ingredienti,l:l,m:mp};return l;
+  }
+  /* ---- scheda dell'ingrediente (9 novembre): nome completo con la marca, gradi e peso di 100 ml.
+     Il peso lo scrive Tommi (pesando 100 ml sulla bilancia) e serve per i grammi nelle preparazioni.
+     Si salva in ingredienti/<id>, campi: nome, marca, gradi, peso100 (grammi di 100 ml). */
+  function ingDoc(sid){return (S.ingredienti||[]).filter(function(x){return x.id===sid})[0]||null}
+  function ingMap(){ingList();return ING_C.m}
+  function ingKeyOf(line){return ingSid(norm(String(split(String(line||""),1).t||"")))}
+  function pesoNum(v){var n=parseFloat(String(v==null?"":v).replace(",","."));return n>0?n:null}
+  /* preparazioni: homemade, blend, soda, liquori e infusi e le sezioni di ricette create in Impostazioni (i drink no) */
+  function isPrep(r){return !!r&&(r.cat==="homemade"||r.cat==="blend"||r.cat==="soda"||r.cat==="infusione"||isSezRic(r.cat))}
+  /* peso di 100 ml di un ingrediente: se è una preparazione tua vale quello scritto nella sua ricetta, se no quello della scheda ingrediente */
+  function pesoOf(name,rec){
+    var ln=linkFor(name,rec);
+    if(ln&&(!rec||ln.id!==rec.id))return {p:pesoNum(ln.peso100),prep:ln};
+    var d=ingDoc(ingSid(norm(name)));
+    return {p:d?pesoNum(d.peso100):null,prep:null};
+  }
+  function fmtG(g){return fmt(Math.round(g*10)/10)}
+  /* grammi di una riga di ingredienti già moltiplicata per k: gr e kg restano grammi; ml, cl, oz e litri si pesano con il peso di 100 ml.
+     Gocce, dash, cucchiaini, parti, top e pezzi non hanno grammi (null). */
+  function gramsLine(text,k,rec){
+    var t=String(text||"");if(/^top\s/i.test(t))return null;
+    var a,b=null,u,rg=t.match(RNG);
+    if(rg){var ru=rg[3].match(UNIT);if(!ru)return null;u=ru[1].toLowerCase();a=toNum(rg[1]);b=toNum(rg[2])}
+    else{var m=t.match(NUM);if(!m)return null;var un=m[2].match(UNIT);if(!un)return null;u=un[1].toLowerCase();a=toNum(m[1])}
+    if(isNaN(a)||(b!=null&&isNaN(b)))return null;
+    var gu=u==="gr"||u==="g"?1:u==="kg"?1000:0;
+    if(gu)return {g:a*k*gu,g2:b!=null?b*k*gu:null};
+    var ml=toMl(a,u);if(ml==null)return null;
+    var name=String(split(t,1).t||"").replace(/\s+/g," ").trim(),po=pesoOf(name,rec);
+    if(po.p==null)return {miss:true,name:name,prep:po.prep};
+    return {g:ml*k*po.p/100,g2:b!=null?toMl(b,u)*k*po.p/100:null};
+  }
+  function gramsHtml(gl){
+    if(!gl)return '';
+    if(gl.miss)return '<span class="g miss">mancante</span>';
+    return '<span class="g">'+esc(fmtG(gl.g)+(gl.g2!=null?"-"+fmtG(gl.g2):""))+' g</span>';
+  }
+  /* sotto le dosi: peso totale della preparazione con le dosi di adesso, e cosa manca */
+  function pesoNoteHtml(r,k){
+    var tot=0,any=false,miss=[];
+    (r.ing||[]).forEach(function(t){var gl=gramsLine(t,k,r);if(!gl)return;if(gl.miss){if(miss.indexOf(gl.name)<0)miss.push(gl.name);return}any=true;tot+=gl.g2!=null?(gl.g+gl.g2)/2:gl.g});
+    if(!any&&!miss.length)return "";
+    var h='<b>Peso totale</b>: '+(any?esc(fmtG(tot))+' g':'—');
+    if(miss.length)h+=(any?', non completo':'')+'. Manca il peso di 100 ml di: '+miss.map(esc).join(", ")+'. Si scrive nella scheda dell\'ingrediente: tocca il nome.';
+    return h;
+  }
+  /* scrive solo i campi dati della scheda ingrediente; un campo vuoto si toglie, gli altri restano */
+  function ingPatch(sid,nome,f){
+    if(!S.db)return Promise.reject(new Error("sola lettura"));
+    return applyOp(function(d){
+      d.ingredienti=d.ingredienti||{};
+      var o=Object.assign({},d.ingredienti[sid]||{});
+      if(!o.nome)o.nome=nome;
+      Object.keys(f).forEach(function(k){if(f[k]===""||f[k]==null)delete o[k];else o[k]=f[k]});
+      if(Object.keys(o).some(function(k){return k!=="nome"}))d.ingredienti[sid]=o;else delete d.ingredienti[sid];
+    },"Modifica dal sito: ingredienti/"+sid);
+  }
+  function detailIngrediente(sid){
+    var o=ingMap()[sid],d=ingDoc(sid);
+    if(!o&&!d)return '<div class="empty"><b>Ingrediente non trovato</b><a href="#ingredienti">Torna agli ingredienti</a></div>';
+    var nome=o?o.nome:(d.nome||sid),ed=S.canEdit&&S.db,g=ingGradi(nome),p=d?pesoNum(d.peso100):null,marca=d&&d.marca?d.marca:"";
+    var at=' data-isid="'+esc(sid)+'" data-inome="'+esc(nome)+'"';
+    var h='<div class="d form" style="max-width:640px"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>'+esc(nome.charAt(0).toUpperCase()+nome.slice(1))+'</h2><div class="meta"><span>Ingrediente</span></div>';
+    if(ed){
+      h+='<label for="ing-marca">Nome completo e marca</label><input id="ing-marca"'+at+' value="'+esc(marca)+'" placeholder="es. Succo di frutto della passione Yoga" autocomplete="off" autocapitalize="sentences">';
+      h+='<label for="ing-gradi">Gradi alcolici (%)</label><input id="ing-gradi"'+at+' type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="gradi" value="'+(g?esc(g.g):"")+'" style="max-width:160px">';
+      if(g&&g.src==="auto")h+='<p class="hint">Valore indicativo dalla tabella: se lo cambi vale il tuo.</p>';
+      h+='<label for="ing-peso">Peso: 100 ml pesano</label><div style="display:flex;align-items:center;gap:8px"><input id="ing-peso"'+at+' type="number" min="0" max="300" step="any" inputmode="decimal" placeholder="grammi" value="'+(p!=null?esc(p):"")+'" style="max-width:160px"><span>g</span></div>';
+      h+='<p class="hint">Metti 100 ml sulla bilancia e scrivi i grammi. Servono per vedere i grammi accanto ai ml nelle preparazioni (blend, homemade, soda, liquori e infusi).</p>';
+    }else{
+      h+='<div class="idl" style="grid-template-columns:1fr"><div><span>Nome completo e marca</span>'+(marca?'<b>'+esc(marca)+'</b>':'<b class="no">da inserire</b>')+'</div><div><span>Gradi alcolici</span>'+(g?'<b>'+esc(fmt(g.g))+' %</b>':'<b class="no">da inserire</b>')+'</div><div><span>Peso di 100 ml</span>'+(p!=null?'<b>'+esc(fmt(p))+' g</b>':'<b class="no">mancante</b>')+'</div></div>';
+    }
+    var R=(S.ricette||[]).filter(function(r){return (r.ing||[]).some(function(t){return ingKeyOf(t)===sid})}).sort(byName);
+    if(R.length)h+='<h3 style="margin-top:22px">Usato in '+R.length+(R.length===1?' ricetta':' ricette')+'</h3><div class="list">'+R.map(function(r){return row(r,true)}).join("")+'</div>';
+    if(S.formErr)h+='<div class="err">'+esc(S.formErr)+'</div>';
+    return h+'</div>';
   }
   var IUI={fil:"tutti",q:""};
   function ingListHtml(){
@@ -515,19 +598,20 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var l=ingList().filter(function(o){
       if(IUI.fil==="mancano"&&o.g!=null)return false;
       if(IUI.fil==="alcol"&&!(o.g>0))return false;
-      return !q||tutte(o.nome,q);
+      if(IUI.fil==="peso"&&o.p!=null)return false;
+      return !q||tutte(o.nome+" "+o.marca,q);
     });
     if(!l.length)return '<p class="src">Nessun ingrediente trovato.</p>';
     return l.map(function(o){
-      var fonte=o.src==="mio"?"inserito da te":o.src==="auto"?"valore indicativo dalla tabella":"da inserire";
+      var fonte=o.src==="mio"?"gradi inseriti da te":o.src==="auto"?"gradi dalla tabella":"gradi da inserire";
       var campo=ed?'<input type="number" min="0" max="100" step="any" inputmode="decimal" data-ikey="'+esc(o.sid)+'" data-inome="'+esc(o.nome)+'" placeholder="gradi" value="'+(o.g!=null?esc(o.g):"")+'" aria-label="Gradi di '+esc(o.nome)+'">':'<span>'+(o.g!=null?fmt(o.g)+' %':'—')+'</span>';
-      return '<div style="display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><div><b>'+esc(o.nome)+'</b>'+(o.marca?' · '+esc(o.marca):'')+'<div class="src" style="margin:0">Usato in '+o.n+(o.n===1?' ricetta':' ricette')+' · '+fonte+'</div></div>'+campo+'</div>';
+      return '<div style="display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><div><a class="il" href="#ingrediente-'+esc(o.sid)+'"><b>'+esc(o.nome)+'</b></a>'+(o.marca?' · '+esc(o.marca):'')+'<div class="src" style="margin:0">Usato in '+o.n+(o.n===1?' ricetta':' ricette')+' · '+fonte+' · '+(o.p!=null?'100 ml = '+esc(fmt(o.p))+' g':'peso mancante')+'</div></div>'+campo+'</div>';
     }).join("");
   }
   function renderIngredienti(){
-    var l=ingList(),m=l.filter(function(o){return o.g==null}).length;
-    var fb=[["tutti","Tutti ("+l.length+")"],["mancano","Senza gradi ("+m+")"],["alcol","Con alcol"]].map(function(x){return '<button class="btn'+(IUI.fil===x[0]?' pri':'')+'" type="button" data-ifil="'+x[0]+'">'+x[1]+'</button>'}).join("");
-    return '<div class="d form"><p class="src" style="margin:0">Tutti gli ingredienti che compaiono nelle ricette, con i gradi alcolici. Dove il prodotto è noto ho messo il valore tipico; dove manca lo scrivi tu. Quello che scrivi vale al posto della tabella.</p>'+
+    var l=ingList(),m=l.filter(function(o){return o.g==null}).length,mp=l.filter(function(o){return o.p==null}).length;
+    var fb=[["tutti","Tutti ("+l.length+")"],["mancano","Senza gradi ("+m+")"],["peso","Senza peso ("+mp+")"],["alcol","Con alcol"]].map(function(x){return '<button class="btn'+(IUI.fil===x[0]?' pri':'')+'" type="button" data-ifil="'+x[0]+'">'+x[1]+'</button>'}).join("");
+    return '<div class="d form"><p class="src" style="margin:0">Tutti gli ingredienti che compaiono nelle ricette, con i gradi alcolici. Dove il prodotto è noto ho messo il valore tipico; dove manca lo scrivi tu. Quello che scrivi vale al posto della tabella. Tocca il nome per aprire la scheda: nome completo con la marca, gradi e peso di 100 ml.</p>'+
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+fb+'</div>'+
       '<input id="iq" type="search" placeholder="Cerca ingrediente" autocomplete="off" aria-label="Cerca ingrediente" style="margin-top:10px" value="'+esc(IUI.q)+'">'+
       '<div id="ilist" style="margin-top:6px">'+ingListHtml()+'</div>'+
@@ -699,6 +783,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     else if(h.indexOf("menu-")===0){S.open={k:"m",id:h.slice(5)}}
     else if(h.indexOf("serata-")===0){S.open={k:"s",id:h.slice(7)}}
     else if(h.indexOf("calcolatore-")===0){S.open={k:"c",id:h.slice(12)}}
+    else if(h.indexOf("ingrediente-")===0){S.open={k:"i",id:h.slice(12)}}
     else if(h==="accesso"||h==="impostazioni"||h==="bicchieri"||h==="ordine"||h==="diluizioni"||h==="sicurezza"||PANX.indexOf(h)>=0){S.open=null;S.panel=h;panEnter(h);if(h==="ordine"){S.ord=orderIds();S.nomi=Object.assign({},savedNomi())}if(h==="diluizioni"){S.dilForm=null;S.dilMis={p:"",d:""}}}
     else{S.open=null;S.panel=null;if(TABS.some(function(t){return t[0]===h}))S.tab=h}
   }
@@ -707,7 +792,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   /* la navigazione non dipende dall'hash del browser: lo stato sta nella pagina, l'hash si aggiorna solo se possibile */
   /* cronologia dentro l'app: «Indietro» torna alla schermata di prima (es. dal blend al drink da cui sei entrato),
      con la stessa posizione nella pagina, la stessa ricerca e le stesse dosi. Le frecce ‹ › scorrono l'elenco senza allungare la cronologia. */
-  var NAV=[],NAVMAX=60,NAVK={r:"ricetta-",e:"ce-",b:"libro-",l:"lezione-",a:"appunto-",m:"menu-",s:"serata-",c:"calcolatore-"};
+  var NAV=[],NAVMAX=60,NAVK={r:"ricetta-",e:"ce-",b:"libro-",l:"lezione-",a:"appunto-",m:"menu-",s:"serata-",c:"calcolatore-",i:"ingrediente-"};
   function navCur(){if(S.open&&NAVK[S.open.k])return NAVK[S.open.k]+S.open.id;if(S.panel)return S.panel;return S.tab}
   function navSnap(){
     var e={h:navCur(),tab:S.tab,q:S.q||"",y:window.scrollY||window.pageYOffset||0};
@@ -1038,10 +1123,12 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   /* la ricetta su cui lavorano le Dosi: il drink oppure la preparazione scelta in «Ricetta» */
   function actRec(r){if(!r||!S.blk)return r;return subsOf(r).filter(function(x){return x.id===S.blk&&!(x.copia&&x.copia.da===r.id)})[0]||r}
   function scOf(x,r){return actRec(r)===x?S.scale:1}
-  function ingHtml(r,sc){var k=sc==null?S.scale:sc;return (r.ing||[]).map(function(t){
-      var s=split(t,k),ln=linkFor(s.t,r);
-      var name=ln&&ln.id!==r.id?'<a href="#ricetta-'+esc(ln.id)+'">'+esc(s.t)+'</a>':esc(s.t);
-      return '<li><span class="q">'+esc(s.q)+'</span><span class="t">'+name+'</span></li>';
+  /* gOn: colonna dei grammi (solo nelle preparazioni). Il nome apre la preparazione collegata, altrimenti la scheda dell'ingrediente */
+  function ingHtml(r,sc,gOn){var k=sc==null?S.scale:sc,im=ingMap();return (r.ing||[]).map(function(t){
+      var s=split(t,k),ln=linkFor(s.t,r),name;
+      if(ln&&ln.id!==r.id)name='<a href="#ricetta-'+esc(ln.id)+'">'+esc(s.t)+'</a>';
+      else{var io=im[ingKeyOf(t)];name=io?'<a class="il" href="#ingrediente-'+esc(io.sid)+'">'+esc(s.t)+'</a>':esc(s.t)}
+      return '<li><span class="q">'+esc(s.q)+'</span><span class="t">'+name+'</span>'+(gOn?gramsHtml(gramsLine(t,k,r)):'')+'</li>';
     }).join("")}
   function baseNoteHtml(r){
     var bm=baseMl(r);if(!(bm.t>0))return "";
@@ -1148,7 +1235,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var subs=subsOf(r),ar=actRec(r);
     h+='<div class="dcols"><div class="dca">';
     if(subs.length)h+='<h3 class="blkh">'+esc(dn(r))+'</h3>';
-    h+='<ul class="ing" id="inglist">'+ingHtml(r,scOf(r,r))+'</ul>';
+    var gOn=isPrep(r);
+    h+='<ul class="ing" id="inglist">'+ingHtml(r,scOf(r,r),gOn)+'</ul>';
     subs.forEach(function(x,n){
       if(x.copia&&x.copia.da===r.id)h+='<div class="blk"><h3 class="blkh">'+esc(dn(r))+' <span class="src">con il blend</span></h3>';
       else h+='<div class="blk"><h3 class="blkh"><a href="#ricetta-'+esc(x.id)+'">'+esc(dn(x))+'</a> <span class="src">'+esc(CATNAME[x.cat]||x.cat)+(x.tecnica?' · '+esc(x.tecnica):'')+'</span></h3>';
@@ -1172,6 +1260,14 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     h+='<p class="note" id="onlynote" style="margin:8px 0 0"'+(onlyNoteHtml(ar)?'':' hidden')+'>'+onlyNoteHtml(ar)+'</p>';
     h+='<div class="ctl"><span class="lab">Unità</span>'+un+'</div>';
     h+='<p class="src" id="basenote" style="margin:6px 0 0">'+baseNoteHtml(ar)+'</p>';
+    /* preparazioni: grammi accanto ai ml, peso totale e peso di 100 ml di questa preparazione */
+    if(gOn&&ar===r){
+      var pn=pesoNoteHtml(r,S.scale);
+      h+='<p class="src" id="pesonote" style="margin:6px 0 0"'+(pn?'':' hidden')+'>'+pn+'</p>';
+      var p100=pesoNum(r.peso100);
+      if(ed)h+='<div class="ctl one" style="margin-top:10px"><span class="lab">Peso</span><span class="src" style="margin:0">100 ml =</span><input id="peso-ric" type="number" min="0" max="300" step="any" inputmode="decimal" placeholder="es. 120" value="'+(p100!=null?esc(p100):'')+'" aria-label="Grammi di 100 ml di questa preparazione"><span class="src" style="margin:0">g</span></div><p class="src" style="margin:4px 0 0">Peso di 100 ml di questa preparazione: serve quando la usi come ingrediente di un\'altra.</p>';
+      else if(p100!=null)h+='<p class="src" style="margin:6px 0 0">100 ml di questa preparazione pesano '+esc(fmt(p100))+' g.</p>';
+    }
     h+=abvBox(r);
     var dp=S.dup&&S.dup[r.id];
     if(dp){
@@ -1514,6 +1610,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       else if(S.open.k==="s"){var ss=serataModel(S.open.id);m.innerHTML=ss?renderSerata(ss):'<div class="empty"><b>Serata non trovata</b><a href="#appunti">Torna alle collaborazioni</a></div>'}
       else if(S.open.k==="b"){var bb=LIB.filter(function(x){return x.id===S.open.id})[0];m.innerHTML=bb?detailLesson(bb):'<div class="empty"><b>Libro non trovato</b><a href="#librieorsi">Torna a Libri e corsi</a></div>'}
       else if(S.open.k==="e"){var ee=CE.filter(function(x){return x.id===S.open.id})[0];m.innerHTML=ee?detailLesson(ee):'<div class="empty"><b>Documento non trovato</b><a href="#librieorsi">Torna a Libri e corsi</a></div>'}
+      else if(S.open.k==="i"){var fe=document.activeElement;if(fe&&/^ing-/.test(fe.id||"")&&m.contains(fe)&&fe.getAttribute("data-isid")===S.open.id)return; /* non ridisegnare mentre scrive nella scheda */m.innerHTML=detailIngrediente(S.open.id)}
       else if(S.open.k==="c"){var cc=CALCS.filter(function(x){return x.id===S.open.id})[0];m.innerHTML=cc?cc.render():'<div class="empty"><b>Calcolatore non trovato</b><a href="#calcolatori">Torna ai calcolatori</a></div>'}
       else if(S.open.k==="m"){var mm=S.menu.filter(function(x){return x.id===S.open.id})[0];m.innerHTML=mm?detailMenu(mm):'<div class="empty"><b>Menu non trovato</b><a href="#menu">Torna ai menu</a></div>'}
       else if(S.open.k==="a"){var aa=(S.appunti||[]).filter(function(x){return x.id===S.open.id})[0];m.innerHTML=aa?detailLesson(aa):'<div class="empty"><b>Appunto non trovato</b><a href="#appunti">Torna agli appunti</a></div>'}
@@ -2062,7 +2159,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var abd=t.closest("[data-abv-del]");if(abd){ABV.rows.splice(+abd.getAttribute("data-abv-del"),1);if(!ABV.rows.length)ABV.rows.push({n:"",ml:"",g:""});render();return}
     var abl=t.closest("[data-abv-dil]");if(abl){ABV.dil=abl.getAttribute("data-abv-dil");var di=$("abv-dil");if(di)di.value=ABV.dil;var ao=$("abv-out");if(ao)ao.innerHTML=abvOut();return}
     var nvb=t.closest("[data-nav]");if(nvb){if(nvb.disabled)return;var nr=cur();if(!nr)return;var NL=navList(nr),ni=navIdx(NL,nr)+(+nvb.getAttribute("data-nav"));if(NL[ni])go("ricetta-"+NL[ni].id,"laterale");return}
-    if(t.closest("[data-back]")){var bk=panBack()||(S.panel==="bicchieri"||S.panel==="ordine"||S.panel==="diluizioni"||S.panel==="sicurezza"?"impostazioni":S.open&&S.open.k==="m"?"menu":S.open&&S.open.k==="c"?"calcolatori":S.open&&S.open.k==="s"?"appunti":S.open&&S.open.k==="a"?"appunti":S.open&&(S.open.k==="l"||S.open.k==="e"||S.open.k==="b")?"librieorsi":S.tab);navBack(bk);return}
+    if(t.closest("[data-back]")){var bk=panBack()||(S.panel==="bicchieri"||S.panel==="ordine"||S.panel==="diluizioni"||S.panel==="sicurezza"?"impostazioni":S.open&&S.open.k==="m"?"menu":S.open&&S.open.k==="c"?"calcolatori":S.open&&S.open.k==="i"?"ingredienti":S.open&&S.open.k==="s"?"appunti":S.open&&S.open.k==="a"?"appunti":S.open&&(S.open.k==="l"||S.open.k==="e"||S.open.k==="b")?"librieorsi":S.tab);navBack(bk);return}
     var ub=t.closest("button[data-unit]");if(ub){var nu=ub.getAttribute("data-unit");if(S.target!=null&&nu!==S.unit){S.target=Math.round((nu==="oz"?S.target/OZ:S.target*OZ)*100)/100}S.unit=nu;render();return}
     if(t.closest("[data-copy]")){copyRecipe(t.closest("[data-copy]"));return}
     if(t.closest("[data-mkblend-open]")){S.edit=true;S.formErr="";var rb=cur();if(rb)$("main").innerHTML=formBlend(rb);window.scrollTo(0,0);return}
@@ -2126,9 +2223,32 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       if(!S.db)return;
       var iv=String(e.target.value).replace(",",".").trim(),inm=e.target.getAttribute("data-inome")||ik,iv2=parseFloat(iv);
       if(iv!==""&&(isNaN(iv2)||iv2<0||iv2>100)){S.formErr="I gradi devono stare tra 0 e 100.";render();return}
-      var dbp=S.db.doc("ingredienti/"+ik);
-      (iv===""?dbp.delete():dbp.set(Object.assign({nome:inm,gradi:iv2},(function(){var ex=(S.ingredienti||[]).filter(function(x){return x.id===ik})[0];return ex&&ex.marca?{marca:ex.marca}:{}})()))).then(function(){},function(er){S.formErr=saveMsg(er);render()});
+      /* si cambiano solo i gradi: marca e peso dell'ingrediente restano */
+      ingPatch(ik,inm,{gradi:iv===""?null:iv2}).then(function(){},function(er){S.formErr=saveMsg(er);render()});
       return;
+    }
+    /* scheda dell'ingrediente: nome completo, gradi, peso di 100 ml */
+    if(e.target.id==="ing-marca"||e.target.id==="ing-gradi"||e.target.id==="ing-peso"){
+      if(!S.db)return;
+      var isid=e.target.getAttribute("data-isid"),inom=e.target.getAttribute("data-inome")||isid,fld={};
+      var raw=String(e.target.value).trim();
+      if(e.target.id==="ing-marca")fld.marca=raw.replace(/\s+/g," ")||null;
+      else{
+        var nv2=raw===""?null:parseFloat(raw.replace(",","."));
+        if(e.target.id==="ing-gradi"){if(nv2!=null&&(isNaN(nv2)||nv2<0||nv2>100)){S.formErr="I gradi devono stare tra 0 e 100.";render();return}fld.gradi=nv2}
+        else{if(nv2!=null&&(isNaN(nv2)||nv2<=0||nv2>300)){S.formErr="Il peso di 100 ml deve stare tra 1 e 300 grammi.";render();return}fld.peso100=nv2}
+      }
+      S.formErr="";
+      ingPatch(isid,inom,fld).then(function(){},function(er){S.formErr=saveMsg(er);render()});
+      return;
+    }
+    /* peso di 100 ml di una preparazione (serve quando è ingrediente di un'altra preparazione) */
+    if(e.target.id==="peso-ric"){
+      var rp=cur();if(!rp||!S.db)return;
+      var pr=String(e.target.value).trim(),pv=pr===""?null:parseFloat(pr.replace(",","."));
+      if(pv!=null&&(isNaN(pv)||pv<=0||pv>300)){S.formErr="Il peso di 100 ml deve stare tra 1 e 300 grammi.";render();return}
+      var np=Object.assign({},rp);if(pv==null)delete np.peso100;else np.peso100=pv;
+      write(rp,np,function(){});return;
     }
     if(e.target.id&&/^abv-n-\d+$/.test(e.target.id)){
       var ri=+e.target.id.slice(6),rw=ABV.rows[ri],gg=rw?ingGradi(e.target.value):null;
@@ -2216,7 +2336,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       else{var ob=S.onlyIdx!=null?onlyBase(r.ing[S.onlyIdx]):null;if(ob&&ok){S.scale=v/ob.b;S.onlyScaled=true}else{S.scale=1;S.onlyScaled=false}}
       ["perin","divin","totin","onlyval"].forEach(function(o){if(o!==id){var el=$(o);if(el)el.value=""}});
       var set=function(i,h,hide){var el=$(i);if(el){el.innerHTML=h;if(hide)el.hidden=!h}};
-      set("inglist",ingHtml(r0,scOf(r0,r0)));subsOf(r0).forEach(function(x,n){set("inglist-s"+n,subIngHtml(x,r0))});set("basenote",baseNoteHtml(r));set("onlynote",onlyNoteHtml(r),1);set("convnote",convNoteHtml(),1);
+      set("inglist",ingHtml(r0,scOf(r0,r0),isPrep(r0)));if(isPrep(r0)&&r===r0)set("pesonote",pesoNoteHtml(r0,S.scale),1);subsOf(r0).forEach(function(x,n){set("inglist-s"+n,subIngHtml(x,r0))});set("basenote",baseNoteHtml(r));set("onlynote",onlyNoteHtml(r),1);set("convnote",convNoteHtml(),1);
     },180);
   });
   $("main").addEventListener("input",function(e){
@@ -2340,7 +2460,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261105-0920";
+  var BUILD="20261109-0900";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
