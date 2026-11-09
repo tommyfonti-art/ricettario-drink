@@ -554,11 +554,12 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   }
   /* sotto le dosi: peso totale della preparazione con le dosi di adesso, e cosa manca */
   function pesoNoteHtml(r,k){
-    var tot=0,any=false,miss=[];
-    (r.ing||[]).forEach(function(t){var gl=gramsLine(t,k,r);if(!gl)return;if(gl.miss){if(miss.indexOf(gl.name)<0)miss.push(gl.name);return}any=true;tot+=gl.g2!=null?(gl.g+gl.g2)/2:gl.g});
-    if(!any&&!miss.length)return "";
-    var h='<b>Peso totale</b>: '+(any?esc(fmtG(tot))+' g':'—');
-    if(miss.length)h+=(any?', non completo':'')+'. Manca il peso di 100 ml di: '+miss.map(esc).join(", ")+'. Si scrive nella scheda dell\'ingrediente: tocca il nome.';
+    var tot=0,any=false,miss=[],missP=[];
+    (r.ing||[]).forEach(function(t){var gl=gramsLine(t,k,r);if(!gl)return;if(gl.miss){var L=gl.prep?missP:miss;if(L.indexOf(gl.name)<0)L.push(gl.name);return}any=true;tot+=gl.g2!=null?(gl.g+gl.g2)/2:gl.g});
+    if(!any&&!miss.length&&!missP.length)return "";
+    var h='<b>Peso totale</b>: '+(any?esc(fmtG(tot))+' g':'—')+(any&&(miss.length||missP.length)?', non completo':'')+'.';
+    if(miss.length)h+=' Manca il peso di 100 ml di: '+miss.map(esc).join(", ")+'. Si scrive nella scheda dell\'ingrediente: tocca il nome.';
+    if(missP.length)h+=' Manca il peso delle tue preparazioni: '+missP.map(esc).join(", ")+'. Si scrive nella loro pagina, alla voce Peso: tocca il nome.';
     return h;
   }
   /* scrive solo i campi dati della scheda ingrediente; un campo vuoto si toglie, gli altri restano */
@@ -2460,7 +2461,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261109-0900";
+  var BUILD="20261109-0950";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
