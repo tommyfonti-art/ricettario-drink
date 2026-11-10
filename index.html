@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-10d">
+<head><meta name="versione-app" content="2026-11-10e">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -637,11 +637,11 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var h='<div class="d form" style="max-width:640px"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>'+esc(nome.charAt(0).toUpperCase()+nome.slice(1))+'</h2><div class="meta"><span>Ingrediente</span></div>';
     if(ed)h+='<label for="ing-nome">Nome dell\'ingrediente</label><input id="ing-nome"'+at+' value="'+esc(nome)+'" autocomplete="off" autocapitalize="sentences"><p class="hint">Se lo cambi, cambia in tutte le ricette che lo usano.</p>';
     if(ed&&g&&g.src==="calc"){
-      h+='<label for="ing-marca">Nome completo e marca</label><input id="ing-marca"'+at+' value="'+esc(marca)+'" placeholder="Nome completo e marca" autocomplete="off" autocapitalize="sentences">';
+      h+='<label for="ing-marca">Nome completo e marca</label><input id="ing-marca"'+at+' value="'+esc(marca)+'" placeholder="Nome completo e marca" autocomplete="off" autocapitalize="sentences">'+(marca?'':'<div class="actions" style="margin-top:6px"><button class="btn" type="button" data-copianome="1">Copia il nome</button></div>');
       h+='<div class="idl" style="grid-template-columns:1fr;margin-top:10px"><div><span>Gradi alcolici</span><b>'+esc(fmt(g.g))+' %</b></div></div><p class="hint">Calcolati dagli ingredienti della ricetta: cambiano da soli se cambi la ricetta.</p>';
       h+='<label for="ing-peso">Peso: 100 ml pesano</label><div style="display:flex;align-items:center;gap:8px"><input id="ing-peso"'+at+' type="number" min="0" max="300" step="any" inputmode="decimal" placeholder="grammi" value="'+(p!=null?esc(p):"")+'" style="max-width:160px"><span>g</span></div>';
     }else if(ed){
-      h+='<label for="ing-marca">Nome completo e marca</label><input id="ing-marca"'+at+' value="'+esc(marca)+'" placeholder="es. Succo di frutto della passione Yoga" autocomplete="off" autocapitalize="sentences">';
+      h+='<label for="ing-marca">Nome completo e marca</label><input id="ing-marca"'+at+' value="'+esc(marca)+'" placeholder="es. Succo di frutto della passione Yoga" autocomplete="off" autocapitalize="sentences">'+(marca?'':'<div class="actions" style="margin-top:6px"><button class="btn" type="button" data-copianome="1">Copia il nome</button></div>');
       h+='<label for="ing-gradi">Gradi alcolici (%)</label><input id="ing-gradi"'+at+' type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="gradi" value="'+(g?esc(g.g):"")+'" style="max-width:160px">';
       if(g&&g.src==="auto")h+='<p class="hint">Valore indicativo dalla tabella: se lo cambi vale il tuo.</p>';
       h+='<label for="ing-peso">Peso: 100 ml pesano</label><div style="display:flex;align-items:center;gap:8px"><input id="ing-peso"'+at+' type="number" min="0" max="300" step="any" inputmode="decimal" placeholder="grammi" value="'+(p!=null?esc(p):"")+'" style="max-width:160px"><span>g</span></div>';
@@ -2497,6 +2497,16 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function sessSave(){try{localStorage.setItem(SESS,JSON.stringify({role:S.role,dk:b64e(S.dkRaw),tok:S.tok||null}))}catch(x){}}
   function sessClear(){try{localStorage.removeItem(SESS)}catch(x){}}
 
+  /* 10 novembre: «Copia il nome» nella scheda ingrediente: il nome va in «Nome completo e marca», si salva subito
+     e il cursore resta in fondo, così si aggiunge solo la marca (es. «Mirtillo» → «Mirtillo Yoga») */
+  $("main").addEventListener("click",function(e){
+    var b=e.target.closest&&e.target.closest("[data-copianome]");if(!b)return;
+    var i=$("ing-marca");if(!i)return;
+    i.value=(i.getAttribute("data-inome")||"")+" ";
+    i.dispatchEvent(new Event("change",{bubbles:true}));
+    i.focus();try{i.setSelectionRange(i.value.length,i.value.length)}catch(x){}
+    b.parentNode.remove();
+  });
   /* vero se stai scrivendo in una casella della pagina (note, dosi, ricerche dentro la scheda...) */
   function staScrivendo(){var a=document.activeElement,m=$("main");return !!(a&&m&&m.contains(a)&&(a.tagName==="TEXTAREA"||a.tagName==="SELECT"||(a.tagName==="INPUT"&&/^(text|search|number|email|tel|url|)$/.test(a.getAttribute("type")||""))))}
   /* soft: dati arrivati da soli (aggiornamento automatico). Se stai scrivendo, la pagina si ridisegna quando esci dalla casella */
@@ -2552,7 +2562,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261110-1720";
+  var BUILD="20261110-1740";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
