@@ -488,7 +488,13 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   ];
   function ingAuto(name){var t=norm(name);for(var i=0;i<ING_DB.length;i++){if(i===ING_DB.length-1&&/\b(liquore|amaro|bitter|crema di|distillato|infuso|vino|vermut|vermouth)\b/.test(t))return null;if(ING_DB[i][0].test(t))return ING_DB[i][1]}return null}
   function ingSid(key){return slug(key).slice(0,60)||"ingrediente"}
+  var CALC_G=0;
   function ingGradi(name){
+    if(CALC_G<3){
+      var pr=prepOf(name);
+      if(pr){CALC_G++;var sub;try{sub=calcAbv(pr,1)}finally{CALC_G--}
+        if(!sub.missing.length&&sub.vol>0)return {g:Math.round(sub.alc/sub.vol*1000)/10,src:"calc"}}
+    }
     var sid=ingSid(norm(name)),sv=(S.ingredienti||[]).filter(function(x){return x.id===sid})[0];
     if(sv&&sv.gradi!=null&&sv.gradi!=="")return {g:sv.gradi,src:"mio",marca:sv.marca||""};
     var a=ingAuto(name);return a==null?null:{g:a,src:"auto"};
@@ -579,7 +585,11 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var nome=o?o.nome:(d.nome||sid),ed=S.canEdit&&S.db,g=ingGradi(nome),p=d?pesoNum(d.peso100):null,marca=d&&d.marca?d.marca:"";
     var at=' data-isid="'+esc(sid)+'" data-inome="'+esc(nome)+'"';
     var h='<div class="d form" style="max-width:640px"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>'+esc(nome.charAt(0).toUpperCase()+nome.slice(1))+'</h2><div class="meta"><span>Ingrediente</span></div>';
-    if(ed){
+    if(ed&&g&&g.src==="calc"){
+      h+='<label for="ing-marca">Nome completo e marca</label><input id="ing-marca"'+at+' value="'+esc(marca)+'" placeholder="Nome completo e marca" autocomplete="off" autocapitalize="sentences">';
+      h+='<div class="idl" style="grid-template-columns:1fr;margin-top:10px"><div><span>Gradi alcolici</span><b>'+esc(fmt(g.g))+' %</b></div></div><p class="hint">Calcolati dagli ingredienti della ricetta: cambiano da soli se cambi la ricetta.</p>';
+      h+='<label for="ing-peso">Peso: 100 ml pesano</label><div style="display:flex;align-items:center;gap:8px"><input id="ing-peso"'+at+' type="number" min="0" max="300" step="any" inputmode="decimal" placeholder="grammi" value="'+(p!=null?esc(p):"")+'" style="max-width:160px"><span>g</span></div>';
+    }else if(ed){
       h+='<label for="ing-marca">Nome completo e marca</label><input id="ing-marca"'+at+' value="'+esc(marca)+'" placeholder="es. Succo di frutto della passione Yoga" autocomplete="off" autocapitalize="sentences">';
       h+='<label for="ing-gradi">Gradi alcolici (%)</label><input id="ing-gradi"'+at+' type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="gradi" value="'+(g?esc(g.g):"")+'" style="max-width:160px">';
       if(g&&g.src==="auto")h+='<p class="hint">Valore indicativo dalla tabella: se lo cambi vale il tuo.</p>';
@@ -604,8 +614,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     });
     if(!l.length)return '<p class="src">Nessun ingrediente trovato.</p>';
     return l.map(function(o){
-      var fonte=o.src==="mio"?"gradi inseriti da te":o.src==="auto"?"gradi dalla tabella":"gradi da inserire";
-      var campo=ed?'<input type="number" min="0" max="100" step="any" inputmode="decimal" data-ikey="'+esc(o.sid)+'" data-inome="'+esc(o.nome)+'" placeholder="gradi" value="'+(o.g!=null?esc(o.g):"")+'" aria-label="Gradi di '+esc(o.nome)+'">':'<span>'+(o.g!=null?fmt(o.g)+' %':'—')+'</span>';
+      var fonte=o.src==="calc"?"gradi calcolati dalla ricetta":o.src==="mio"?"gradi inseriti da te":o.src==="auto"?"gradi dalla tabella":"gradi da inserire";
+      var campo=ed&&o.src!=="calc"?'<input type="number" min="0" max="100" step="any" inputmode="decimal" data-ikey="'+esc(o.sid)+'" data-inome="'+esc(o.nome)+'" placeholder="gradi" value="'+(o.g!=null?esc(o.g):"")+'" aria-label="Gradi di '+esc(o.nome)+'">':'<span>'+(o.g!=null?fmt(o.g)+' %':'—')+'</span>';
       return '<div style="display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><div><a class="il" href="#ingrediente-'+esc(o.sid)+'"><b>'+esc(o.nome)+'</b></a>'+(o.marca?' · '+esc(o.marca):'')+'<div class="src" style="margin:0">Usato in '+o.n+(o.n===1?' ricetta':' ricette')+' · '+fonte+' · '+(o.p!=null?'100 ml = '+esc(fmt(o.p))+' g':'peso mancante')+'</div></div>'+campo+'</div>';
     }).join("");
   }
