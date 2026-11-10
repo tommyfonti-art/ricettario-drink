@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-10a">
+<head><meta name="versione-app" content="2026-11-10b">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -2474,7 +2474,10 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function sessSave(){try{localStorage.setItem(SESS,JSON.stringify({role:S.role,dk:b64e(S.dkRaw),tok:S.tok||null}))}catch(x){}}
   function sessClear(){try{localStorage.removeItem(SESS)}catch(x){}}
 
-  function setBase(d){
+  /* vero se stai scrivendo in una casella della pagina (note, dosi, ricerche dentro la scheda...) */
+  function staScrivendo(){var a=document.activeElement,m=$("main");return !!(a&&m&&m.contains(a)&&(a.tagName==="TEXTAREA"||(a.tagName==="INPUT"&&/^(text|search|number|email|tel|url|)$/.test(a.getAttribute("type")||""))))}
+  /* soft: dati arrivati da soli (aggiornamento automatico). Se stai scrivendo, la pagina si ridisegna quando esci dalla casella */
+  function setBase(d,soft){
     syncCopie(d);S.raw=d;
     COLS.forEach(function(c){
       var o=d[c]||{};
@@ -2484,7 +2487,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     applyNames();
     applyListe();var aspD=impDoc("aspetto");applyAspetto(S.aspW||aspD);try{localStorage.setItem("rp_asp",JSON.stringify(aspD))}catch(x){}aspFirst(aspD);
     S.ricette=S.ricette.map(function(r){r.nome=r.nome||r.id;return r});
-    S.err=null;render();salvaCopia();
+    S.err=null;if(soft&&staScrivendo())S.rAtt=true;else{S.rAtt=false;render()}salvaCopia();
   }
   function afterAuth(d){
     S.canEdit=S.role==="boss"&&!!S.tok;S.db=S.canEdit?makeDb():null;
@@ -2526,7 +2529,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261110-1600";
+  var BUILD="20261110-1640";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
@@ -2547,9 +2550,11 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(S.lastSave&&Date.now()-S.lastSave<20000)return;
     (S.tok?fetchFresh():fetchFile()).then(function(f){
       if(!piuNuovo(f))return;
-      return readData(f,S.dk).then(function(d){if(S.edit||!piuNuovo(f))return;S.file=f;setBase(d)});
+      return readData(f,S.dk).then(function(d){if(S.edit||!piuNuovo(f))return;S.file=f;setBase(d,true)});
     }).catch(function(){}).then(function(){if(!S.edit)renderBar()});
   }
+  /* finito di scrivere: se nel frattempo erano arrivati dati nuovi, adesso ridisegno la pagina */
+  $("main").addEventListener("focusout",function(){setTimeout(function(){if(S.rAtt&&!staScrivendo()&&!S.edit){S.rAtt=false;render()}},500)});
   setInterval(poll,45000);document.addEventListener("visibilitychange",function(){if(!document.hidden)poll()});
   window.addEventListener("online",function(){S.lastSave=0;poll()});
 
@@ -3546,17 +3551,30 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(i>=0)ids.splice(i,1);else ids.push(r.id);
     impPatch("preferiti",{ids:ids}).then(function(){},function(e){S.formErr=saveMsg(e);render()});
   }
+  /* 10 novembre: il testo non ancora salvato di «Le mie note» resta qui (una bozza per ricetta), così non sparisce
+     quando la pagina si ridisegna, per esempio quando arrivano dati nuovi da un altro dispositivo */
+  var NOTEP={};
   function notepHtml(r){
     if(S.notepId!==r.id)S.notepMsg="";
-    if(S.canEdit&&S.db)return '<h3>Le mie note</h3><div class="form"><textarea id="notep" rows="3" placeholder="Appunti tuoi su questa ricetta: prove, variazioni, idee">'+esc(r.notep||"")+'</textarea></div><div class="actions nrow">'+(SR_API?'<button class="btn" type="button" data-detta="notep">Detta a voce</button>':'')+'<button class="btn pri" data-x="notep-save">Salva le note</button></div>'+(S.notepMsg?'<p class="okmsg">'+esc(S.notepMsg)+'</p>':'');
+    var bozza=NOTEP[r.id];
+    if(S.canEdit&&S.db)return '<h3>Le mie note</h3><div class="form"><textarea id="notep" data-rid="'+esc(r.id)+'" rows="3" placeholder="Appunti tuoi su questa ricetta: prove, variazioni, idee">'+esc(bozza!=null?bozza:(r.notep||""))+'</textarea></div><p class="src" id="notep-st" style="margin:4px 0 0"'+(bozza!=null?'':' hidden')+'>Non ancora salvate.</p><div class="actions nrow">'+(SR_API?'<button class="btn" type="button" data-detta="notep">Detta a voce</button>':'')+'<button class="btn pri" data-x="notep-save">Salva le note</button></div>'+(S.notepMsg?'<p class="okmsg">'+esc(S.notepMsg)+'</p>':'');
     return r.notep?'<h3>Le mie note</h3><div class="note">'+esc(r.notep)+'</div>':'';
   }
   function saveNotep(){
     var r=cur();if(!r||!S.db)return;
     var v=(($("notep")||{}).value||"").trim();
     S.notepId=r.id;
-    write(r,Object.assign({},r,{notep:v}),function(){S.notepMsg=v?"Note salvate.":"Note tolte.";render()});
+    write(r,Object.assign({},r,{notep:v}),function(){delete NOTEP[r.id];S.notepMsg=v?"Note salvate.":"Note tolte.";render()});
   }
+  /* mentre scrivi (anche con «Detta a voce») la bozza si aggiorna; se torna uguale a quella salvata, la bozza sparisce */
+  $("main").addEventListener("input",function(e){
+    if(e.target.id!=="notep")return;
+    var rid=e.target.getAttribute("data-rid");if(!rid)return;
+    var rr=(S.ricette||[]).filter(function(x){return x.id===rid})[0];
+    if(rr&&e.target.value.trim()===String(rr.notep||"").trim())delete NOTEP[rid];else NOTEP[rid]=e.target.value;
+    var st=$("notep-st");if(st)st.hidden=NOTEP[rid]==null;
+    if(S.notepId===rid&&S.notepMsg){S.notepMsg="";var ok=e.target.closest(".d")&&e.target.closest(".d").querySelector(".nrow+.okmsg");if(ok)ok.remove()}
+  });
 
   /* ---- foto delle ricette: file cifrati a parte (foto/<id>.json), uno per ricetta ---- */
   var FOTO={};
