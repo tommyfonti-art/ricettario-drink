@@ -489,9 +489,9 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function ingAuto(name){var t=norm(name);for(var i=0;i<ING_DB.length;i++){if(i===ING_DB.length-1&&/\b(liquore|amaro|bitter|crema di|distillato|infuso|vino|vermut|vermouth)\b/.test(t))return null;if(ING_DB[i][0].test(t))return ING_DB[i][1]}return null}
   function ingSid(key){return slug(key).slice(0,60)||"ingrediente"}
   var CALC_G=0;
-  function ingGradi(name){
+  function ingGradi(name,rec){
     if(CALC_G<3){
-      var pr=prepOf(name);
+      var pr=prepOf(name,rec);
       if(pr){CALC_G++;var sub;try{sub=calcAbv(pr,1)}finally{CALC_G--}
         if(!sub.missing.length&&sub.vol>0)return {g:Math.round(sub.alc/sub.vol*1000)/10,src:"calc"}}
     }
@@ -510,13 +510,13 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
         var t=String(split(String(line),1).t||"").replace(/\s+/g," ").trim();
         var k=norm(t);if(!k||seen[k]||prep[k]||/^blend\b/.test(k))return;
         seen[k]=1;
-        var o=map[k]||(map[k]={key:k,sid:ingSid(k),forms:{},n:0});
+        var o=map[k]||(map[k]={key:k,sid:ingSid(k),forms:{},n:0,rec:r});
         o.n++;o.forms[t]=(o.forms[t]||0)+1;
       });
     });
     var l=Object.keys(map).map(function(k){
       var o=map[k],best=Object.keys(o.forms).sort(function(a,b){return o.forms[b]-o.forms[a]})[0];
-      var g=ingGradi(best),dc=ingDoc(o.sid);o.nome=best;o.g=g?g.g:null;o.src=g?g.src:"";o.marca=dc&&dc.marca?dc.marca:"";o.p=dc?pesoNum(dc.peso100):null;return o;
+      var g=ingGradi(best,o.rec),dc=ingDoc(o.sid);o.nome=best;o.g=g?g.g:null;o.src=g?g.src:"";o.marca=dc&&dc.marca?dc.marca:"";o.p=dc?pesoNum(dc.peso100):null;return o;
     }).sort(function(a,b){return a.nome.localeCompare(b.nome,"it")});
     var mp={};l.forEach(function(o){mp[o.sid]=o});
     ING_C={r:S.ricette,i:S.ingredienti,l:l,m:mp};return l;
@@ -708,9 +708,10 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     S.db.doc("impostazioni/diluizioni").set({valori:val,mostra:dilMostra()}).then(function(){S.busy=false;S.dilForm=null;flash("Diluizioni salvate. Valgono subito in tutte le schede.")},function(e){S.busy=false;flash(saveMsg(e),1)});
   }
   var DIL={id:null,v:""};
-  function prepOf(name){
-    var k=norm(name),l=S.ricette||[],k2=k.replace(/ blend$/,"");
-    for(var i=0;i<l.length;i++){var p=l[i];if(p.cat==="cocktail"||p.cat==="analcolico")continue;var pk=norm(p.nome||p.id);if(pk===k||norm(dn(p))===k||(k2!==k&&p.cat==="blend"&&(pk===k2||pk==="blend "+k2)))return p}
+  function prepOf(name,rec){
+    var lk=linkFor(String(name||""),rec);if(lk)return lk;
+    var k=norm(name),l=S.ricette||[],k2=k.replace(/ blend$/,""),k3=norm(String(name||"").replace(/\(.*?\)/g,""));
+    for(var i=0;i<l.length;i++){var p=l[i];if(p.cat==="cocktail"||p.cat==="analcolico")continue;var pk=norm(p.nome||p.id);if(pk===k||norm(dn(p))===k||(k2!==k&&p.cat==="blend"&&(pk===k2||pk==="blend "+k2))||(k3&&k3!==k&&(pk===k3||norm(dn(p))===k3)))return p}
     return null;
   }
   function calcAbv(r,depth){
@@ -721,7 +722,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       var ml=mlOf(line);
       if(ml==null&&parti){var pm=line.match(NUM);var pv=pm?toNum(pm[1]):NaN;if(!isNaN(pv))ml=pv}
       if(ml==null){o.skipped++;return}
-      var nm=String(split(line,1).t||"").replace(/\s+/g," ").trim(),g=null,pr=prepOf(nm);
+      var nm=String(split(line,1).t||"").replace(/\s+/g," ").trim(),g=null,pr=prepOf(nm,r);
       if(pr&&pr.id!==r.id&&depth<3){var sub=calcAbv(pr,depth+1);if(!sub.missing.length&&sub.vol>0)g=sub.alc/sub.vol*100}
       if(g==null){var ig=ingGradi(nm);if(ig&&(!pr||ig.g===0))g=ig.g}
       if(g==null){if(o.missing.indexOf(nm)<0)o.missing.push(nm);return}
