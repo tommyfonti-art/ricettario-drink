@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-03a">
+<head><meta name="versione-app" content="2026-11-10a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -34,6 +34,15 @@ body.locked .search,body.locked .tabs{display:none}
 .idl span{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .fotocard{margin-top:18px;padding:12px;border:1px dashed var(--line);border-radius:12px;background:var(--surface)}.fotocard img{margin-bottom:8px}.nrow{margin-top:8px;gap:8px}.altro{margin:22px 0 8px;color:var(--muted)}.altro summary{cursor:pointer;font-size:.85rem;padding:6px 0}.altro .actions{margin-top:6px}.qabox{margin:0 0 20px;padding:14px 16px 12px;background:var(--accent-soft);border-radius:12px;max-width:none}.qabox .qt{font-weight:600;font-size:1.02rem;margin:0 0 10px}.qabox .ql{display:block;margin:12px 0 5px;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}.qabox input,.qabox select{display:block;width:100%;box-sizing:border-box;font:inherit;padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg)}.qabox .hint{margin:9px 2px 0;font-size:.85rem;color:var(--muted)}.qabox .qr{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 2px;border-top:1px solid var(--line)}.qabox #qa-res{margin-top:6px}.qabox .qr:first-child{margin-top:8px}.qabox .qr .btn{flex:none;padding:7px 14px}.topnav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.topnav .back{margin-bottom:0}.pn{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.85rem}.pn button{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-size:1.5rem;line-height:1;cursor:pointer;padding:0}.pn button:disabled{opacity:.3;cursor:default}.qa{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}.qa .btn{padding:6px 10px;font-size:.85rem}.idl select{width:100%;margin-top:3px;font:inherit;font-size:.95rem;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg,#fff);color:var(--fg)}.idl>div{min-width:0}.idl .tn{display:block;margin-top:3px;font-size:.78rem;text-transform:none;letter-spacing:0}.idl b{font-weight:500;overflow-wrap:anywhere}.idl b.no{font-weight:400;font-style:italic;color:var(--muted)}
 @media (min-width:600px){.idl{grid-template-columns:repeat(4,minmax(0,1fr))}}
+/* 10 novembre: con una sola tendina nel riquadro (homemade, blend, sode, liquori) la tendina prende tutta la riga */
+.idl>div:only-child{grid-column:1/-1}
+@media (min-width:600px){.idl>div:only-child select{max-width:24rem}}
+#peso-ric{width:110px}
+/* tabella della serata: più stretta sul telefono (la ✕ resta dentro lo schermo), nomi dei drink nei colori dell'app */
+.sertab th,.sertab td{padding:8px 6px}
+.sertab th:first-child,.sertab td:first-child{padding-left:12px}
+.sertab th:last-child,.sertab td:last-child{padding-right:8px}
+.sertab a{color:var(--accent);text-decoration:none;font-weight:600}
 /* Layout: un quaderno da bancone. Barra sezioni fissa in alto, elenco a righe raggruppate, scheda ricetta con dosi in monospazio, moltiplicatore, unità ml/oz e modifica a richiesta. */
 :root{
   --bg:#F4F1EA; --surface:#FFFDF8; --fg:#1C2420; --muted:#5F6B64; --line:#DDD8CC;
@@ -202,6 +211,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   header.top h1{grid-column:1;grid-row:1}
   header.top .bar{grid-column:1;grid-row:2;margin-top:6px}
   header.top .search{grid-column:2;grid-row:1/span 2;margin-top:0}
+  header.top .bar .gear{margin-left:0} /* 10 novembre: ingranaggio e aggiorna subito accanto a «+ Nuova ricetta», non a metà testata */
   .list:has(>.row){column-count:2;column-gap:40px}
   .list:has(>.row)>*:not(.row){column-span:all}
   .list>.row{break-inside:avoid}
@@ -1021,12 +1031,12 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     h+=ed?'<label for="sr-title">Nome della serata</label><input id="sr-title" value="'+esc(sr.titolo)+'">':'<h2>'+esc(sr.titolo)+'</h2>';
     h+=ed?'<label for="sr-tot">Drink totali</label><input id="sr-tot" type="number" min="0" step="1" inputmode="numeric" value="'+esc(sr.totale)+'">':'<p class="sub">Drink totali: <b>'+esc(fmt(cnum(sr.totale)||0))+'</b></p>';
     h+='<p class="src" id="sr-st" style="margin:6px 0 0">'+esc(S.srSt)+'</p>';
-    h+='<h3>Drink della serata</h3><div class="tblw"><table style="min-width:0"><thead><tr><th>Drink</th><th>Quota %</th><th>Numero</th>'+(ed?'<th></th>':'')+'</tr></thead><tbody>';
+    h+='<h3>Drink della serata</h3><div class="tblw"><table class="sertab" style="min-width:0"><thead><tr><th>Drink</th><th>Quota %</th><th>Numero</th>'+(ed?'<th></th>':'')+'</tr></thead><tbody>';
     (sr.drink||[]).forEach(function(row,i){
       var r=recById(row.ricetta);
       h+='<tr><td>'+(r?'<a href="#ricetta-'+esc(r.id)+'">'+esc(dn(r))+'</a>':'<span class="src">ricetta non trovata</span>')+'</td>'+
-        '<td>'+(ed?'<input class="sr-q" data-i="'+i+'" type="number" min="0" step="any" inputmode="decimal" value="'+esc(row.quota)+'" style="width:78px" aria-label="Quota in percentuale">':esc(fmt(cnum(row.quota)||0))+'%')+'</td>'+
-        '<td>'+(ed?'<input class="sr-nn" id="sr-ni-'+i+'" data-i="'+i+'" type="number" min="0" step="1" inputmode="numeric" value="'+esc(srNum(sr,row))+'" style="width:78px" aria-label="Numero di drink">':'<b id="sr-n-'+i+'">'+esc(fmt(srNum(sr,row)))+'</b>')+'</td>'+
+        '<td>'+(ed?'<input class="sr-q" data-i="'+i+'" type="number" min="0" step="any" inputmode="decimal" value="'+esc(row.quota)+'" style="width:64px" aria-label="Quota in percentuale">':esc(fmt(cnum(row.quota)||0))+'%')+'</td>'+
+        '<td>'+(ed?'<input class="sr-nn" id="sr-ni-'+i+'" data-i="'+i+'" type="number" min="0" step="1" inputmode="numeric" value="'+esc(srNum(sr,row))+'" style="width:64px" aria-label="Numero di drink">':'<b id="sr-n-'+i+'">'+esc(fmt(srNum(sr,row)))+'</b>')+'</td>'+
         (ed?'<td><button class="btn" data-srrm="'+i+'" aria-label="Togli il drink" style="padding:4px 10px">✕</button></td>':'')+'</tr>';
     });
     h+='</tbody></table></div><p class="src" id="sr-sum" style="margin:8px 0 0">'+srTotals(sr)+'</p>';
@@ -1179,8 +1189,9 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     }).join("")}
   function baseNoteHtml(r){
     var bm=baseMl(r);if(!(bm.t>0))return "";
-    var baseShow=S.unit==="oz"?fmtOz(bm.t/OZ)+" oz":fmt(bm.t)+" ml";
-    return 'Base della ricetta: '+esc(baseShow)+(S.scale!==1?' · moltiplicatore ×'+esc(fmt(S.scale)):'')+'. Nel totale gr e g contano come ml; drop, dash, top e foglie non sono contati'+(bm.skip?' ('+bm.skip+' ingredienti)':'')+'.';
+    /* 10 novembre: solo il totale (con le dosi cambiate, il totale nuovo e tra parentesi quello della ricetta) */
+    var show=function(ml){return S.unit==="oz"?fmtOz(ml/OZ)+" oz":fmt(ml)+" ml"};
+    return 'Totale '+esc(show(bm.t*S.scale))+(S.scale!==1?' (ricetta base '+esc(show(bm.t))+')':'');
   }
   function onlyList(r){var ol=[];(r.ing||[]).forEach(function(t,i){var ob=onlyBase(t);if(ob)ol.push({i:i,ob:ob})});return ol}
   function onlyNoteHtml(r){
@@ -1341,7 +1352,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       if(isDrink)h+='<button class="btn" data-mksub-open="1">Dividi in due ricette</button>';
       h+='</div>';
     }
-    if(ed)h+='<details class="altro"><summary>Altro</summary><div class="actions">'+subsOf(r).map(function(x){return '<button class="btn" data-subdel="'+esc(x.id)+'">Togli «'+esc(dn(x))+'» da questa pagina</button>'}).join("")+'<button class="btn" data-toggle-stato="1">'+(inc(r)?'Segna come completa':'Segna come incompleta')+'</button><button class="btn danger'+(S.confirmDel?' sure':'')+'" data-del="1">'+(S.confirmDel?'Conferma: elimina per sempre':'Elimina ricetta')+'</button></div></details>';
+    if(ed)h+='<details class="altro"'+(S.confirmDel?' open':'')+'><summary>Altro</summary><div class="actions">'+subsOf(r).map(function(x){return '<button class="btn" data-subdel="'+esc(x.id)+'">Togli «'+esc(dn(x))+'» da questa pagina</button>'}).join("")+'<button class="btn" data-toggle-stato="1">'+(inc(r)?'Segna come completa':'Segna come incompleta')+'</button><button class="btn danger'+(S.confirmDel?' sure':'')+'" data-del="1">'+(S.confirmDel?'Conferma: elimina per sempre':'Elimina ricetta')+'</button></div></details>';
     if(S.formErr)h+='<div class="err">'+esc(S.formErr)+'</div>';
     
     return h+'</div>';
@@ -2515,7 +2526,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261110-1240";
+  var BUILD="20261110-1600";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
