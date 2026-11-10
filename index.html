@@ -568,6 +568,40 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(missP.length)h+=' Manca il peso delle tue preparazioni: '+missP.map(esc).join(", ")+'. Si scrive nella loro pagina, alla voce Peso: tocca il nome.';
     return h;
   }
+  /* cambia il nome di un ingrediente in tutte le ricette che lo usano (resta la quantità davanti), sposta la sua scheda (marca, gradi, peso)
+     e i collegamenti a mano alle preparazioni. Se il nome nuovo esiste già, i due ingredienti si uniscono. */
+  function ingRinomina(sid,vecchio,nuovo){
+    nuovo=String(nuovo||"").replace(/\s+/g," ").trim();
+    if(!nuovo)return Promise.reject(new Error("Scrivi il nome."));
+    var nsid=ingSid(norm(nuovo));
+    return applyOp(function(d){
+      var oldK=collKey(vecchio),newK=collKey(nuovo);
+      Object.keys(d.ricette||{}).forEach(function(id){
+        var r=d.ricette[id],ch=false;
+        ["ing","ing_prima"].forEach(function(F){
+          if(!Array.isArray(r[F]))return;
+          r[F]=r[F].map(function(line){
+            line=String(line);
+            var tt=String(split(line,1).t||"");if(!tt)return line;
+            if(ingSid(norm(tt.replace(/\s+/g," ").trim()))!==sid)return line;
+            var i=line.lastIndexOf(tt);if(i<0||i+tt.length!==line.length)return line;
+            ch=true;return line.slice(0,i)+nuovo;
+          });
+        });
+        if(r.coll&&oldK&&newK&&oldK!==newK&&r.coll[oldK]!=null){
+          var cl=Object.assign({},r.coll);if(cl[newK]==null)cl[newK]=cl[oldK];delete cl[oldK];r.coll=cl;ch=true;
+        }
+        if(ch)d.ricette[id]=r;
+      });
+      d.ingredienti=d.ingredienti||{};
+      var o=d.ingredienti[sid];
+      if(o&&nsid!==sid){
+        var t=Object.assign({},d.ingredienti[nsid]||{});
+        Object.keys(o).forEach(function(k){if(k!=="nome"&&(t[k]===undefined||t[k]===""||t[k]===null))t[k]=o[k]});
+        t.nome=nuovo;d.ingredienti[nsid]=t;delete d.ingredienti[sid];
+      }else if(o){o.nome=nuovo}
+    },"Modifica dal sito: ingrediente «"+vecchio+"» → «"+nuovo+"»").then(function(){return nsid});
+  }
   /* scrive solo i campi dati della scheda ingrediente; un campo vuoto si toglie, gli altri restano */
   function ingPatch(sid,nome,f){
     if(!S.db)return Promise.reject(new Error("sola lettura"));
@@ -585,6 +619,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var nome=o?o.nome:(d.nome||sid),ed=S.canEdit&&S.db,g=ingGradi(nome),p=d?pesoNum(d.peso100):null,marca=d&&d.marca?d.marca:"";
     var at=' data-isid="'+esc(sid)+'" data-inome="'+esc(nome)+'"';
     var h='<div class="d form" style="max-width:640px"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>'+esc(nome.charAt(0).toUpperCase()+nome.slice(1))+'</h2><div class="meta"><span>Ingrediente</span></div>';
+    if(ed)h+='<label for="ing-nome">Nome dell\'ingrediente</label><input id="ing-nome"'+at+' value="'+esc(nome)+'" autocomplete="off" autocapitalize="sentences"><p class="hint">Se lo cambi, cambia in tutte le ricette che lo usano.</p>';
     if(ed&&g&&g.src==="calc"){
       h+='<label for="ing-marca">Nome completo e marca</label><input id="ing-marca"'+at+' value="'+esc(marca)+'" placeholder="Nome completo e marca" autocomplete="off" autocapitalize="sentences">';
       h+='<div class="idl" style="grid-template-columns:1fr;margin-top:10px"><div><span>Gradi alcolici</span><b>'+esc(fmt(g.g))+' %</b></div></div><p class="hint">Calcolati dagli ingredienti della ricetta: cambiano da soli se cambi la ricetta.</p>';
@@ -2239,6 +2274,14 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       return;
     }
     /* scheda dell'ingrediente: nome completo, gradi, peso di 100 ml */
+    if(e.target.id==="ing-nome"){
+      if(!S.db)return;
+      var nsid0=e.target.getAttribute("data-isid"),nvec=e.target.getAttribute("data-inome")||nsid0,nnuovo=String(e.target.value).replace(/\s+/g," ").trim();
+      if(!nnuovo||nnuovo===nvec){render();return}
+      S.formErr="";S.busy=true;flash("Cambio il nome in tutte le ricette…");
+      ingRinomina(nsid0,nvec,nnuovo).then(function(ns){S.busy=false;flash("Fatto: «"+nvec+"» ora si chiama «"+nnuovo+"» in tutte le ricette.");location.hash="#ingrediente-"+ns},function(er){S.busy=false;flash(saveMsg(er),1)});
+      return;
+    }
     if(e.target.id==="ing-marca"||e.target.id==="ing-gradi"||e.target.id==="ing-peso"){
       if(!S.db)return;
       var isid=e.target.getAttribute("data-isid"),inom=e.target.getAttribute("data-inome")||isid,fld={};
@@ -2471,7 +2514,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261109-0950";
+  var BUILD="20261110-1240";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
