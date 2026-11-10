@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-10b">
+<head><meta name="versione-app" content="2026-11-10c">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -1684,7 +1684,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function saveMsg(e){var st=e&&e.status;if(st===401||st===403)return "Il collegamento a GitHub non è valido o è scaduto. Rifallo da Impostazioni → Collegamento a GitHub.";if(st===404)return "Il collegamento a GitHub non ha i permessi sul ricettario. Rifallo da Impostazioni → Collegamento a GitHub.";if(!navigator.onLine||(e&&/fetch|network/i.test(e.message||"")))return "Manca la connessione: la modifica non è stata salvata. Riprova.";return "Non sono riuscito a salvare ("+((e&&e.message)||"errore")+"). Riprova."}
   /* salva solo i campi cambiati, applicati sull'ultima versione presa da GitHub: se nel frattempo
      un altro campo della stessa ricetta è cambiato (su un altro dispositivo o da Claude), resta com'è */
-  function write(r,next,after){
+  function write(r,next,after,onFail){
     S.formErr="";
     var fail=function(e){S.formErr=saveMsg(e);if(S.edit){var f=$("main").querySelector(".form");if(f){var er=f.querySelector(".err");if(!er){er=document.createElement("div");er.className="err";f.insertBefore(er,f.querySelector(".actions"))}er.textContent=S.formErr}}else render()};
     var base=clean(r),nx=clean(next),ks={};
@@ -1698,7 +1698,24 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       var o=Object.assign({},cr);
       ch.forEach(function(k){if(nx[k]===undefined)delete o[k];else o[k]=nx[k]});
       d.ricette[r.id]=o;
-    },"Modifica dal sito: ricette/"+r.id).then(function(){after&&after()},fail);
+    },"Modifica dal sito: ricette/"+r.id).then(function(){after&&after()},function(e){if(onFail)onFail(e);fail(e)});
+  }
+  /* 10 novembre: tendine della scheda (bicchiere, ghiaccio, tecnica, decorazione) salvate «subito»:
+     la scelta vale all'istante nell'app, l'invio a GitHub continua da solo dietro. Se fallisce, torna il valore di prima. */
+  var PEND={},PSEQ=0;
+  function pendApply(){
+    if(!S.ricette)return;
+    Object.keys(PEND).forEach(function(id){var p=PEND[id];
+      S.ricette=S.ricette.map(function(x){if(x.id!==id)return x;var y=Object.assign({},x);Object.keys(p).forEach(function(k){if(p[k].v===undefined)delete y[k];else y[k]=p[k].v});return y});
+    });
+  }
+  function writeSubito(r,next){
+    var id=r.id,base=clean(r),nx=clean(next),seqs={};
+    Object.keys(Object.assign({},base,nx)).forEach(function(k){if(JSON.stringify(base[k])!==JSON.stringify(nx[k])){PSEQ++;seqs[k]=PSEQ;(PEND[id]=PEND[id]||{})[k]={v:nx[k],s:PSEQ}}});
+    if(!Object.keys(seqs).length)return;
+    pendApply();S.pend=(S.pend||0)+1;render();
+    var done=function(){S.pend=Math.max(0,(S.pend||1)-1);var p=PEND[id];if(p){Object.keys(seqs).forEach(function(k){if(p[k]&&p[k].s===seqs[k])delete p[k]});if(!Object.keys(p).length)delete PEND[id]}};
+    write(r,next,done,function(){done();var rw=S.raw&&S.raw.ricette&&S.raw.ricette[id];if(rw)S.ricette=S.ricette.map(function(x){return x.id===id?Object.assign({},rw,{id:id,nome:rw.nome||id}):x});pendApply()});
   }
   function formError(msg){
     S.formErr=msg;var f=$("main").querySelector(".form");if(!f)return;
@@ -2333,7 +2350,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       var rk=cur();if(!rk||!S.db)return;var kk=e.target.id==="iceIn"?"ghiaccio":"guarn",kv=e.target.value,selK=e.target;
       var fineK=function(kv2,addL){
         var nk=Object.assign({},rk);if(kv2)nk[kk]=kv2;else delete nk[kk];
-        var goK=function(){write(rk,nk,function(){})};
+        var goK=function(){writeSubito(rk,nk)};
         if(addL)impPatch("liste",addL).then(goK,function(er){S.formErr=saveMsg(er);render()});else goK();
       };
       if(kv==="__new"){
@@ -2358,14 +2375,14 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
           if(!nt){selT.value=rt.tecnica||"";return}
           nt=nt.charAt(0).toUpperCase()+nt.slice(1);
           var tk=tecList(rt)===TECNICHE_HM?"tecHm":"tec",ta=listCur(tk),tf=ta.filter(function(x){return norm(x)===norm(nt)})[0];
-          var fine=function(){write(rt,Object.assign({},rt,{tecnica:tf||nt}),function(){})};
+          var fine=function(){writeSubito(rt,Object.assign({},rt,{tecnica:tf||nt}))};
           if(tf){fine();return}
           var tp={};tp[tk]=ta.concat([nt]);
           impPatch("liste",tp).then(fine,function(er){S.formErr=saveMsg(er);render()});
         },function(){selT.value=rt.tecnica||""});
         return;
       }
-      write(rt,Object.assign({},rt,{tecnica:tv}),function(){});return;
+      writeSubito(rt,Object.assign({},rt,{tecnica:tv}));return;
     }
     if(e.target.id==="glassin"){
       var rg=cur();if(!rg||!S.db)return;var gv=e.target.value,selG=e.target;
@@ -2376,12 +2393,12 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
           var gcap=parseFloat(String(v[1]||"").replace(",","."));
           var gid=slug(gn),have=(S.bicchieri||[]).some(function(g){return g.id===gid});
           var gd={nome:gn};if(gcap>0)gd.capienza=gcap;
-          var assign=function(){write(rg,Object.assign({},rg,{bicchiere:gid}),function(){})};
+          var assign=function(){writeSubito(rg,Object.assign({},rg,{bicchiere:gid}))};
           if(have)assign();else S.db.doc("bicchieri/"+gid).set(gd).then(assign,function(er){S.formErr=saveMsg(er);render()});
         },function(){selG.value=rg.bicchiere||""});
         return;
       }
-      write(rg,Object.assign({},rg,{bicchiere:gv}),function(){});
+      writeSubito(rg,Object.assign({},rg,{bicchiere:gv}));
       return;
     }
     if(e.target.id==="onlyin"){var oi=e.target.value;S.onlyIdx=oi===""?null:parseInt(oi,10);S.onlyScaled=false;S.scale=1;S.perVal="";S.divVal="";S.target=null;setTimeout(render,0);return}
@@ -2475,7 +2492,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function sessClear(){try{localStorage.removeItem(SESS)}catch(x){}}
 
   /* vero se stai scrivendo in una casella della pagina (note, dosi, ricerche dentro la scheda...) */
-  function staScrivendo(){var a=document.activeElement,m=$("main");return !!(a&&m&&m.contains(a)&&(a.tagName==="TEXTAREA"||(a.tagName==="INPUT"&&/^(text|search|number|email|tel|url|)$/.test(a.getAttribute("type")||""))))}
+  function staScrivendo(){var a=document.activeElement,m=$("main");return !!(a&&m&&m.contains(a)&&(a.tagName==="TEXTAREA"||a.tagName==="SELECT"||(a.tagName==="INPUT"&&/^(text|search|number|email|tel|url|)$/.test(a.getAttribute("type")||""))))}
   /* soft: dati arrivati da soli (aggiornamento automatico). Se stai scrivendo, la pagina si ridisegna quando esci dalla casella */
   function setBase(d,soft){
     syncCopie(d);S.raw=d;
@@ -2486,7 +2503,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     S.lezioni=S.lezioni||[];LEZ_FISSE.forEach(function(f){if(!S.lezioni.some(function(x){return x.id===f.id}))S.lezioni.push(Object.assign({},f))});
     applyNames();
     applyListe();var aspD=impDoc("aspetto");applyAspetto(S.aspW||aspD);try{localStorage.setItem("rp_asp",JSON.stringify(aspD))}catch(x){}aspFirst(aspD);
-    S.ricette=S.ricette.map(function(r){r.nome=r.nome||r.id;return r});
+    S.ricette=S.ricette.map(function(r){r.nome=r.nome||r.id;return r});pendApply();
     S.err=null;if(soft&&staScrivendo())S.rAtt=true;else{S.rAtt=false;render()}salvaCopia();
   }
   function afterAuth(d){
@@ -2507,7 +2524,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function commit(mut,msg){var p=chain.then(function(){return ghCommitFile(mut,msg,3)});chain=p.catch(function(){});return p}
   function applyOp(fn,msg){
     var out;
-    return commit(function(file){return readData(file,S.dk).then(function(d){fn(d);syncCopie(d);out=d;return writeData(file,S.dk,d)})},msg).then(function(nf){S.file=nf;S.lastSave=Date.now();setBase(out)});
+    return commit(function(file){return readData(file,S.dk).then(function(d){fn(d);syncCopie(d);out=d;return writeData(file,S.dk,d)})},msg).then(function(nf){S.file=nf;S.lastSave=Date.now();setBase(out,S.pend>0)});
   }
   function makeDb(){
     return {doc:function(p){var a=p.split("/");return {
@@ -2529,7 +2546,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261110-1640";
+  var BUILD="20261110-1700";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
@@ -2546,7 +2563,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     }).catch(function(){return "err"}).then(function(x){renderBar();var bb=document.querySelector("[data-ui=refresh]");if(bb)btn=bb;btn.classList.remove("spin");btn.classList.add(x==="ok"?"done":"bad");setTimeout(function(){btn.classList.remove("done","bad")},1500)});
   }
   function poll(){
-    if(!S.role||S.edit||S.busy||document.hidden)return;
+    if(!S.role||S.edit||S.busy||S.pend||document.hidden)return;
     if(S.lastSave&&Date.now()-S.lastSave<20000)return;
     (S.tok?fetchFresh():fetchFile()).then(function(f){
       if(!piuNuovo(f))return;
