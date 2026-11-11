@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-10e">
+<head><meta name="versione-app" content="2026-11-11f">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -1064,7 +1064,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   var srT;
   function saveSerata(sr){
     var obj={titolo:sr.titolo,totale:cnum(sr.totale)||0,drink:(sr.drink||[]).map(function(x){return {ricetta:x.ricetta,quota:cnum(x.quota)||0}})};
-    return commit(function(file){return readData(file,S.dk).then(function(d){(d.serate=d.serate||{})[sr.id]=obj;return writeData(file,S.dk,d)})},"Serata dal sito: "+sr.id).then(function(nf){S.file=nf;S.lastSave=Date.now()});
+    return applyOp(function(d){(d.serate=d.serate||{})[sr.id]=obj},"Serata dal sito: "+sr.id);
   }
   function srQueueSave(sr){
     if(!S.db)return;clearTimeout(srT);S.srSt="Salvataggio…";var st=$("sr-st");if(st)st.textContent=S.srSt;
@@ -1689,7 +1689,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
 
   /* ---- scrittura (solo chi può modificare) ---- */
   function clean(o){var d={};Object.keys(o).forEach(function(k){var v=o[k];if(k==="id")return;if(v===""||v==null||(Array.isArray(v)&&!v.length))return;d[k]=v});return d}
-  function saveMsg(e){var st=e&&e.status;if(st===401||st===403)return "Il collegamento a GitHub non è valido o è scaduto. Rifallo da Impostazioni → Collegamento a GitHub.";if(st===404)return "Il collegamento a GitHub non ha i permessi sul ricettario. Rifallo da Impostazioni → Collegamento a GitHub.";if(!navigator.onLine||(e&&/fetch|network/i.test(e.message||"")))return "Manca la connessione: la modifica non è stata salvata. Riprova.";return "Non sono riuscito a salvare ("+((e&&e.message)||"errore")+"). Riprova."}
+  function saveMsg(e){var st=e&&e.status,cd=e&&e.code||"";if(st===401)return "Non sei entrato: esci e rientra con email e password.";if(/permission/.test(cd))return "Il tuo utente non ha il permesso di salvare sul ricettario.";if(!navigator.onLine||(e&&/fetch|network/i.test(e.message||"")))return "Manca la connessione: la modifica non è stata salvata. Riprova.";return "Non sono riuscito a salvare ("+((e&&e.message)||"errore")+"). Riprova."}
   /* salva solo i campi cambiati, applicati sull'ultima versione presa da GitHub: se nel frattempo
      un altro campo della stessa ricetta è cambiato (su un altro dispositivo o da Claude), resta com'è */
   function write(r,next,after,onFail){
@@ -2458,47 +2458,36 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     function fallback(){try{var ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);ta.select();var ok=document.execCommand("copy");document.body.removeChild(ta);done(ok)}catch(x){done(false)}}
   }
 
-  /* ---- accesso (due password), cifratura e salvataggio su GitHub ---- */
-  /* dati.enc.json ha un numero di versione in chiaro, "rev": ogni salvataggio lo aumenta di 1.
-     L'app non sostituisce mai i dati con una versione più vecchia (il sito pubblico può restare indietro di qualche minuto).
-     Chi modifica il file fuori dall'app (Claude) deve aumentarlo anche lui. */
-  var GH={o:"tommyfonti-art",r:"ricettario-drink",p:"dati.enc.json",b:"main"};
-  var ITER=200000,SESS="rp_sess",COLS=["ricette","lezioni","menu","appunti","bicchieri","serate","impostazioni","ingredienti"];
-  var enc8=new TextEncoder(),dec8=new TextDecoder();
-  function b64e(u){var s="";for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s)}
+  /* ---- dati su Firebase (dall'11 novembre 2026; prima erano cifrati su GitHub in dati.enc.json) ----
+     Raccolta «dati»: un documento per voce (c = sezione, i = id, j = la voce in JSON).
+     Raccolta «cronologia»: ogni salvataggio con le voci prima e dopo, per poterlo annullare.
+     Raccolta «foto»: una foto per ricetta. Accesso con email e password: le regole del database
+     lasciano entrare solo Tommi e Claude. Claude modifica i dati con strumenti/firebase-claude.mjs. */
+  var FB_CONF={apiKey:"AIzaSyD1Z_LzD13Vz44UbYxouZUtZi7Jc2QGSN4",authDomain:"ricettario-drink.firebaseapp.com",projectId:"ricettario-drink",storageBucket:"ricettario-drink.firebasestorage.app",messagingSenderId:"858819572387",appId:"1:858819572387:web:e47b8d8793ffc132688516"};
+  var COLS=["ricette","lezioni","menu","appunti","bicchieri","serate","impostazioni","ingredienti"];
+  var enc8=new TextEncoder();
+  function b64e(u){var s="",k=0x8000;for(var i=0;i<u.length;i+=k)s+=String.fromCharCode.apply(null,u.subarray(i,i+k));return btoa(s)}
   function b64d(s){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
-  function kx(pw,saltB64,it){return crypto.subtle.importKey("raw",enc8.encode(pw),"PBKDF2",false,["deriveKey"]).then(function(k){return crypto.subtle.deriveKey({name:"PBKDF2",salt:b64d(saltB64),iterations:it||ITER,hash:"SHA-256"},k,{name:"AES-GCM",length:256},false,["encrypt","decrypt"])})}
-  function aesDec(key,o){return crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(o.iv)},key,b64d(o.ct))}
-  function aesEnc(key,u8){var iv=crypto.getRandomValues(new Uint8Array(12));return crypto.subtle.encrypt({name:"AES-GCM",iv:iv},key,u8).then(function(ct){return {iv:b64e(iv),ct:b64e(new Uint8Array(ct))}})}
-  function dkKey(raw){return crypto.subtle.importKey("raw",raw,"AES-GCM",false,["encrypt","decrypt"])}
-  function readData(file,key){return aesDec(key,file.data).then(function(b){return JSON.parse(dec8.decode(b))})}
-  function writeData(file,key,data){return aesEnc(key,enc8.encode(JSON.stringify(data))).then(function(o){var f=Object.assign({},file);f.data=o;return f})}
-  function newSalt(){return b64e(crypto.getRandomValues(new Uint8Array(16)))}
-  function rewrap(pw,raw){var salt=newSalt();return kx(pw,salt).then(function(k){return aesEnc(k,raw).then(function(o){o.salt=salt;return {w:o,k:k}})})}
-
-  function fetchFile(){return fetch("dati.enc.json?v="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http "+r.status);var c=r.headers.get("x-copia-locale");S.copia=c==null?null:c;return r.json()})}
-  /* copia sul telefono (vedi sw.js): l'ultimo file cifrato che l'app conosce, mai sostituito da uno più vecchio */
-  var COPIA="ricettario-copia";
-  function salvaCopia(){
-    if(!S.file||!window.caches)return;
-    var f=S.file;
-    try{caches.open(COPIA).then(function(c){return c.match("dati.enc.json").then(function(v){return v?v.json().then(function(j){return +j.rev||0},function(){return -1}):-1}).then(function(rv){
-      if((+f.rev||0)<rv)return;
-      return c.put("dati.enc.json",new Response(JSON.stringify(f),{headers:{"Content-Type":"application/json","x-salvato":new Date().toISOString()}}));
-    })}).catch(function(){})}catch(x){}
-  }
-  function dataCopia(){var d=new Date(S.copia);if(!S.copia||isNaN(d))return "";var z=function(n){return (n<10?"0":"")+n};return " il "+z(d.getDate())+"/"+z(d.getMonth()+1)+" alle "+z(d.getHours())+":"+z(d.getMinutes())}
-  function tryRole(file,pw,role){var w=file[role];return kx(pw,w.salt,file.iter).then(function(k){return aesDec(k,w).then(function(raw){return {role:role,raw:new Uint8Array(raw),k:k}})})}
-  function unlock(file,pw){
-    return tryRole(file,pw,"boss").catch(function(){return null}).then(function(r){return r||tryRole(file,pw,"staff").catch(function(){return null})}).then(function(r){
-      if(!r)throw new Error("bad");
-      if(r.role==="boss"&&file.tok)return aesDec(r.k,file.tok).then(function(b){r.tok=dec8.decode(b);return r},function(){r.tok=null;return r});
-      r.tok=null;return r;
+  var FB=null,FBP=null,UNSUB=null,LASTJ="";
+  function fbLoad(){
+    if(FBP)return FBP;
+    FBP=Promise.all([import("./fb/firebase-app.js"),import("./fb/firebase-auth.js"),import("./fb/firebase-firestore.js")]).then(function(m){
+      var app=m[0].initializeApp(FB_CONF),f=m[2],db;
+      try{db=f.initializeFirestore(app,{localCache:f.persistentLocalCache({tabManager:f.persistentMultipleTabManager()})})}catch(x){db=f.getFirestore(app)}
+      FB={a:m[1],f:f,auth:m[1].getAuth(app),db:db};return FB;
     });
+    FBP.catch(function(){FBP=null});
+    return FBP;
   }
-  function sessSave(){try{localStorage.setItem(SESS,JSON.stringify({role:S.role,dk:b64e(S.dkRaw),tok:S.tok||null}))}catch(x){}}
-  function sessClear(){try{localStorage.removeItem(SESS)}catch(x){}}
-
+  function docId(c,i){return encodeURIComponent(c)+"~"+encodeURIComponent(i)}
+  function diffDati(a,b){
+    var ch=[],ks={};Object.keys(a||{}).concat(Object.keys(b||{})).forEach(function(k){ks[k]=1});
+    Object.keys(ks).forEach(function(c){
+      var A=(a&&a[c])||{},B=(b&&b[c])||{},is={};Object.keys(A).concat(Object.keys(B)).forEach(function(k){is[k]=1});
+      Object.keys(is).forEach(function(i){var p=A[i]===undefined?null:A[i],n=B[i]===undefined?null:B[i];if(JSON.stringify(p)!==JSON.stringify(n))ch.push({c:c,i:i,p:p,n:n})});
+    });
+    return ch;
+  }
   /* 10 novembre: «Copia il nome» nella scheda ingrediente: il nome va in «Nome completo e marca», si salva subito
      e il cursore resta in fondo, così si aggiunge solo la marca (es. «Mirtillo» → «Mirtillo Yoga») */
   $("main").addEventListener("click",function(e){
@@ -2522,27 +2511,27 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     applyNames();
     applyListe();var aspD=impDoc("aspetto");applyAspetto(S.aspW||aspD);try{localStorage.setItem("rp_asp",JSON.stringify(aspD))}catch(x){}aspFirst(aspD);
     S.ricette=S.ricette.map(function(r){r.nome=r.nome||r.id;return r});pendApply();
-    S.err=null;if(soft&&staScrivendo())S.rAtt=true;else{S.rAtt=false;render()}salvaCopia();
+    S.err=null;if(soft&&staScrivendo())S.rAtt=true;else{S.rAtt=false;render()}
   }
-  function afterAuth(d){
-    S.canEdit=S.role==="boss"&&!!S.tok;S.db=S.canEdit?makeDb():null;
-    setBase(d);
-    if(S.tok)setTimeout(poll,1500); /* il capo controlla subito su GitHub se il sito pubblico è indietro */
-  }
-  function ghReq(method,body){
-    return fetch("https://api.github.com/repos/"+GH.o+"/"+GH.r+"/contents/"+GH.p+(method==="GET"?"?ref="+GH.b+"&t="+Date.now():""),{method:method,headers:{"Authorization":"Bearer "+S.tok,"Accept":"application/vnd.github+json"},body:body?JSON.stringify(body):undefined}).then(function(r){if(r.ok)return r.json();var e=new Error("gh "+r.status);e.status=r.status;throw e});
-  }
-  function ghCommitFile(mut,msg,tries){
-    return ghReq("GET").then(function(cur){
-      var file=JSON.parse(dec8.decode(b64d(cur.content.replace(/\n/g,""))));
-      return mut(file).then(function(nf){nf=Object.assign({},nf,{rev:(+file.rev||0)+1});return ghReq("PUT",{message:msg,content:btoa(JSON.stringify(nf)),sha:cur.sha,branch:GH.b}).then(function(){return nf})});
-    }).catch(function(e){if((e.status===409||e.status===422)&&tries>0)return ghCommitFile(mut,msg,tries-1);throw e});
-  }
-  var chain=Promise.resolve();
-  function commit(mut,msg){var p=chain.then(function(){return ghCommitFile(mut,msg,3)});chain=p.catch(function(){});return p}
+  function afterAuth(d){S.role="boss";S.canEdit=true;S.db=makeDb();setBase(d)}
+  /* salvataggio: confronta i dati prima e dopo, scrive solo le voci cambiate e una riga di cronologia.
+     Senza rete la modifica resta sul dispositivo e parte da sola appena torna la connessione. */
   function applyOp(fn,msg){
-    var out;
-    return commit(function(file){return readData(file,S.dk).then(function(d){fn(d);syncCopie(d);out=d;return writeData(file,S.dk,d)})},msg).then(function(nf){S.file=nf;S.lastSave=Date.now();setBase(out,S.pend>0)});
+    if(!FB||!S.uid){var e0=new Error("noauth");e0.status=401;return Promise.reject(e0)}
+    var before=S.raw||{},d=JSON.parse(JSON.stringify(before));
+    fn(d);syncCopie(d);
+    var ch=diffDati(before,d);
+    if(!ch.length)return Promise.resolve();
+    var f=FB.f,ops=[],ts=Date.now(),cj=JSON.stringify(ch);
+    if(cj.length<900000)ops.push({ref:f.doc(FB.db,"cronologia",ts+"-"+Math.random().toString(36).slice(2,7)),v:{ts:ts,msg:msg||"Modifica",chi:S.email||"",ch:cj}});
+    ch.forEach(function(x){var ref=f.doc(FB.db,"dati",docId(x.c,x.i));ops.push(x.n===null?{del:ref}:{ref:ref,v:{c:x.c,i:x.i,j:JSON.stringify(x.n)}})});
+    var ps=[];for(var k=0;k<ops.length;k+=450){var bt=f.writeBatch(FB.db);ops.slice(k,k+450).forEach(function(o){if(o.del)bt.delete(o.del);else bt.set(o.ref,o.v)});ps.push(bt.commit())}
+    var all=Promise.all(ps);
+    S.lastSave=Date.now();LASTJ=JSON.stringify(d);setBase(d,S.pend>0);
+    return new Promise(function(ok,no){
+      var tardi=false,t=setTimeout(function(){tardi=true;ok()},2500);
+      all.then(function(){clearTimeout(t);if(!tardi)ok()},function(e){clearTimeout(t);if(!tardi)no(e);else flash(saveMsg(e),1)});
+    });
   }
   function makeDb(){
     return {doc:function(p){var a=p.split("/");return {
@@ -2550,53 +2539,49 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       delete:function(){return applyOp(function(x){if(x[a[0]])delete x[a[0]][a[1]]},"Elimina dal sito: "+p)}
     }}};
   }
-  /* aggiornamento automatico: vedo anche le modifiche fatte da altri (o da Claude) */
-  /* lettura diretta da GitHub (non dal sito pubblico); con il collegamento del capo non ha limiti pratici */
-  function fetchFresh(){
-    var hd={Accept:"application/vnd.github.raw+json"};if(S.tok)hd.Authorization="Bearer "+S.tok;
-    return fetch("https://api.github.com/repos/"+GH.o+"/"+GH.r+"/contents/"+GH.p+"?ref="+GH.b+"&t="+Date.now(),{headers:hd,cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http "+r.status);S.copia=null;return r.json()}).catch(function(){return fetchFile()});
-  }
-  /* vero se il file letto è diverso e non più vecchio di quello che l'app ha già */
-  function piuNuovo(f){
-    if(!f||!f.data)return false;
-    if(!S.file)return true;
-    if(f.data.ct===S.file.data.ct)return false;
-    return (+f.rev||0)>=(+S.file.rev||0);
+  /* i dati arrivano da soli, appena cambiano (anche quando li modifica Claude) */
+  function ascolta(){
+    if(UNSUB)UNSUB();
+    var f=FB.f;
+    UNSUB=f.onSnapshot(f.collection(FB.db,"dati"),{includeMetadataChanges:true},function(snap){
+      var off=snap.metadata.fromCache;
+      if(!S.role&&snap.empty&&off)return; /* prima volta su questo dispositivo: aspetto il server */
+      var d={};COLS.forEach(function(c){d[c]={}});
+      snap.forEach(function(doc){var x=doc.data();try{(d[x.c]=d[x.c]||{})[x.i]=JSON.parse(x.j)}catch(e){}});
+      var j=JSON.stringify(d),cambia=j!==LASTJ;LASTJ=j;
+      var prima=!S.role;
+      if(prima){afterAuth(d);go(S.tab==="cocktail"&&location.hash?String(location.hash).slice(1):S.tab,"sostituisci")}
+      else if(cambia&&!S.edit&&!S.busy)setBase(d,true);
+      else if(cambia)S.rAttD=d;
+      if(S.offline!==off){S.offline=off;renderBar()}
+    },function(err){S.formErr="Non riesco a leggere il ricettario ("+(err&&err.code||"errore")+").";render()});
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261111-1900";
+  var BUILD="20261111-2000";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
   function reloadFresh(){
-    var go=function(){location.reload()};
-    try{if(window.caches)caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k)}))}).then(go,go);else go()}catch(x){go()}
+    var go2=function(){location.reload()};
+    try{if(window.caches)caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k)}))}).then(go2,go2);else go2()}catch(x){go2()}
   }
   function refreshNow(btn){
     if(S.edit||S.busy){alert("Finisci prima la modifica in corso.");return}
     btn.classList.add("spin");
-    codeNew().then(function(nu){if(nu){reloadFresh();return new Promise(function(){})}return fetchFresh()}).then(function(f){
-      if(!piuNuovo(f))return "ok";
-      return readData(f,S.dk).then(function(d){if(piuNuovo(f)){S.file=f;setBase(d)}return "ok"});
+    codeNew().then(function(nu){if(nu){reloadFresh();return new Promise(function(){})}
+      if(S.rAttD){var d=S.rAttD;S.rAttD=null;setBase(d)}
+      return FB&&FB.f?FB.f.getDocsFromServer(FB.f.collection(FB.db,"dati")).then(function(){return "ok"}):"ok";
     }).catch(function(){return "err"}).then(function(x){renderBar();var bb=document.querySelector("[data-ui=refresh]");if(bb)btn=bb;btn.classList.remove("spin");btn.classList.add(x==="ok"?"done":"bad");setTimeout(function(){btn.classList.remove("done","bad")},1500)});
   }
-  function poll(){
-    if(!S.role||S.edit||S.busy||S.pend||document.hidden)return;
-    if(S.lastSave&&Date.now()-S.lastSave<20000)return;
-    (S.tok?fetchFresh():fetchFile()).then(function(f){
-      if(!piuNuovo(f))return;
-      return readData(f,S.dk).then(function(d){if(S.edit||!piuNuovo(f))return;S.file=f;setBase(d,true)});
-    }).catch(function(){}).then(function(){if(!S.edit)renderBar()});
-  }
   /* finito di scrivere: se nel frattempo erano arrivati dati nuovi, adesso ridisegno la pagina */
-  $("main").addEventListener("focusout",function(){setTimeout(function(){if(S.rAtt&&!staScrivendo()&&!S.edit){S.rAtt=false;render()}},500)});
-  setInterval(poll,45000);document.addEventListener("visibilitychange",function(){if(!document.hidden)poll()});
-  window.addEventListener("online",function(){S.lastSave=0;poll()});
+  $("main").addEventListener("focusout",function(){setTimeout(function(){if(S.rAttD&&!S.edit&&!S.busy&&!staScrivendo()){var dd=S.rAttD;S.rAttD=null;setBase(dd)}else if(S.rAtt&&!staScrivendo()&&!S.edit){S.rAtt=false;render()}},500)});
 
   function renderGate(){
     $("bar").innerHTML="";$("tabs").innerHTML="";
     var m=$("main");
-    m.innerHTML='<div class="d panel form"><h2>Entra</h2><p class="sub">Scrivi la password per vedere il ricettario.</p>'+
+    if(S.authWait){m.innerHTML='<div class="empty"><b>Apro il ricettario…</b></div>';return}
+    m.innerHTML='<div class="d panel form"><h2>Entra</h2><p class="sub">Scrivi email e password del tuo utente.</p>'+
+      '<label for="em">Email</label><input id="em" type="email" autocomplete="username" autocapitalize="none" value="'+esc(S.lastEmail||"")+'">'+
       '<label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" autocapitalize="none">'+
       (S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+(S.msg?'<div class="okmsg">'+esc(S.msg)+'</div>':'')+
       '<div class="actions"><button class="btn pri" data-ui="login">Entra</button></div></div>';
@@ -2608,7 +2593,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     else if(S.role==="boss")b.innerHTML='<span class="st">Da collegare</span><a class="rf gear pri" href="#impostazioni" aria-label="Impostazioni" title="Impostazioni"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>'+rf;
     else if(S.role==="staff")b.innerHTML='<span class="st">Sola lettura</span>'+rf+'<button class="lo" data-ui="logout">esci</button>';
     else b.innerHTML="";
-    if(S.role&&S.copia!=null)b.innerHTML+='<span class="st off">Senza rete: ricette salvate sul telefono'+dataCopia()+'. Per salvare modifiche serve la rete.</span>';
+    if(S.role&&S.offline)b.innerHTML+='<span class="st off">Senza rete: vedi le ricette salvate sul dispositivo. Le modifiche partono da sole quando torna la connessione.</span>';
   }
   function renderPanel(){
     var px=renderPanelX();if(px!=null)return px;
@@ -2666,13 +2651,11 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
 
     if(S.panel==="sicurezza"){
       var bks='<button class="back" data-back="1"><b>←</b> Indietro</button>';
-      if(S.role!=="boss")return '<div class="d panel">'+bks+'<h2>Sicurezza e accesso</h2><p>Solo il capo può vedere questa pagina.</p></div>';
-      var sm=(S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+(S.msg?'<div class="okmsg">'+esc(S.msg)+'</div>':'');
-      return '<div class="d panel form">'+bks+'<h2>Sicurezza e accesso</h2>'+sm+'<p class="sub">Qui gestisci il collegamento a GitHub (serve per salvare le modifiche) .</p>'+
-        '<h3>Collegamento a GitHub</h3><p>'+(S.tok?'Attivo: puoi modificare le ricette dall\'app.':'Manca. Serve una sola volta per poter salvare le modifiche.')+'</p>'+
-        '<label for="tk">Token GitHub</label><input id="tk" type="password" autocomplete="off" autocapitalize="none">'+
-        '<label for="tkpw">Password capo (per proteggere il token)</label><input id="tkpw" type="password" autocomplete="current-password" autocapitalize="none">'+
-        '<div class="actions"><button class="btn pri" data-ui="savetok">Salva collegamento</button></div></div>';
+      return '<div class="d panel">'+bks+'<h2>Sicurezza e accesso</h2>'+
+        '<p>I dati del ricettario stanno su Firebase, nel progetto «ricettario-drink». Possono leggerli e modificarli solo due utenti: il tuo e quello di Claude. Chiunque altro viene respinto dalle regole del database.</p>'+
+        '<p>Sei entrato come <b>'+esc(S.email||"")+'</b>.</p>'+
+        '<h3>Togliere l\'accesso a Claude</h3><p>Nella console di Firebase, in Authentication → Utenti, disattiva o elimina l\'utente claude@ricettario-drink.app.</p>'+
+        '<h3>Cronologia di prima</h3><p>Le modifiche fatte prima dell\'11 novembre 2026, quando i dati stavano su GitHub, restano nella cronologia del progetto su GitHub.</p></div>';
     }
     if(S.panel==="impostazioni"){
       if(S.role!=="boss")return '<div class="d panel"><button class="back" data-back="1"><b>←</b> Indietro</button><h2>Impostazioni</h2><p>Solo il capo può cambiare le impostazioni.</p></div>';
@@ -2686,7 +2669,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
         '<h3>PDF</h3><p>Scarica il ricettario in PDF per stamparlo o condividerlo. Scegli cosa includere: si apre la finestra di stampa, dove scegli «Salva come PDF».</p><label for="pdfsel">Cosa scaricare</label><select id="pdfsel"><option value="tutto">Tutto il ricettario</option>'+pdfCats().map(function(c){return '<option value="'+c+'">'+esc(CATNAME[c])+'</option>'}).join("")+'</select><div class="actions"><button class="btn" data-ui="pdf">Scarica PDF</button></div>'+
         '<h3>Backup</h3><p>Scarica un file con tutti i dati del ricettario: ricette, lezioni, serate, bicchieri, ingredienti e impostazioni ('+n+' ricette).</p>'+
         '<div class="actions"><button class="btn" data-ui="backup">Scarica backup</button></div>'+
-        '<h3>Sicurezza e accesso</h3><p>'+(S.tok?'Collegamento a GitHub attivo.':'Il collegamento a GitHub manca: senza non puoi salvare le modifiche.')+' Qui trovi il token e le password.</p><div class="actions"><a class="btn'+(S.tok?'':' pri')+'" href="#sicurezza" style="text-decoration:none">Apri Sicurezza e accesso</a></div></div>';
+        '<h3>Sicurezza e accesso</h3><p>Dove stanno i dati e chi può modificarli.</p><div class="actions"><a class="btn" href="#sicurezza" style="text-decoration:none">Apri Sicurezza e accesso</a></div></div>';
     }
     return "";
   }
@@ -2898,44 +2881,29 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   }
   function flash(msg,err){S.szMsg="";S.msg=err?"":msg;S.formErr=err?msg:"";render()}
   function doLogin(){
-    var pw=($("pw")||{}).value||"";if(!pw){flash("Scrivi la password.",1);return}
-    S.busy=true;flash("Controllo…");
-    (S.file?Promise.resolve(S.file):fetchFile().then(function(f){S.file=f;return f})).then(function(f){
-      return unlock(f,pw).then(function(r){
-        S.role=r.role;S.dkRaw=r.raw;S.tok=r.tok;
-        return dkKey(r.raw).then(function(k){S.dk=k;return readData(f,k)}).then(function(d){S.busy=false;S.formErr="";S.msg="";sessSave();S.panel=null;afterAuth(d);NAV=[];go(S.tab,"sostituisci")});
-      });
-    }).catch(function(e){S.busy=false;S.role=null;flash(e&&e.message==="bad"?"Password sbagliata.":"Non riesco a leggere il ricettario. Controlla la connessione.",1)});
+    var em=(($("em")||{}).value||"").trim(),pw=($("pw")||{}).value||"";if(!em||!pw){flash("Scrivi email e password.",1);return}
+    S.busy=true;S.lastEmail=em;flash("Controllo…");
+    fbLoad().then(function(F){return F.a.signInWithEmailAndPassword(F.auth,em,pw)}).then(function(){S.busy=false;S.msg="";S.formErr="";S.authWait=true;render()}).catch(function(e){
+      S.busy=false;var c=e&&e.code||"";
+      flash(/invalid|wrong|not-found|user/.test(c)?"Email o password sbagliate.":/too-many/.test(c)?"Troppi tentativi: aspetta qualche minuto e riprova.":"Non riesco a entrare. Controlla la connessione.",1);
+    });
   }
-  function doLogout(){navReset();sessClear();S.role=null;S.dk=null;S.dkRaw=null;S.tok=null;S.canEdit=false;S.db=null;S.edit=false;S.panel=null;S.open=null;S.ricette=S.lezioni=S.menu=S.appunti=S.bicchieri=S.impostazioni=null;S.msg="";S.formErr="";render()}
-  function doSaveTok(){
-    var tk=($("tk")||{}).value.trim(),pw=($("tkpw")||{}).value||"";
-    if(!tk||!pw){flash("Compila token e password capo.",1);return}
-    S.busy=true;flash("Controllo…");
-    tryRole(S.file,pw,"boss").then(function(r){
-      var old=S.tok;S.tok=tk;
-      return aesEnc(r.k,enc8.encode(tk)).then(function(t){
-        return commit(function(file){var f=Object.assign({},file);f.tok=t;return Promise.resolve(f)},"Collegamento GitHub dal sito").then(function(nf){S.file=nf;S.lastSave=Date.now();S.busy=false;S.canEdit=true;S.db=makeDb();sessSave();flash("Collegamento attivo. Ora puoi modificare le ricette.")});
-      }).catch(function(e){S.tok=old;throw e});
-    }).catch(function(e){S.busy=false;flash(e&&e.status?saveMsg(e):"Password capo sbagliata.",1)});
+  function doLogout(){
+    navReset();if(UNSUB){UNSUB();UNSUB=null}LASTJ="";
+    if(FB)FB.a.signOut(FB.auth).catch(function(){});
+    S.role=null;S.uid=null;S.tok=null;S.canEdit=false;S.db=null;S.edit=false;S.panel=null;S.open=null;S.raw=null;S.ricette=S.lezioni=S.menu=S.appunti=S.bicchieri=S.impostazioni=null;S.msg="";S.formErr="";render();
   }
+  function doSaveTok(){}
   function doChBoss(){
-    var p1=$("pb1").value,p2=$("pb2").value;
+    var p0=($("pb0")||{}).value||"",p1=$("pb1").value,p2=$("pb2").value;
+    if(!p0){flash("Scrivi la password attuale.",1);return}
     if(p1.length<6){flash("La nuova password deve avere almeno 6 caratteri.",1);return}
     if(p1!==p2){flash("Le due password non coincidono.",1);return}
-    if(!S.tok){flash("Prima salva il collegamento a GitHub.",1);return}
+    var F=FB,u=F&&F.auth.currentUser;if(!u)return;
     S.busy=true;flash("Salvo…");
-    rewrap(p1,S.dkRaw).then(function(r){return aesEnc(r.k,enc8.encode(S.tok)).then(function(t){
-      return commit(function(file){var f=Object.assign({},file);f.boss=r.w;f.tok=t;return Promise.resolve(f)},"Password capo cambiata")});
-    }).then(function(nf){S.file=nf;S.lastSave=Date.now();S.busy=false;flash("Password capo cambiata.")},function(e){S.busy=false;flash(saveMsg(e),1)});
+    F.a.reauthenticateWithCredential(u,F.a.EmailAuthProvider.credential(u.email,p0)).then(function(){return F.a.updatePassword(u,p1)}).then(function(){S.busy=false;flash("Password cambiata.")},function(e){S.busy=false;flash(/wrong|invalid/.test(e&&e.code||"")?"La password attuale è sbagliata.":"Non sono riuscito a cambiarla. Controlla la connessione.",1)});
   }
-  function doChStaff(){
-    var p=$("ps1").value.trim();
-    if(p.length<4){flash("La password deve avere almeno 4 caratteri.",1);return}
-    if(!S.tok){flash("Prima salva il collegamento a GitHub.",1);return}
-    S.busy=true;flash("Salvo…");
-    rewrap(p,S.dkRaw).then(function(r){return commit(function(file){var f=Object.assign({},file);f.staff=r.w;return Promise.resolve(f)},"Password dipendenti cambiata")}).then(function(nf){S.file=nf;S.lastSave=Date.now();S.busy=false;flash("Password dipendenti cambiata. Comunicala ai dipendenti.")},function(e){S.busy=false;flash(saveMsg(e),1)});
-  }
+  function doChStaff(){}
   function glassWrite(id,d,msg){
     if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.",1);return}
     var dc=S.db.doc("bicchieri/"+id);
@@ -3239,18 +3207,18 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       hubCard("layout","Layout","Dimensione del testo, spazi, larghezza e ordine dei menu in alto.")+
       hubCard("gestione","Gestione","Bicchieri, tecniche, ghiaccio, decorazioni e diluizioni.")+
       hubCard("strumenti","Strumenti","Copia di sicurezza, cronologia e annulla, cambia un ingrediente ovunque, carica liste, PDF.")+
-      hubCard("account","Account","Esci, cambia la password del capo e quella dei dipendenti.")+
-      hubCard("sicurezza","Collegamento a GitHub",S.tok?"Collegamento a GitHub attivo. Token e password.":"Il collegamento a GitHub manca: senza non puoi salvare le modifiche.")+'</div>';
+      hubCard("account","Account","Esci e cambia la tua password.")+
+      hubCard("sicurezza","Sicurezza e accesso","Dove stanno i dati e chi può modificarli.")+'</div>';
   }
   function panAccount(){
     var g=bossOnly("Account");if(g)return g;
     return '<div class="d panel form">'+panHead("Account")+
-      '<h3>Esci</h3><p>Esci da questo dispositivo: per rientrare serve la password.</p><div class="actions" style="margin-top:6px"><button class="btn" data-ui="logout">Esci dall\'account</button></div>'+
-      '<h3>Password capo</h3><label for="pb1">Nuova password (almeno 6 caratteri)</label><input id="pb1" type="password" autocomplete="new-password" autocapitalize="none">'+
+      '<p>Sei entrato come <b>'+esc(S.email||"")+'</b>.</p>'+
+      '<h3>Esci</h3><p>Esci da questo dispositivo: per rientrare servono email e password.</p><div class="actions" style="margin-top:6px"><button class="btn" data-ui="logout">Esci dall\'account</button></div>'+
+      '<h3>Cambia la tua password</h3><label for="pb0">Password attuale</label><input id="pb0" type="password" autocomplete="current-password" autocapitalize="none">'+
+      '<label for="pb1">Nuova password (almeno 6 caratteri)</label><input id="pb1" type="password" autocomplete="new-password" autocapitalize="none">'+
       '<label for="pb2">Ripeti la nuova password</label><input id="pb2" type="password" autocomplete="new-password" autocapitalize="none">'+
-      '<div class="actions"><button class="btn pri" data-ui="chboss">Cambia password capo</button></div>'+
-      '<h3>Password dipendenti</h3><label for="ps1">Nuova password (almeno 4 caratteri)</label><input id="ps1" type="text" autocomplete="off" autocapitalize="none">'+
-      '<div class="actions"><button class="btn pri" data-ui="chstaff">Cambia password dipendenti</button></div></div>';
+      '<div class="actions"><button class="btn pri" data-ui="chboss">Cambia password</button></div></div>';
   }
   function panGestione(){
     var g=bossOnly("Gestione");if(g)return g;
@@ -3292,7 +3260,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   /* ---- ripristino da file e cronologia ---- */
   function doRipristina(){
     var fi=$("rip-file"),fl=fi&&fi.files&&fi.files[0];
-    if(!S.db){flash("Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.",1);return}
+    if(!S.db){flash("Prima entra con il tuo utente.",1);return}
     if(!fl){flash("Scegli prima il file di copia di sicurezza.",1);return}
     var fr=new FileReader();
     fr.onerror=function(){flash("Non riesco a leggere il file.",1)};
@@ -3307,24 +3275,18 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     fr.readAsText(fl,"utf-8");
   }
   function fmtDt(iso){var d=new Date(iso);if(isNaN(d))return "";try{return d.toLocaleString("it-IT",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"})}catch(x){return iso}}
-  function ghRaw(url){
-    return fetch(url,{headers:{Authorization:"Bearer "+S.tok,Accept:"application/vnd.github.raw+json"},cache:"no-store"}).then(function(r){if(!r.ok){var e=new Error("gh "+r.status);e.status=r.status;throw e}return r.json()});
-  }
   function cronoLoad(){
     S.crono={st:"load",list:[]};
-    if(!S.tok){S.crono.st="ok";return}
-    fetch("https://api.github.com/repos/"+GH.o+"/"+GH.r+"/commits?path="+encodeURIComponent(GH.p)+"&sha="+GH.b+"&per_page=30",{headers:{Authorization:"Bearer "+S.tok,Accept:"application/vnd.github+json"},cache:"no-store"}).then(function(r){
-      if(!r.ok){var e=new Error("gh "+r.status);e.status=r.status;throw e}return r.json();
-    }).then(function(arr){
-      S.crono={st:"ok",list:(arr||[]).map(function(c){var m=String((c.commit&&c.commit.message)||"").split("\n")[0];return {sha:c.sha,msg:m,dt:fmtDt(c.commit&&c.commit.committer&&c.commit.committer.date),nodati:/^(Password|Collegamento GitHub)/.test(m)}})};
-      if(S.panel==="cronologia")render();
+    fbLoad().then(function(F){var f=F.f;return f.getDocs(f.query(f.collection(F.db,"cronologia"),f.orderBy("ts","desc"),f.limit(30)))}).then(function(q){
+      var L=[];q.forEach(function(doc){var x=doc.data(),ch=null;try{ch=JSON.parse(x.ch||"null")}catch(e){}L.push({msg:(x.msg||"")+(x.chi&&/claude/i.test(x.chi)?" (Claude)":""),dt:fmtDt(new Date(+x.ts).toISOString()),ch:ch,nodati:false})});
+      L.forEach(function(c,i){c.sha=String(i)});
+      S.crono={st:"ok",list:L};if(S.panel==="cronologia")render();
     }).catch(function(e){S.crono={st:"err",err:saveMsg(e),list:[]};if(S.panel==="cronologia")render()});
   }
   function panCrono(){
     var g=bossOnly("Cronologia");if(g)return g;
     var C=S.crono||{st:"load",list:[]};
     var h='<div class="d panel">'+panHead("Cronologia","Ogni salvataggio resta registrato: puoi tornare a com'erano i dati dopo una qualunque modifica. Anche il ripristino è una modifica, quindi si può annullare.");
-    if(!S.tok)return h+'<p>Serve il collegamento a GitHub: lo fai da Sicurezza e accesso.</p></div>';
     if(C.st==="load")return h+'<p class="src">Carico la cronologia…</p></div>';
     if(C.st==="err")return h+'<p class="err">'+esc(C.err)+'</p><div class="actions"><button class="btn" data-x="crono-reload">Riprova</button></div></div>';
     var L=C.list;
@@ -3340,12 +3302,14 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return h+'</div>';
   }
   function cronoRip(sha){
-    if(S.busy||!S.tok||!S.db||!sha)return;
+    var idx=+sha,L=(S.crono&&S.crono.list)||[];
+    if(S.busy||!S.db||!(idx>0)||idx>=L.length+1)return;
+    if(L.slice(0,idx).some(function(c){return !c.ch})){flash("Una delle modifiche successive è troppo grande per essere annullata da qui.",1);return}
     if(!confirm("Riporto i dati a com'erano in quella versione. Le modifiche fatte dopo vengono annullate (puoi sempre tornare indietro da qui). Vuoi procedere?"))return;
+    var m={};for(var k=0;k<idx;k++)L[k].ch.forEach(function(x){m[x.c+"\u0001"+x.i]=x});
     S.busy=true;S.msg="Ripristino in corso…";S.formErr="";render();
-    ghRaw("https://api.github.com/repos/"+GH.o+"/"+GH.r+"/contents/"+GH.p+"?ref="+encodeURIComponent(sha)).then(function(f){return readData(f,S.dk)}).then(function(old){
-      return applyOp(function(d){Object.keys(d).forEach(function(k){delete d[k]});Object.keys(old).forEach(function(k){d[k]=old[k]})},"Ripristino dalla cronologia ("+String(sha).slice(0,7)+")");
-    }).then(function(){S.busy=false;cronoLoad();flash("Fatto: i dati sono tornati a quella versione.")},function(e){S.busy=false;flash(saveMsg(e),1)});
+    applyOp(function(d){Object.keys(m).forEach(function(key){var x=m[key];if(x.p===null){if(d[x.c])delete d[x.c][x.i]}else (d[x.c]=d[x.c]||{})[x.i]=x.p})},"Ripristino dalla cronologia ("+L[idx-1].dt+")")
+      .then(function(){S.busy=false;cronoLoad();flash("Fatto: i dati sono tornati a quella versione.")},function(e){S.busy=false;flash(saveMsg(e),1)});
   }
 
   /* ---- cambia un ingrediente ovunque ---- */
@@ -3613,19 +3577,6 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
 
   /* ---- foto delle ricette: file cifrati a parte (foto/<id>.json), uno per ricetta ---- */
   var FOTO={};
-  function ghFile(method,path,body){
-    return fetch("https://api.github.com/repos/"+GH.o+"/"+GH.r+"/contents/"+path+(method==="GET"?"?ref="+GH.b+"&t="+Date.now():""),{method:method,headers:{Authorization:"Bearer "+S.tok,Accept:"application/vnd.github+json"},body:body?JSON.stringify(body):undefined}).then(function(r){
-      if(r.ok)return r.json();var e=new Error("gh "+r.status);e.status=r.status;throw e;
-    });
-  }
-  function fotoPut(path,text){
-    return ghFile("GET",path).then(function(c){return c.sha},function(e){if(e.status===404)return null;throw e}).then(function(sha){
-      var b={message:"Foto dal sito: "+path,content:btoa(text),branch:GH.b};if(sha)b.sha=sha;return ghFile("PUT",path,b);
-    });
-  }
-  function fotoDelFile(path){
-    return ghFile("GET",path).then(function(c){return ghFile("DELETE",path,{message:"Foto tolta dal sito: "+path,sha:c.sha,branch:GH.b})},function(e){if(e.status===404)return null;throw e});
-  }
   function resizeImg(file,max,q){
     return new Promise(function(ok,no){
       var im=new Image(),u=URL.createObjectURL(file);
@@ -3640,11 +3591,10 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   }
   function fotoUrl(id,v){
     var k=id+":"+v;if(FOTO[k])return Promise.resolve(FOTO[k]);
-    var p="foto/"+encodeURIComponent(id)+".json";
-    return fetch(p+"?v="+encodeURIComponent(v),{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http "+r.status);return r.json()}).catch(function(e){
-      if(!S.tok)throw e;
-      return ghRaw("https://api.github.com/repos/"+GH.o+"/"+GH.r+"/contents/"+p+"?ref="+GH.b+"&t="+Date.now());
-    }).then(function(o){return aesDec(S.dk,o)}).then(function(ab){var u=URL.createObjectURL(new Blob([ab],{type:"image/jpeg"}));FOTO[k]=u;return u});
+    return fbLoad().then(function(F){return F.f.getDoc(F.f.doc(F.db,"foto",encodeURIComponent(id)))}).then(function(sn){
+      if(!sn.exists()){var e=new Error("manca");e.manca=1;throw e}
+      var u=URL.createObjectURL(new Blob([b64d(sn.data().b64)],{type:"image/jpeg"}));FOTO[k]=u;return u;
+    });
   }
   function fotoBox(r){
     var ed=S.canEdit&&S.db;
@@ -3658,26 +3608,26 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function fotoHydrate(){
     var im=$("fotoimg");if(!im)return;
     var id=im.getAttribute("data-id"),v=im.getAttribute("data-v");
-    fotoUrl(id,v).then(function(u){var e=$("fotoimg");if(!e||e.getAttribute("data-id")!==id)return;e.src=u;e.style.display="block";var s=$("fotost");if(s)s.textContent=""},function(){var s=$("fotost");if(s)s.textContent="Non riesco a caricare la foto adesso. Se l'hai appena aggiunta, riprova tra un minuto."});
+    fotoUrl(id,v).then(function(u){var e=$("fotoimg");if(!e||e.getAttribute("data-id")!==id)return;e.src=u;e.style.display="block";var s=$("fotost");if(s)s.textContent=""},function(e){var s=$("fotost");if(s)s.textContent=e&&e.manca?"La foto non c'è più: aggiungila di nuovo.":"Non riesco a caricare la foto adesso. Riprova tra un minuto."});
   }
   function fotoMsg(t){var s=$("fotost");if(s)s.textContent=t}
   function fotoSave(file){
-    var r=cur();if(!r||!S.db||!S.tok||!file)return;
+    var r=cur();if(!r||!S.db||!FB||!file)return;
     fotoMsg("Preparo la foto…");
     var bytes,v=Date.now();
     resizeImg(file,900,0.72).then(function(u8){
       bytes=u8;fotoMsg("Salvo la foto…");
-      return aesEnc(S.dk,u8);
-    }).then(function(o){return fotoPut("foto/"+r.id+".json",JSON.stringify({iv:o.iv,ct:o.ct}))}).then(function(){
+      return FB.f.setDoc(FB.f.doc(FB.db,"foto",encodeURIComponent(r.id)),{b64:b64e(u8),v:v});
+    }).then(function(){
       FOTO[r.id+":"+v]=URL.createObjectURL(new Blob([bytes],{type:"image/jpeg"}));
       write(r,Object.assign({},r,{foto:v}),function(){});
-    }).catch(function(e){fotoMsg(e&&e.status?saveMsg(e):((e&&e.message)||"Non sono riuscito a salvare la foto."))});
+    }).catch(function(e){fotoMsg(saveMsg(e))});
   }
   function fotoDel(){
-    var r=cur();if(!r||!S.db||!S.tok)return;
+    var r=cur();if(!r||!S.db||!FB)return;
     if(!confirm("Togliere la foto di questa ricetta?"))return;
     fotoMsg("Tolgo la foto…");
-    fotoDelFile("foto/"+r.id+".json").then(function(){
+    FB.f.deleteDoc(FB.f.doc(FB.db,"foto",encodeURIComponent(r.id))).then(function(){
       var nx=Object.assign({},r);delete nx.foto;write(r,nx,function(){});
     }).catch(function(e){fotoMsg(saveMsg(e))});
   }
@@ -3972,18 +3922,18 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     }
   });
 
-  document.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.id==="pw")doLogin()});
+  document.addEventListener("keydown",function(e){if(e.key==="Enter"&&(e.target.id==="pw"||e.target.id==="em")&&!S.role)doLogin()});
 
   navLoad();readHash();render();
   if("serviceWorker" in navigator){try{navigator.serviceWorker.register("sw.js").catch(function(){})}catch(x){}}
-  if(!window.crypto||!crypto.subtle){S.formErr="Questo browser non è abbastanza recente per aprire il ricettario.";render()}
-  else fetchFile().then(function(f){
-    S.file=f;
-    var sess=null;try{sess=JSON.parse(localStorage.getItem(SESS)||"null")}catch(x){}
-    if(!sess||!sess.dk)return;
-    var raw=b64d(sess.dk);
-    return dkKey(raw).then(function(k){return readData(f,k).then(function(d){S.role=sess.role;S.dk=k;S.dkRaw=raw;S.tok=sess.tok||null;afterAuth(d)})}).catch(function(){sessClear()});
-  }).catch(function(){S.formErr="Non riesco a leggere il ricettario. Controlla la connessione e riprova.";render()});
+  /* avvio: se su questo dispositivo sei già entrato, Firebase se lo ricorda */
+  S.authWait=true;render();
+  fbLoad().then(function(F){
+    F.a.onAuthStateChanged(F.auth,function(u){
+      if(u){S.uid=u.uid;S.email=u.email;S.tok=true;S.authWait=true;if(!S.role)render();ascolta()}
+      else{S.authWait=false;if(S.role)doLogout();else render()}
+    });
+  }).catch(function(){S.authWait=false;S.formErr="Non riesco ad aprire il ricettario. Controlla la connessione e riprova.";render()});
 })();
 </script>
 

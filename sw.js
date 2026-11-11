@@ -1,4 +1,6 @@
-/* v2: le pagine si ricontrollano sempre sul sito (niente attesa di 10 minuti della memoria del browser).
+/* v3 (11 novembre 2026): i dati ora stanno su Firebase, che tiene da solo la sua copia sul dispositivo;
+   qui si salvano solo la pagina, le icone e i file di Firebase (cartella fb), per aprire l'app anche senza rete.
+   v2: le pagine si ricontrollano sempre sul sito (niente attesa di 10 minuti della memoria del browser).
    Ricettario Repub: copia dell'app sul telefono, per aprirla anche senza rete.
    - La pagina e le icone: prima la rete, se non c'è (o è lentissima) la copia salvata.
    - Il file delle ricette (dati.enc.json, sempre cifrato): prima la rete; la copia salvata si aggiorna
@@ -6,8 +8,8 @@
    - Le risposte prese dalla copia hanno l'intestazione "x-copia-locale" con la data in cui erano state salvate:
      l'app la usa per scrivere «Senza rete».
    - I salvataggi verso GitHub non passano di qui. */
-var CACHE = "ricettario-copia";
-var PAGINE = ["./", "index.html", "manifest.webmanifest", "icon.svg", "apple-touch-icon.png?v=5"];
+var CACHE = "ricettario-copia-3";
+var PAGINE = ["./", "index.html", "manifest.webmanifest", "icon.svg", "apple-touch-icon.png?v=5", "fb/firebase-app.js", "fb/firebase-auth.js", "fb/firebase-firestore.js"];
 var ATTESA = 4000; /* oltre 4 secondi senza risposta si usa la copia */
 
 self.addEventListener("install", function (e) {
@@ -65,22 +67,6 @@ self.addEventListener("fetch", function (e) {
     return;
   }
   if (url.origin !== self.location.origin) return;
-
-  /* file delle ricette */
-  if (/\/dati\.enc\.json$/.test(url.pathname)) {
-    e.respondWith(rete(req).then(function (r) {
-      if (!r.ok) throw new Error("http " + r.status);
-      e.waitUntil(caches.open(CACHE).then(function (c) {
-        return c.match("dati.enc.json").then(function (vecchio) {
-          return Promise.all([revDi(r), vecchio ? revDi(vecchio) : -1]).then(function (rv) {
-            if (rv[0] >= rv[1]) return conData(r).then(function (x) { return c.put("dati.enc.json", x); });
-          });
-        });
-      }));
-      return r;
-    }).catch(function () { return dallaCopia(req, "dati.enc.json"); }));
-    return;
-  }
 
   /* pagina, manifest, icone */
   var chiave = req.mode === "navigate" ? "index.html" : null;
