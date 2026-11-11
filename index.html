@@ -299,22 +299,24 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   }
   function split(text,k){
     var tp=text.match(/^top\s+(.+)$/i);
-    if(tp){var r0=split(tp[1],k);return {q:"top"+(r0.q?" "+r0.q:""),t:r0.t}}
+    if(tp){var r0=split(tp[1],k);return {q:"top"+(r0.q?" "+r0.q:""),t:r0.t,n:r0.n}}
     var rg=text.match(RNG);
     if(rg){
       var ru=rg[3].match(UNIT),u1=ru?ru[1].toLowerCase():"",a=conv(toNum(rg[1]),k,u1),b=conv(toNum(rg[2]),k,u1);
-      return {q:a.s+"-"+b.s+(ru?" "+a.u:""),t:ru?ru[2]:rg[3]};
+      var tr=ru?ru[2]:rg[3];return {q:a.s+"-"+b.s+(ru?" "+a.u:""),t:tr,n:tr};
     }
     var m=text.match(NUM);
-    if(!m)return {q:"",t:text};
+    if(!m)return {q:"",t:text,n:text};
     var unit=m[2].match(UNIT),num=toNum(m[1]);
-    if(isNaN(num))return {q:"",t:text};
+    if(isNaN(num))return {q:"",t:text,n:text};
     var c=conv(num,k,unit?unit[1].toLowerCase():"");
     var rest=unit?unit[2]:m[2];
     /* pezzi dopo l'unità (es. "180 gr 4 cetriolini", "600 ml 3 Ginger beer"): si moltiplicano anche loro; "3 Star", "12 anni" restano nomi */
-    if(unit&&k!==1){var pz=rest.match(/^(\d+(?:[.,]\d+)?(?:\s+\d\/\d)?|\d\/\d)(?!\d|%|\/)\s+(?!star|stars|stelle|anni|years?|y\.?o)(\S.*)$/i);
-      if(pz){var pn=toNum(pz[1]);if(!isNaN(pn))rest=fmtPz(pn*k)+" "+pz[2]}}
-    return {q:c.s+(unit?" "+c.u:""),t:rest};
+    /* n = solo il nome dell'ingrediente, senza i pezzi (11 novembre: «600 ml 3 Ginger beer» → «Ginger beer»,
+       così nella sezione Ingredienti, nei gradi e nei collegamenti non compare più «3 Ginger beer» come ingrediente a parte) */
+    var pz=unit?rest.match(/^(\d+(?:[.,]\d+)?(?:\s+\d\/\d)?|\d\/\d)(?!\d|%|\/)\s+(?!star|stars|stelle|anni|years?|y\.?o)(\S.*)$/i):null,nome=pz?pz[2]:rest;
+    if(pz&&k!==1){var pn=toNum(pz[1]);if(!isNaN(pn))rest=fmtPz(pn*k)+" "+pz[2]}
+    return {q:c.s+(unit?" "+c.u:""),t:rest,n:nome};
   }
   /* ---- quantità totale di una ricetta, in ml (gr contati come ml) ---- */
   function toMl(v,u){switch(u){case"ml":case"gr":case"g":return v;case"cl":return v*10;case"oz":return v*OZ;case"kg":case"l":case"litri":case"litro":return v*1000;default:return null}}
@@ -523,7 +525,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     (S.ricette||[]).forEach(function(r){
       var seen={};
       (r.ing||[]).forEach(function(line){
-        var t=String(split(String(line),1).t||"").replace(/\s+/g," ").trim();
+        var t=String(split(String(line),1).n||"").replace(/\s+/g," ").trim();
         var k=norm(t);if(!k||seen[k]||prep[k]||/^blend\b/.test(k))return;
         seen[k]=1;
         var o=map[k]||(map[k]={key:k,sid:ingSid(k),forms:{},n:0,rec:r});
@@ -542,7 +544,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
      Si salva in ingredienti/<id>, campi: nome, marca, gradi, peso100 (grammi di 100 ml). */
   function ingDoc(sid){return (S.ingredienti||[]).filter(function(x){return x.id===sid})[0]||null}
   function ingMap(){ingList();return ING_C.m}
-  function ingKeyOf(line){return ingSid(norm(String(split(String(line||""),1).t||"")))}
+  function ingKeyOf(line){return ingSid(norm(String(split(String(line||""),1).n||"")))}
   function pesoNum(v){var n=parseFloat(String(v==null?"":v).replace(",","."));return n>0?n:null}
   /* preparazioni: homemade, blend, soda, liquori e infusi e le sezioni di ricette create in Impostazioni (i drink no) */
   function isPrep(r){return !!r&&(r.cat==="homemade"||r.cat==="blend"||r.cat==="soda"||r.cat==="infusione"||isSezRic(r.cat))}
@@ -565,7 +567,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var gu=u==="gr"||u==="g"?1:u==="kg"?1000:0;
     if(gu)return {g:a*k*gu,g2:b!=null?b*k*gu:null};
     var ml=toMl(a,u);if(ml==null)return null;
-    var name=String(split(t,1).t||"").replace(/\s+/g," ").trim(),po=pesoOf(name,rec);
+    var name=String(split(t,1).n||"").replace(/\s+/g," ").trim(),po=pesoOf(name,rec);
     if(po.p==null)return {miss:true,name:name,prep:po.prep};
     return {g:ml*k*po.p/100,g2:b!=null?toMl(b,u)*k*po.p/100:null};
   }
@@ -598,7 +600,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
           if(!Array.isArray(r[F]))return;
           r[F]=r[F].map(function(line){
             line=String(line);
-            var tt=String(split(line,1).t||"");if(!tt)return line;
+            var tt=String(split(line,1).n||"");if(!tt)return line;
             if(ingSid(norm(tt.replace(/\s+/g," ").trim()))!==sid)return line;
             var i=line.lastIndexOf(tt);if(i<0||i+tt.length!==line.length)return line;
             ch=true;return line.slice(0,i)+nuovo;
@@ -738,7 +740,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       var ml=mlOf(line);
       if(ml==null&&parti){var pm=line.match(NUM);var pv=pm?toNum(pm[1]):NaN;if(!isNaN(pv))ml=pv}
       if(ml==null){o.skipped++;return}
-      var nm=String(split(line,1).t||"").replace(/\s+/g," ").trim(),g=null,pr=prepOf(nm,r);
+      var nm=String(split(line,1).n||"").replace(/\s+/g," ").trim(),g=null,pr=prepOf(nm,r);
       if(pr&&pr.id!==r.id&&depth<3){var sub=calcAbv(pr,depth+1);if(!sub.missing.length&&sub.vol>0)g=sub.alc/sub.vol*100}
       if(g==null){var ig=ingGradi(nm);if(ig&&(!pr||ig.g===0))g=ig.g}
       if(g==null){if(o.missing.indexOf(nm)<0)o.missing.push(nm);return}
@@ -1160,7 +1162,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   /* seconda ricetta nella stessa pagina: il drink tiene in «sub» gli id delle preparazioni mostrate sotto i suoi ingredienti */
   /* ricette collegate («Duplica»): la copia ha copia={da: id della ricetta di origine, fuori: ingredienti lasciati fuori}
      e i suoi ingredienti si ricalcolano sempre da quelli della ricetta di origine */
-  function ingKey(t){return collKey(split(String(t||""),1).t)}
+  function ingKey(t){return collKey(split(String(t||""),1).n)}
   function copiaIng(src,cp,selfName){
     var fu=(cp&&cp.fuori)||[],sk=selfName?collKey(selfName):"";
     return (src.ing||[]).filter(function(t){var k=ingKey(t);return fu.indexOf(k)<0&&!(sk&&k===sk)});
@@ -1188,7 +1190,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function scOf(x,r){return actRec(r)===x?S.scale:1}
   /* gOn: colonna dei grammi (solo nelle preparazioni). Il nome apre la preparazione collegata, altrimenti la scheda dell'ingrediente */
   function ingHtml(r,sc,gOn){var k=sc==null?S.scale:sc,im=ingMap();return (r.ing||[]).map(function(t){
-      var s=split(t,k),ln=linkFor(s.t,r),name;
+      var s=split(t,k),ln=linkFor(s.n,r),name;
       if(ln&&ln.id!==r.id)name='<a href="#ricetta-'+esc(ln.id)+'">'+esc(s.t)+'</a>';
       else{var io=im[ingKeyOf(t)];name=io?'<a class="il" href="#ingrediente-'+esc(io.sid)+'">'+esc(s.t)+'</a>':esc(s.t)}
       return '<li><span class="q">'+esc(s.q)+'</span><span class="t">'+name+'</span>'+(gOn?gramsHtml(gramsLine(t,k,r)):'')+'</li>';
@@ -1234,7 +1236,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(!S.db){N.err="Prima salva il collegamento a GitHub da Impostazioni → Collegamento a GitHub.";render();return}
     var nome=(N.nome||"").trim();if(!nome){N.err="Scrivi il nome della preparazione.";render();return}
     var ing=(N.ing||"").split("\n").map(function(x){return x.trim()}).filter(Boolean).map(function(x){return impIng(x).s});
-    var ck=collKey(split((r.ing||[])[N.i]||"",1).t);if(!ck){N.err="Non riesco a leggere l'ingrediente.";render();return}
+    var ck=collKey(split((r.ing||[])[N.i]||"",1).n);if(!ck){N.err="Non riesco a leggere l'ingrediente.";render();return}
     S.busy=true;N.err="";
     applyOp(function(d){
       d.ricette=d.ricette||{};
@@ -1248,7 +1250,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   /* pannello «Collega preparazioni»: per ogni ingrediente si cerca e si sceglie a mano la preparazione che si apre toccandolo, oppure se ne crea una nuova */
   function collegaHtml(r){
     var rows=(r.ing||[]).map(function(t,i){
-      var nm=split(t,1).t;if(!collKey(nm))return "";
+      var nm=split(t,1).n;if(!collKey(nm))return "";
       var cid=r.coll&&r.coll[collKey(nm)];
       return '<label for="collq-'+i+'" style="text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--fg);margin-top:12px">'+esc(nm)+'</label>'+
         '<input id="collq-'+i+'" type="search" data-collq="'+i+'" placeholder="Cerca una preparazione…" autocomplete="off" autocapitalize="none" value="'+esc(S.collq[i]||"")+'">'+
@@ -1436,10 +1438,10 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   }
   /* «Rifai senza blend»: la riga del blend nel drink torna ai suoi ingredienti, con le dosi per un drink */
   function blendLines(r){
-    var out=[];(r.ing||[]).forEach(function(t,i){var b=linkFor(split(t,1).t,r);if(b&&b.cat==="blend"&&b.id!==r.id&&!(b.copia&&b.copia.da))out.push({i:i,b:b})});return out;
+    var out=[];(r.ing||[]).forEach(function(t,i){var b=linkFor(split(t,1).n,r);if(b&&b.cat==="blend"&&b.id!==r.id&&!(b.copia&&b.copia.da))out.push({i:i,b:b})});return out;
   }
   function scioglPlan(r,i){
-    var b=linkFor(split(r.ing[i],1).t,r);if(!b)return {err:"Non trovo la ricetta del blend."};
+    var b=linkFor(split(r.ing[i],1).n,r);if(!b)return {err:"Non trovo la ricetta del blend."};
     var T=baseMl(b).t,q=mlOf(r.ing[i]);
     if(!(T>0))return {err:"Nel blend «"+dn(b)+"» non ci sono quantità in ml: non riesco a calcolare le dosi per un drink."};
     if(q==null||!(q>0))return {err:"Nella riga «"+r.ing[i]+"» manca la quantità in ml del blend."};
@@ -1449,7 +1451,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var nuovi=[];(r.ing||[]).forEach(function(t,j){if(j===i)nuovi=nuovi.concat(exp);else nuovi.push(t)});
     var altri=(r.ing||[]).filter(function(t,j){return j!==i}).map(ingKey).filter(Boolean);
     var conf=exp.map(ingKey).filter(function(k2){return k2&&altri.indexOf(k2)>=0});
-    return {b:b,ing:nuovi,fuori:altri,conf:conf,ck:collKey(split(r.ing[i],1).t)};
+    return {b:b,ing:nuovi,fuori:altri,conf:conf,ck:collKey(split(r.ing[i],1).n)};
   }
   function formSciogli(r,BL){
     var cur2=BL.filter(function(x){return x.i===S.sciI})[0]||BL[0];S.sciI=cur2.i;
@@ -2040,7 +2042,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function unVal(r,k){if(k==="ing")return (r.ing||[]).join("\n");if(k==="bicchiere"){var g=glassOf(r);return r.bicchiere?(g&&g.nome?g.nome:r.bicchiere):""}return r[k]==null?"":String(r[k])}
   function unCommon(a,b){
     var fa=unIngsIdx(a),fb=unIngsIdx(b),is=unIngSim(fa.map(function(x){return x.w}),fb.map(function(x){return x.w}));
-    return is.m.map(function(p){return (a.ing||[])[fa[p[0]].i]}).map(function(t){return split(t,1).t}).slice(0,4);
+    return is.m.map(function(p){return (a.ing||[])[fa[p[0]].i]}).map(function(t){return split(t,1).n}).slice(0,4);
   }
   function unSelect(){
     var h='<div class="issue"><div class="ih"><b>Scegli a mano due ricette da confrontare</b></div>';
@@ -2201,7 +2203,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(id==="imp-txt"){S.imp.txt=e.target.value;return}
     if(id==="cn-nome"||id==="cn-ing"||id==="cn-proc"){if(S.collNew)S.collNew[id.slice(3)]=e.target.value;return}
     var cq=e.target.getAttribute&&e.target.getAttribute("data-collq");
-    if(cq!=null){var qi=+cq;S.collq[qi]=e.target.value;var rq=cur();if(rq){var cid2=rq.coll&&rq.coll[collKey(split((rq.ing||[])[qi]||"",1).t)],sq=$("collin-"+qi),cc=$("collc-"+qi);if(sq)sq.innerHTML=collOpts(rq,qi,cid2);if(cc)cc.textContent=collCount(rq,qi,cid2)}return}
+    if(cq!=null){var qi=+cq;S.collq[qi]=e.target.value;var rq=cur();if(rq){var cid2=rq.coll&&rq.coll[collKey(split((rq.ing||[])[qi]||"",1).n)],sq=$("collin-"+qi),cc=$("collc-"+qi);if(sq)sq.innerHTML=collOpts(rq,qi,cid2);if(cc)cc.textContent=collCount(rq,qi,cid2)}return}
     if(id.indexOf("on-")===0){S.nomi=S.nomi||{};S.nomi[id.slice(3)]=e.target.value;return}
     /* Impostazioni → Diluizione del ghiaccio: ricorda quello che scrivi e calcola la misura mentre scrivi */
     var dm=id.match(/^dil-(\d+)$/);
@@ -2254,7 +2256,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var sdb=t.closest("[data-subdel]");if(sdb){var rd=cur();if(!rd)return;var sid=sdb.getAttribute("data-subdel");if(S.blk===sid){S.blk=null;S.scale=1;S.perVal="";S.divVal="";S.target=null;S.onlyIdx=null;S.onlyScaled=false}write(rd,Object.assign({},rd,{sub:(rd.sub||[]).filter(function(x){return x!==sid})}),function(){render()});return}
     var bkb=t.closest("button[data-blk]");if(bkb){S.blk=bkb.getAttribute("data-blk")||null;S.scale=1;S.perVal="";S.divVal="";S.target=null;S.onlyIdx=null;S.onlyScaled=false;render();return}
     var cnb=t.closest("[data-collnew]");
-    if(cnb){var rcn=cur();if(!rcn)return;var cni=+cnb.getAttribute("data-collnew");S.collNew={i:cni,nome:split((rcn.ing||[])[cni]||"",1).t.replace(/\(.*?\)/g,"").trim(),cat:"homemade",ing:"",proc:"",err:""};render();return}
+    if(cnb){var rcn=cur();if(!rcn)return;var cni=+cnb.getAttribute("data-collnew");S.collNew={i:cni,nome:split((rcn.ing||[])[cni]||"",1).n.replace(/\(.*?\)/g,"").trim(),cat:"homemade",ing:"",proc:"",err:""};render();return}
     if(t.closest("[data-collsave]")){collSave();return}
     if(t.closest("[data-collcancel]")){S.collNew=null;render();return}
     var aub=t.closest("[data-aud]");if(aub){audAct(aub.getAttribute("data-aud"));return}
@@ -2346,7 +2348,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     }
     if(e.target.getAttribute&&e.target.getAttribute("data-coll")!=null){
       var rc=cur();if(!rc||!S.db)return;
-      var ci=+e.target.getAttribute("data-coll"),ck=collKey(split((rc.ing||[])[ci]||"",1).t);if(!ck)return;
+      var ci=+e.target.getAttribute("data-coll"),ck=collKey(split((rc.ing||[])[ci]||"",1).n);if(!ck)return;
       var cl=Object.assign({},rc.coll||{}),cv=e.target.value;
       if(cv)cl[ck]=cv;else delete cl[ck];
       var nc=Object.assign({},rc);if(Object.keys(cl).length)nc.coll=cl;else delete nc.coll;
@@ -2562,7 +2564,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return (+f.rev||0)>=(+S.file.rev||0);
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261110-1740";
+  var BUILD="20261111-1900";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
@@ -3349,7 +3351,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   /* ---- cambia un ingrediente ovunque ---- */
   /* la riga di ingrediente si divide in quantità («45 ml ») e nome; il nome è sempre la parte finale */
   function ingParts(line){
-    line=String(line);var t=String(split(line,1).t||"");
+    line=String(line);var t=String(split(line,1).n||"");
     if(t&&line.slice(line.length-t.length)===t)return {pre:line.slice(0,line.length-t.length),t:t};
     return {pre:"",t:line};
   }
@@ -3547,7 +3549,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     L.forEach(function(r){
       var names=[],seen={};
       (r.ing||[]).forEach(function(line){
-        var nm=String(split(String(line),1).t||"").replace(/\(.*?\)/g,"").replace(/\s+/g," ").trim(),k=norm(nm);
+        var nm=String(split(String(line),1).n||"").replace(/\(.*?\)/g,"").replace(/\s+/g," ").trim(),k=norm(nm);
         if(!k||seen[k]||/^(ghiaccio|acqua|ice)\b/.test(k))return;
         seen[k]=1;names.push(nm);
       });
