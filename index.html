@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-11g">
+<head><meta name="versione-app" content="2026-11-11h">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -2515,7 +2515,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   }
   /* chi può modificare: Tommi e Claude. Qualunque altro utente (es. quello dei colleghi) vede tutto in sola lettura;
      anche le regole del database gli permettono solo di leggere */
-  var EDIT_UIDS=["HdCuJOhMJOS8nZCFq66RqwksCwh1","hbbjBMkdJ4ZQ9hNfSBibsP2x8ph1"];
+  var EDIT_UIDS=["kPhxvAxY5hOF3D5DKATM2RKiBDt1","hbbjBMkdJ4ZQ9hNfSBibsP2x8ph1"];
   function afterAuth(d){var cap=EDIT_UIDS.indexOf(S.uid)>=0;S.role=cap?"boss":"staff";S.canEdit=cap;S.db=cap?makeDb():null;setBase(d)}
   /* salvataggio: confronta i dati prima e dopo, scrive solo le voci cambiate e una riga di cronologia.
      Senza rete la modifica resta sul dispositivo e parte da sola appena torna la connessione. */
@@ -2560,7 +2560,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(err){S.formErr="Non riesco a leggere il ricettario ("+(err&&err.code||"errore")+").";render()});
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261111-2030";
+  var BUILD="20261111-2120";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
