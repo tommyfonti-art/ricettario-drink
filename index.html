@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-13g">
+<head><meta name="versione-app" content="2026-11-13h">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -664,14 +664,29 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var nsid=ingSid(norm(nuovo));
     return applyOp(function(d){L.forEach(function(x){if(x.sid!==nsid)ingRinD(d,x.sid,x.nome,nuovo)})},"Modifica dal sito: uniti "+L.length+" ingredienti in «"+nuovo+"»").then(function(){return nsid});
   }
-  /* chiave di somiglianza: senza numeri, gradi, parole di collegamento; così «Acqua 70°», «Acqua 70-80» e «Acqua» si somigliano */
-  var IM_STOP={di:1,del:1,della:1,al:1,alla:1,allo:1,ai:1,e:1,con:1,da:1,il:1,la:1,lo:1,le:1,gradi:1,grado:1,c:1,circa:1,a:1};
-  function imKey(nome){
-    return norm(String(nome).replace(/\([^)]*\)/g," ").replace(/[0-9]+([.,\/-][0-9]+)*/g," ").replace(/°/g," ")).split(" ").filter(function(w){return w&&!IM_STOP[w]}).map(function(w){return w.length>4?w.replace(/[aeiou]$/,""):w}).sort().join(" ");
+  /* somiglianza tra ingredienti, come in «Unisci ricette»: parole del nome (senza numeri, gradi e parole di collegamento) confrontate con il coefficiente di Dice.
+     Con la soglia scelta (80, 60, 50, 40 per cento) si formano gruppi di ingredienti che si assomigliano. */
+  var IM_STOP={di:1,del:1,della:1,dello:1,dei:1,delle:1,al:1,alla:1,allo:1,ai:1,agli:1,e:1,con:1,da:1,il:1,la:1,lo:1,le:1,un:1,una:1,gradi:1,grado:1,c:1,circa:1,a:1,"in":1,fresco:1,fresca:1};
+  function imTok(nome){
+    return norm(String(nome).replace(/\([^)]*\)/g," ")).split(" ").filter(function(w){return w&&!IM_STOP[w]&&!/[0-9]/.test(w)});
   }
-  function imGroups(){
-    var g={};ingList().forEach(function(o){var k=imKey(o.nome);if(!k)return;(g[k]=g[k]||[]).push(o)});
-    return Object.keys(g).filter(function(k){return g[k].length>1}).sort().map(function(k){return g[k]});
+  var IM_C=null;
+  function imGroups(thr){
+    var L=ingList();
+    if(!IM_C||IM_C.l!==L){IM_C={l:L,t:L.map(function(o){return imTok(o.nome)}),p:{}}}
+    var key=String(thr),pairs=IM_C.p[key];
+    if(!pairs){
+      pairs=[];
+      for(var i=0;i<L.length;i++){var A=IM_C.t[i];if(!A.length)continue;
+        for(var j=i+1;j<L.length;j++){var B=IM_C.t[j];if(!B.length)continue;var d=unDice(A,B);if(d*100>=thr)pairs.push([i,j,d])}}
+      IM_C.p[key]=pairs;
+    }
+    var par=L.map(function(_,i){return i});
+    var f=function(x){while(par[x]!==x){par[x]=par[par[x]];x=par[x]}return x};
+    pairs.forEach(function(q){par[f(q[0])]=f(q[1])});
+    var gr={};
+    pairs.forEach(function(q){var r=f(q[0]),g=gr[r]||(gr[r]={m:{},mn:1,mx:0});g.m[q[0]]=1;g.m[q[1]]=1;if(q[2]<g.mn)g.mn=q[2];if(q[2]>g.mx)g.mx=q[2]});
+    return Object.keys(gr).map(function(r){var g=gr[r];return {l:Object.keys(g.m).map(function(i){return L[i]}),mn:g.mn,mx:g.mx}}).sort(function(x,y){return y.mx-x.mx||y.l.length-x.l.length});
   }
   function imSel(){return IUI.sel||(IUI.sel={})}
   function imPanel(){
@@ -734,9 +749,9 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(IUI.mer){
       var riga=function(o){var on=!!imSel()[o.sid];return '<div class="imr"><button class="csk'+(on?' on':'')+'" type="button" data-imsel="'+esc(o.sid)+'" aria-pressed="'+(on?'true':'false')+'" aria-label="Scegli '+esc(o.nome)+'">'+(on?'✓':'')+'</button><div><b>'+esc(o.nome)+'</b>'+(o.marca?' · '+esc(o.marca):'')+'<div class="src" style="margin:0">Usato in '+o.n+(o.n===1?' ricetta':' ricette')+'</div></div></div>'};
       if(IUI.sim){
-        var G=imGroups().map(function(g){return g.filter(function(o){return l.indexOf(o)>=0})}).filter(function(g){return g.length>1});
-        if(!G.length)return '<p class="src">Nessun gruppo di ingredienti simili.</p>';
-        return '<p class="src">'+G.length+' gruppi di ingredienti simili. Tocca «Scegli il gruppo» per spuntarli tutti.</p>'+G.map(function(g){return '<div class="img"><button class="btn" type="button" data-imgrp="'+esc(g.map(function(o){return o.sid}).join("|"))+'">Scegli il gruppo</button>'+g.map(riga).join("")+'</div>'}).join("");
+        var G=imGroups(IUI.thr||60).map(function(g){return {l:g.l.filter(function(o){return l.indexOf(o)>=0}),mn:g.mn,mx:g.mx}}).filter(function(g){return g.l.length>1});
+        if(!G.length)return '<p class="src">Nessun gruppo di ingredienti simili con questa percentuale. Prova ad abbassarla.</p>';
+        return '<p class="src">'+G.length+(G.length===1?' gruppo':' gruppi')+' di ingredienti simili. Tocca «Scegli il gruppo» per spuntarli tutti.</p>'+G.slice(0,60).map(function(g){var pc=Math.round(g.mn*100),px=Math.round(g.mx*100);return '<div class="img"><div class="mrow"><span class="chip hot">'+(pc===px?pc:pc+"–"+px)+'%</span><button class="btn" type="button" data-imgrp="'+esc(g.l.map(function(o){return o.sid}).join("|"))+'">Scegli il gruppo</button></div>'+g.l.map(riga).join("")+'</div>'}).join("")+(G.length>60?'<p class="src">Ne mostro 60 su '+G.length+'. Alza la percentuale per vedere prima le più simili.</p>':'');
       }
       return l.map(riga).join("");
     }
@@ -751,7 +766,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var fb=[["tutti","Tutti ("+l.length+")"],["mancano","Senza gradi ("+m+")"],["peso","Senza peso ("+mp+")"],["alcol","Con alcol"]].map(function(x){return '<button class="btn'+(IUI.fil===x[0]?' pri':'')+'" type="button" data-ifil="'+x[0]+'">'+x[1]+'</button>'}).join("");
     return '<div class="d form"><p class="src" style="margin:0">Tutti gli ingredienti che compaiono nelle ricette, con i gradi alcolici. Dove il prodotto è noto ho messo il valore tipico; dove manca lo scrivi tu. Quello che scrivi vale al posto della tabella. Tocca il nome per aprire la scheda: nome completo con la marca, gradi e peso di 100 ml.</p>'+
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+fb+'</div>'+
-      (S.canEdit&&S.db?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button class="btn'+(IUI.mer?' pri':'')+'" type="button" data-imtog="1">'+(IUI.mer?'Chiudi «Unisci»':'Unisci ingredienti')+'</button>'+(IUI.mer?'<button class="btn'+(IUI.sim?' pri':'')+'" type="button" data-imsim="1">Solo i simili ('+imGroups().length+' gruppi)</button>':'')+'</div>':'')+
+      (S.canEdit&&S.db?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button class="btn'+(IUI.mer?' pri':'')+'" type="button" data-imtog="1">'+(IUI.mer?'Chiudi «Unisci»':'Unisci ingredienti')+'</button>'+(IUI.mer?'<button class="btn'+(IUI.sim?' pri':'')+'" type="button" data-imsim="1">'+(IUI.sim?'Mostra tutti':'Solo i simili')+'</button>':'')+'</div>'+(IUI.mer&&IUI.sim?'<label for="im-thr" style="margin-top:8px">Quanto devono assomigliarsi</label><select id="im-thr">'+[["80","Moltissimo (almeno 80%)"],["60","Molto (almeno 60%)"],["50","Abbastanza (almeno 50%)"],["40","Anche poco (almeno 40%)"]].map(function(o){return '<option value="'+o[0]+'"'+(String(IUI.thr||60)===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join("")+'</select>':''):'')+
       '<div id="imerge">'+imPanel()+'</div>'+
       '<input id="iq" type="search" placeholder="Cerca ingrediente" autocomplete="off" aria-label="Cerca ingrediente" style="margin-top:10px" value="'+esc(IUI.q)+'">'+
       '<div id="ilist" style="margin-top:6px">'+ingListHtml()+'</div>'+
@@ -1335,6 +1350,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     srRefresh(sr);srQueueSave(sr);
   });
   $("main").addEventListener("change",function(e){
+    if(e.target.id==="im-thr"){IUI.thr=parseInt(e.target.value,10)||60;render();return}
     if(e.target.id!=="sr-add"||!S.open||S.open.k!=="s"||!S.db)return;
     var sr=serataModel(S.open.id),v=e.target.value;if(!sr||!v)return;
     sr.drink=(sr.drink||[]).concat([srAuto(sr)?{ricetta:v,quota:0,num:0}:{ricetta:v,quota:0}]);S.srSt="Salvataggio…";render();srQueueSave(sr);
@@ -2504,7 +2520,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       return;
     }
     var ifb=t.closest("[data-ifil]");if(ifb){IUI.fil=ifb.getAttribute("data-ifil");render();return}
-    if(t.closest("[data-imtog]")){IUI.mer=!IUI.mer;IUI.sel={};IUI.sim=false;IUI.nome="";IUI.nomeMano=false;render();return}
+    if(t.closest("[data-imtog]")){IUI.mer=!IUI.mer;IUI.sel={};IUI.sim=true;IUI.nome="";IUI.nomeMano=false;render();return}
     if(t.closest("[data-imsim]")){IUI.sim=!IUI.sim;render();return}
     var ims=t.closest("[data-imsel]");if(ims){var sk=ims.getAttribute("data-imsel");if(imSel()[sk])delete imSel()[sk];else imSel()[sk]=1;IUI.nomeMano=false;var il2=$("ilist"),ip2=$("imerge");if(il2)il2.innerHTML=ingListHtml();if(ip2)ip2.innerHTML=imPanel();return}
     var img=t.closest("[data-imgrp]");if(img){img.getAttribute("data-imgrp").split("|").forEach(function(k){imSel()[k]=1});IUI.nomeMano=false;IUI.nome="";render();return}
@@ -2842,7 +2858,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(err){S.formErr="Non riesco a leggere il ricettario ("+(err&&err.code||"errore")+").";render()});
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261113-2000";
+  var BUILD="20261113-2100";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
