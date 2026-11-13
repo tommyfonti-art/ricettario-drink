@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-13f">
+<head><meta name="versione-app" content="2026-11-13g">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -71,6 +71,13 @@ h2.grp:first-child{margin-top:4px}
 h2.grp::after{content:"";flex:1;border-top:1px solid var(--line)}
 .trow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.trow h2{min-width:0}
 .csbtn{flex:none;font:inherit;font-size:.85rem;padding:7px 13px;margin-top:5px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;cursor:pointer;white-space:nowrap}
+.srbars{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.srb{padding:10px 12px;border:2px solid var(--line);border-radius:12px;background:var(--surface);display:flex;flex-direction:column;gap:4px}
+.srb.on{border-color:var(--accent)}
+.srb>span,.srb>label{font-size:.78rem;color:var(--muted,inherit)}
+.srb b{font-size:1.5rem}
+.srb small{font-size:.75rem;opacity:.75}
+.srb input{width:100%;max-width:none}
 .imp{margin-top:12px;padding:12px 14px;border:1px solid var(--accent);border-radius:12px;background:var(--surface)}
 .imr{display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
 .img{margin:10px 0;padding:6px 10px;border:1px solid var(--line);border-radius:12px}
@@ -1200,6 +1207,15 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function serataModel(id){return (S.serate||[]).filter(function(x){return x.id===id})[0]}
   function recById(id){return (S.ricette||[]).filter(function(x){return x.id===id})[0]}
   function srNum(sr,row){return Math.round((cnum(sr.totale)||0)*(cnum(row.quota)||0)/100)}
+  /* totale automatico (somma dei numeri scritti) o scelto da Tommi: in modo automatico ogni drink ha il suo numero (num),
+     il totale è la loro somma e le quote in percentuale si calcolano da sole; nel modo «scelto» valgono totale e quote come prima */
+  function srAuto(sr){return sr.auto===true}
+  function srSommaNum(sr){return (sr.drink||[]).reduce(function(t,r){return t+(srAuto(sr)?(cnum(r.num)||0):srNum(sr,r))},0)}
+  function srRecalc(sr){
+    if(!srAuto(sr))return;
+    var tot=srSommaNum(sr);sr.totale=tot;
+    (sr.drink||[]).forEach(function(r){r.quota=tot>0?(cnum(r.num)||0)*100/tot:0});
+  }
   var ALCOL=/rum|havana|appleton|myers|plantation|dark|veritas|wray|gosling|abuelo|bally|troy|montebello|cura[cç]ao|peach|brandy|pernod|angostura|pierre ferrand|oftd|saint james|cacha|gin\b|vodka|whisk|tequila|mezcal|bitter|campari|vermouth|liquore|amaro|reserve|3 star|wild turkey|pisco|cognac/i;
   function srParse(text){
     var rg=text.match(RNG),m,un,n,name,u;
@@ -1260,18 +1276,24 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var ed=S.canEdit&&S.db;
     var h='<div class="d form"><button class="back" data-back="1"><b>←</b> Indietro</button>';
     h+=ed?'<label for="sr-title">Nome della serata</label><input id="sr-title" value="'+esc(sr.titolo)+'">':'<h2>'+esc(sr.titolo)+'</h2>';
-    h+=ed?'<label for="sr-tot">Drink totali</label><input id="sr-tot" type="number" min="0" step="1" inputmode="numeric" value="'+esc(sr.totale)+'">':'<p class="sub">Drink totali: <b>'+esc(fmt(cnum(sr.totale)||0))+'</b></p>';
+    var au=srAuto(sr);
+    if(ed){
+      h+='<div class="srbars"><div class="srb'+(au?' on':'')+'"><span>Drink totali · automatico</span><b id="sr-totauto">'+esc(fmt(srSommaNum(sr)))+'</b><small>somma dei numeri dei drink: si aggiorna da solo</small></div>'+
+        '<div class="srb'+(au?'':' on')+'"><label for="sr-tot" style="margin:0">Drink totali · li scelgo io</label><input id="sr-tot" type="number" min="0" step="1" inputmode="numeric" value="'+esc(au?(sr.fisso!=null&&sr.fisso!==""?sr.fisso:""):sr.totale)+'"'+(au?' disabled placeholder="il tuo totale"':'')+'><small>lo scrivi tu, poi i drink si dividono in percentuale</small></div></div>'+
+        '<div class="actions" style="margin-top:8px"><button class="btn'+(au?' pri':'')+'" type="button" data-srmode="auto">Usa il totale automatico</button><button class="btn'+(au?'':' pri')+'" type="button" data-srmode="fix">Usa il totale scelto da me</button></div>';
+    }else h+='<p class="sub">Drink totali: <b>'+esc(fmt(cnum(sr.totale)||0))+'</b></p>';
     h+='<p class="src" id="sr-st" style="margin:6px 0 0">'+esc(S.srSt)+'</p>';
     h+='<h3>Drink della serata</h3><div class="tblw"><table class="sertab" style="min-width:0"><thead><tr><th>Drink</th><th>Quota %</th><th>Numero</th>'+(ed?'<th></th>':'')+'</tr></thead><tbody>';
     (sr.drink||[]).forEach(function(row,i){
       var r=recById(row.ricetta);
       h+='<tr><td>'+(r?'<a href="#ricetta-'+esc(r.id)+'">'+esc(dn(r))+'</a>':'<span class="src">ricetta non trovata</span>')+'</td>'+
-        '<td>'+(ed?'<input class="sr-q" data-i="'+i+'" type="number" min="0" step="any" inputmode="decimal" value="'+esc(row.quota)+'" style="width:64px" aria-label="Quota in percentuale">':esc(fmt(cnum(row.quota)||0))+'%')+'</td>'+
-        '<td>'+(ed?'<input class="sr-nn" id="sr-ni-'+i+'" data-i="'+i+'" type="number" min="0" step="1" inputmode="numeric" value="'+esc(srNum(sr,row))+'" style="width:64px" aria-label="Numero di drink">':'<b id="sr-n-'+i+'">'+esc(fmt(srNum(sr,row)))+'</b>')+'</td>'+
+        '<td>'+(ed&&!au?'<input class="sr-q" data-i="'+i+'" type="number" min="0" step="any" inputmode="decimal" value="'+esc(row.quota)+'" style="width:64px" aria-label="Quota in percentuale">':'<span class="sr-qt" data-i="'+i+'">'+esc(fmt(Math.round((cnum(row.quota)||0)*10)/10))+'%</span>')+'</td>'+
+        '<td>'+(ed?'<input class="sr-nn" id="sr-ni-'+i+'" data-i="'+i+'" type="number" min="0" step="1" inputmode="numeric" value="'+esc(au?(row.num!=null?row.num:0):srNum(sr,row))+'" style="width:64px" aria-label="Numero di drink">':'<b id="sr-n-'+i+'">'+esc(fmt(srNum(sr,row)))+'</b>')+'</td>'+
         (ed?'<td><button class="btn" data-srrm="'+i+'" aria-label="Togli il drink" style="padding:4px 10px">✕</button></td>':'')+'</tr>';
     });
     h+='</tbody></table></div><p class="src" id="sr-sum" style="margin:8px 0 0">'+srTotals(sr)+'</p>';
-    if(ed)h+='<div class="actions" style="margin-top:8px"><button class="btn" data-x="srsum">Totale = somma dei numeri</button></div><p class="hint">Scrivi la quota in percentuale oppure il numero di drink: l\'altro si calcola da solo.</p>';
+    if(ed&&au)h+='<p class="hint">Scrivi il numero di drink di ognuno: il totale e le percentuali si calcolano da soli.</p>';
+    else if(ed)h+='<div class="actions" style="margin-top:8px"><button class="btn" data-x="srsum">Totale = somma dei numeri</button></div><p class="hint">Scrivi la quota in percentuale oppure il numero di drink: l\'altro si calcola da solo.</p>';
     if(ed){
       var used={};(sr.drink||[]).forEach(function(x){used[x.ricetta]=1});
       var C=(S.ricette||[]).filter(function(r){return (r.cat==="cocktail"||r.cat==="analcolico")&&!used[r.id]&&!inc(r)});
@@ -1286,7 +1308,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   }
   var srT;
   function saveSerata(sr){
-    var obj={titolo:sr.titolo,totale:cnum(sr.totale)||0,drink:(sr.drink||[]).map(function(x){return {ricetta:x.ricetta,quota:cnum(x.quota)||0}})};
+    var au=srAuto(sr),obj={titolo:sr.titolo,totale:cnum(sr.totale)||0,drink:(sr.drink||[]).map(function(x){var o={ricetta:x.ricetta,quota:cnum(x.quota)||0};if(au)o.num=cnum(x.num)||0;return o})};
+    if(au)obj.auto=true;if(cnum(sr.fisso)>0)obj.fisso=cnum(sr.fisso);
     return applyOp(function(d){(d.serate=d.serate||{})[sr.id]=obj},"Serata dal sito: "+sr.id);
   }
   function srQueueSave(sr){
@@ -1295,15 +1318,18 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   }
   function srRefresh(sr){
     (sr.drink||[]).forEach(function(row,i){var e=$("sr-n-"+i);if(e)e.textContent=fmt(srNum(sr,row));var ni=$("sr-ni-"+i);if(ni&&document.activeElement!==ni)ni.value=srNum(sr,row);var qi=document.querySelector('.sr-q[data-i="'+i+'"]');if(qi&&document.activeElement!==qi)qi.value=String(Math.round((cnum(row.quota)||0)*100)/100)});
+    var ta=$("sr-totauto");if(ta)ta.textContent=fmt(srSommaNum(sr));
+    document.querySelectorAll(".sr-qt").forEach(function(e){var rw=(sr.drink||[])[parseInt(e.getAttribute("data-i"),10)];if(rw)e.textContent=fmt(Math.round((cnum(rw.quota)||0)*10)/10)+"%"});
     var a=$("sr-sum");if(a)a.innerHTML=srTotals(sr);var b=$("sr-need");if(b)b.innerHTML=srNeedsHtml(sr);var ex=$("sr-extra");if(ex)ex.innerHTML=srExtraHtml(sr);
   }
   $("main").addEventListener("input",function(e){
     var id=e.target.id,cl=e.target.className;
     if(!S.open||S.open.k!=="s"||!S.db)return;
     var sr=serataModel(S.open.id);if(!sr)return;
-    if(id==="sr-tot")sr.totale=e.target.value;
+    if(id==="sr-tot"){sr.fisso=e.target.value;if(!srAuto(sr))sr.totale=e.target.value}
     else if(id==="sr-title")sr.titolo=e.target.value;
     else if(String(cl).indexOf("sr-q")>=0)sr.drink[parseInt(e.target.getAttribute("data-i"),10)].quota=e.target.value;
+    else if(String(cl).indexOf("sr-nn")>=0&&srAuto(sr)){var ni3=parseInt(e.target.getAttribute("data-i"),10);sr.drink[ni3].num=cnum(e.target.value)||0;srRecalc(sr)}
     else if(String(cl).indexOf("sr-nn")>=0){var ni2=parseInt(e.target.getAttribute("data-i"),10),nn2=cnum(e.target.value),tt2=cnum(sr.totale)||0;sr.drink[ni2].quota=tt2>0&&!isNaN(nn2)?nn2*100/tt2:0}
     else return;
     srRefresh(sr);srQueueSave(sr);
@@ -1311,17 +1337,31 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   $("main").addEventListener("change",function(e){
     if(e.target.id!=="sr-add"||!S.open||S.open.k!=="s"||!S.db)return;
     var sr=serataModel(S.open.id),v=e.target.value;if(!sr||!v)return;
-    sr.drink=(sr.drink||[]).concat([{ricetta:v,quota:0}]);S.srSt="Salvataggio…";render();srQueueSave(sr);
+    sr.drink=(sr.drink||[]).concat([srAuto(sr)?{ricetta:v,quota:0,num:0}:{ricetta:v,quota:0}]);S.srSt="Salvataggio…";render();srQueueSave(sr);
   });
   $("main").addEventListener("click",function(e){
     var t=e.target;
+    var md=t.closest("[data-srmode]");
+    if(md&&S.open&&S.open.k==="s"&&S.db){
+      var sm=serataModel(S.open.id);if(!sm)return;
+      if(md.getAttribute("data-srmode")==="auto"){
+        if(srAuto(sm))return;
+        if(!(cnum(sm.fisso)>0)&&cnum(sm.totale)>0)sm.fisso=cnum(sm.totale);
+        (sm.drink||[]).forEach(function(r){r.num=srNum(sm,r)});sm.auto=true;srRecalc(sm);
+      }else{
+        if(!srAuto(sm))return;
+        sm.auto=false;if(cnum(sm.fisso)>0)sm.totale=cnum(sm.fisso);
+        (sm.drink||[]).forEach(function(r){delete r.num});
+      }
+      S.srSt="Salvataggio…";render();srQueueSave(sm);return;
+    }
     var rm=t.closest("button[data-srrm]");
-    if(rm&&S.open&&S.open.k==="s"&&S.db){var sr=serataModel(S.open.id);if(!sr)return;sr.drink.splice(parseInt(rm.getAttribute("data-srrm"),10),1);S.srSt="Salvataggio…";render();srQueueSave(sr);return}
+    if(rm&&S.open&&S.open.k==="s"&&S.db){var sr=serataModel(S.open.id);if(!sr)return;sr.drink.splice(parseInt(rm.getAttribute("data-srrm"),10),1);srRecalc(sr);S.srSt="Salvataggio…";render();srQueueSave(sr);return}
     if(t.closest("[data-srnew]")&&S.db){
       askBox("Nome della serata",[{ph:"Nome"}],function(v){
         var nm=(v[0]||"").trim();if(!nm)return;
         var sid=slug(nm),k=2,base=sid;while((S.serate||[]).some(function(x){return x.id===sid})){sid=base+"-"+k;k++}
-        S.db.doc("serate/"+sid).set({titolo:nm,totale:100,drink:[]}).then(function(){go("serata-"+sid)},function(er){S.formErr=saveMsg(er);render()});
+        S.db.doc("serate/"+sid).set({titolo:nm,totale:0,auto:true,drink:[]}).then(function(){go("serata-"+sid)},function(er){S.formErr=saveMsg(er);render()});
       });return}
     if(t.closest("[data-srdelete]")&&S.db&&S.open&&S.open.k==="s"){
       var sd=serataModel(S.open.id);if(!sd)return;
@@ -2802,7 +2842,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(err){S.formErr="Non riesco a leggere il ricettario ("+(err&&err.code||"errore")+").";render()});
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261113-1900";
+  var BUILD="20261113-2000";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
