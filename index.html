@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-13d">
+<head><meta name="versione-app" content="2026-11-13e">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -71,6 +71,8 @@ h2.grp:first-child{margin-top:4px}
 h2.grp::after{content:"";flex:1;border-top:1px solid var(--line)}
 .trow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.trow h2{min-width:0}
 .csbtn{flex:none;font:inherit;font-size:.85rem;padding:7px 13px;margin-top:5px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;cursor:pointer;white-space:nowrap}
+.csi{flex:none;margin-left:auto;align-self:center;width:28px;height:28px;padding:0;font:inherit;font-size:1rem;line-height:1;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;cursor:pointer}
+.csi.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 .csbtn.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 .dosihead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:24px}.dosihead h3{margin:0}.dosihead .ctl{margin:0;flex-wrap:nowrap}
 .dsg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin:10px 0 0}
@@ -1068,6 +1070,23 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var on=(S.cose||[]).some(function(x){return x.ric===r.id&&!x.fatto});
     return '<button class="csbtn'+(on?' on':'')+'" data-csric="'+esc(r.id)+'" aria-pressed="'+(on?'true':'false')+'" title="'+(on?'Togli dalle cose da fare':'Aggiungi alle cose da fare')+'">'+(on?'In lista ✓':'+ Da fare')+'</button>';
   }
+  /* piccolo «+» accanto a ogni ingrediente: lo mette (o toglie) dalle cose da fare, utile anche per la spesa */
+  function csIngOn(nome,rid){
+    var k=norm(nome);
+    return (S.cose||[]).filter(function(x){return !x.fatto&&(rid?x.ric===rid:(!x.ric&&norm(x.testo)===k))})[0]||null;
+  }
+  function csIng(nome,rid){
+    if(!csEd()||!String(nome||"").trim())return "";
+    var on=!!csIngOn(nome,rid);
+    return '<button class="csi'+(on?' on':'')+'" data-csing="'+esc(nome)+'" data-csrid="'+esc(rid)+'" aria-pressed="'+(on?'true':'false')+'" aria-label="'+(on?'Togli dalle cose da fare: ':'Metti nelle cose da fare: ')+esc(nome)+'">'+(on?'✓':'+')+'</button>';
+  }
+  function csToggleIng(nome,rid){
+    if(!csDb())return;
+    var x=csIngOn(nome,rid);if(x){csDel(x.id);return}
+    var id="c"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),o={testo:nome,fatto:false,creata:Date.now()};
+    if(rid&&recById(rid))o.ric=rid;
+    S.formErr="";csSalva(id,o);
+  }
   function csToggleRic(rid){
     if(!csDb()||!recById(rid))return;
     var L=(S.cose||[]).filter(function(x){return x.ric===rid});
@@ -1105,6 +1124,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   });
   $("main").addEventListener("click",function(e){
     var b=e.target.closest&&e.target.closest("[data-csric]");if(b)csToggleRic(b.getAttribute("data-csric"));
+    var g=e.target.closest&&e.target.closest("[data-csing]");if(g)csToggleIng(g.getAttribute("data-csing"),g.getAttribute("data-csrid")||"");
   });
   $("main").addEventListener("input",function(e){
     var t=e.target;if(t.id==="cs-new"){S.cs.txt=t.value;var sg=$("cs-sug");if(sg)sg.innerHTML=csSug(t.value);return}
@@ -1353,7 +1373,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       var s=split(t,k),ln=linkFor(s.n,r),name;
       if(ln&&ln.id!==r.id)name='<a href="#ricetta-'+esc(ln.id)+'">'+esc(s.t)+'</a>';
       else{var io=im[ingKeyOf(t)];name=io?'<a class="il" href="#ingrediente-'+esc(io.sid)+'">'+esc(s.t)+'</a>':esc(s.t)}
-      return '<li><span class="q">'+esc(s.q)+'</span><span class="t">'+name+'</span>'+(gOn?gramsHtml(gramsLine(t,k,r)):'')+'</li>';
+      return '<li><span class="q">'+esc(s.q)+'</span><span class="t">'+name+'</span>'+(gOn?gramsHtml(gramsLine(t,k,r)):'')+csIng(s.t,ln&&ln.id!==r.id?ln.id:"")+'</li>';
     }).join("")}
   function baseNoteHtml(r){
     var bm=baseMl(r);if(!(bm.t>0))return "";
@@ -2723,7 +2743,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(err){S.formErr="Non riesco a leggere il ricettario ("+(err&&err.code||"errore")+").";render()});
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261113-1700";
+  var BUILD="20261113-1800";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
