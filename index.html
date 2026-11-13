@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-13c">
+<head><meta name="versione-app" content="2026-11-13d">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -988,6 +988,9 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   /* ---- Cose da fare (13 novembre): lista con spunta «da fare» / «fatta»; ogni voce può aprire una preparazione ----
      I dati stanno nella raccolta «cose» (id = voce): testo, fatto, creata, fattaIl, ric (id della ricetta collegata). */
   S.cs={txt:"",link:null,q:""};
+  /* 13 novembre: la lista la possono modificare anche gli ospiti (le regole del database glielo permettono solo qui) */
+  function csDb(){return S.db||S.dbCose||null}
+  function csEd(){return !!csDb()}
   function csById(id){return (S.cose||[]).filter(function(x){return x.id===id})[0]}
   /* se il testo scritto è esattamente il nome di una ricetta, la collega da sola; il resto resta testo libero */
   function csMatch(txt){
@@ -1028,7 +1031,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return '<div class="csr'+(x.fatto?' fatta':'')+'">'+box+'<div class="csb">'+txt+acts+'</div></div>'+((ed&&S.cs.link===x.id)?csPanel(x):'');
   }
   function renderCose(){
-    var ed=!!(S.canEdit&&S.db),L=S.cose||[];
+    var ed=csEd(),L=S.cose||[];
     var da=L.filter(function(x){return !x.fatto}).sort(function(a,b){return (a.creata||0)-(b.creata||0)});
     var fa=L.filter(function(x){return x.fatto}).sort(function(a,b){return (b.fattaIl||0)-(a.fattaIl||0)});
     var h='<div class="list">';
@@ -1047,13 +1050,13 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return h+'</div>';
   }
   function csSalva(id,obj,dopo){
-    if(!S.db)return;
+    if(!csDb())return;
     var o=Object.assign({},obj);delete o.id;
-    S.db.doc("cose/"+id).set(o).then(function(){if(dopo)dopo();else render()},function(e){S.formErr=saveMsg(e);render()});
+    csDb().doc("cose/"+id).set(o).then(function(){if(dopo)dopo();else render()},function(e){S.formErr=saveMsg(e);render()});
   }
   function csAdd(){
     var inp=$("cs-new");if(inp)S.cs.txt=inp.value;
-    var t=(S.cs.txt||"").trim();if(!t||!S.db)return;
+    var t=(S.cs.txt||"").trim();if(!t||!csDb())return;
     var m=csMatch(t),id="c"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
     var o={testo:t,fatto:false,creata:Date.now()};if(m)o.ric=m.id;
     S.cs.txt="";S.formErr="";
@@ -1061,18 +1064,18 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   }
   /* tasto nella scheda di ogni ricetta: mette (o toglie) la ricetta dalla lista delle cose da fare */
   function csBtn(r){
-    if(!(S.canEdit&&S.db))return "";
+    if(!csEd())return "";
     var on=(S.cose||[]).some(function(x){return x.ric===r.id&&!x.fatto});
     return '<button class="csbtn'+(on?' on':'')+'" data-csric="'+esc(r.id)+'" aria-pressed="'+(on?'true':'false')+'" title="'+(on?'Togli dalle cose da fare':'Aggiungi alle cose da fare')+'">'+(on?'In lista ✓':'+ Da fare')+'</button>';
   }
   function csToggleRic(rid){
-    if(!S.db||!recById(rid))return;
+    if(!csDb()||!recById(rid))return;
     var L=(S.cose||[]).filter(function(x){return x.ric===rid});
     var pend=L.filter(function(x){return !x.fatto})[0],fatta=L.filter(function(x){return x.fatto})[0];
     if(pend)csDel(pend.id);else if(fatta)csTog(fatta.id);else csAddRic(rid);
   }
   function csAddRic(rid){
-    var r=recById(rid);if(!r||!S.db)return;
+    var r=recById(rid);if(!r||!csDb())return;
     var id="c"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
     S.cs.txt="";S.formErr="";
     csSalva(id,{testo:dn(r),fatto:false,creata:Date.now(),ric:r.id},function(){render();var i=$("cs-new");if(i)i.focus()});
@@ -1083,11 +1086,11 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     S.formErr="";csSalva(id,n);
   }
   function csDel(id){
-    if(!S.db)return;S.formErr="";if(S.cs.link===id)S.cs.link=null;
-    S.db.doc("cose/"+id).delete().then(function(){render()},function(e){S.formErr=saveMsg(e);render()});
+    if(!csDb())return;S.formErr="";if(S.cs.link===id)S.cs.link=null;
+    csDb().doc("cose/"+id).delete().then(function(){render()},function(e){S.formErr=saveMsg(e);render()});
   }
   function csClean(){
-    if(!S.db||!confirm("Togliere dalla lista tutte le cose già fatte?"))return;
+    if(!csDb()||!confirm("Togliere dalla lista tutte le cose già fatte?"))return;
     S.formErr="";
     applyOp(function(d){Object.keys(d.cose||{}).forEach(function(k){if(d.cose[k]&&d.cose[k].fatto)delete d.cose[k]})},"Cose da fare: tolte le fatte").then(function(){render()},function(e){S.formErr=saveMsg(e);render()});
   }
@@ -2675,7 +2678,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   /* chi può modificare: Tommi e Claude. Qualunque altro utente (es. quello dei colleghi) vede tutto in sola lettura;
      anche le regole del database gli permettono solo di leggere */
   var EDIT_UIDS=["kPhxvAxY5hOF3D5DKATM2RKiBDt1","hbbjBMkdJ4ZQ9hNfSBibsP2x8ph1"];
-  function afterAuth(d){var cap=EDIT_UIDS.indexOf(S.uid)>=0;S.role=cap?"boss":"staff";S.canEdit=cap;S.db=cap?makeDb():null;setBase(d)}
+  function afterAuth(d){var cap=EDIT_UIDS.indexOf(S.uid)>=0;S.role=cap?"boss":"staff";S.canEdit=cap;S.db=cap?makeDb():null;S.dbCose=makeDb();setBase(d)}
   /* salvataggio: confronta i dati prima e dopo, scrive solo le voci cambiate e una riga di cronologia.
      Senza rete la modifica resta sul dispositivo e parte da sola appena torna la connessione. */
   function applyOp(fn,msg){
@@ -2685,7 +2688,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var ch=diffDati(before,d);
     if(!ch.length)return Promise.resolve();
     var f=FB.f,ops=[],ts=Date.now(),cj=JSON.stringify(ch);
-    if(cj.length<900000)ops.push({ref:f.doc(FB.db,"cronologia",ts+"-"+Math.random().toString(36).slice(2,7)),v:{ts:ts,msg:msg||"Modifica",chi:S.email||"",ch:cj}});
+    /* le modifiche degli ospiti (solo la lista) non entrano nella cronologia: così le regole non devono lasciarglielo scrivere */
+    if(S.role!=="staff"&&cj.length<900000)ops.push({ref:f.doc(FB.db,"cronologia",ts+"-"+Math.random().toString(36).slice(2,7)),v:{ts:ts,msg:msg||"Modifica",chi:S.email||"",ch:cj}});
     ch.forEach(function(x){var ref=f.doc(FB.db,"dati",docId(x.c,x.i));ops.push(x.n===null?{del:ref}:{ref:ref,v:{c:x.c,i:x.i,j:JSON.stringify(x.n)}})});
     var ps=[];for(var k=0;k<ops.length;k+=450){var bt=f.writeBatch(FB.db);ops.slice(k,k+450).forEach(function(o){if(o.del)bt.delete(o.del);else bt.set(o.ref,o.v)});ps.push(bt.commit())}
     var all=Promise.all(ps);
@@ -2719,7 +2723,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(err){S.formErr="Non riesco a leggere il ricettario ("+(err&&err.code||"errore")+").";render()});
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261113-1620";
+  var BUILD="20261113-1700";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
@@ -3053,7 +3057,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function doLogout(){
     navReset();if(UNSUB){UNSUB();UNSUB=null}LASTJ="";
     if(FB)FB.a.signOut(FB.auth).catch(function(){});
-    S.role=null;S.uid=null;S.tok=null;S.canEdit=false;S.db=null;S.edit=false;S.panel=null;S.open=null;S.raw=null;S.ricette=S.lezioni=S.menu=S.appunti=S.bicchieri=S.impostazioni=null;S.msg="";S.formErr="";render();
+    S.role=null;S.uid=null;S.tok=null;S.canEdit=false;S.db=null;S.dbCose=null;S.edit=false;S.panel=null;S.open=null;S.raw=null;S.ricette=S.lezioni=S.menu=S.appunti=S.bicchieri=S.impostazioni=null;S.msg="";S.formErr="";render();
   }
   function doSaveTok(){}
   function doChBoss(){

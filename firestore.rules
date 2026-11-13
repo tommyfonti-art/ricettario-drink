@@ -1,0 +1,35 @@
+// Regole del database del ricettario (Firebase → Firestore Database → Regole).
+// Si incollano a mano nella console e si preme «Pubblica»: dal codice non si possono cambiare.
+// - Tommi e Claude (i due utenti sotto) leggono e scrivono tutto.
+// - Gli altri utenti che sono entrati (es. «ospiti») leggono tutto, ma scrivono SOLO le voci
+//   della lista «cose da fare» (documenti dati/cose~...), piccole e fatte come le crea l'app.
+// - Nessun altro tocca ricette, ingredienti, impostazioni, cronologia e foto.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function boss() {
+      return request.auth != null && request.auth.uid in [
+        'kPhxvAxY5hOF3D5DKATM2RKiBDt1',
+        'hbbjBMkdJ4ZQ9hNfSBibsP2x8ph1'
+      ];
+    }
+    match /dati/{id} {
+      allow read: if request.auth != null;
+      allow write: if boss();
+      allow create, update: if request.auth != null
+        && id.matches('cose~.*')
+        && request.resource.data.c == 'cose'
+        && request.resource.data.i is string
+        && request.resource.data.j is string
+        && request.resource.data.j.size() < 2000;
+      allow delete: if request.auth != null && id.matches('cose~.*');
+    }
+    match /cronologia/{id} {
+      allow read, write: if boss();
+    }
+    match /foto/{id} {
+      allow read: if request.auth != null;
+      allow write: if boss();
+    }
+  }
+}

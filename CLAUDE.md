@@ -4,10 +4,10 @@ App su GitHub Pages: https://tommyfonti-art.github.io/ricettario-drink/ — tutt
 
 ## Dove stanno i dati (dall'11 novembre 2026)
 Firebase, progetto `ricettario-drink` (Firestore). Prima erano cifrati su GitHub in `dati.enc.json`: quel file è stato tolto, resta nella cronologia di git.
-- raccolta `dati`: un documento per voce, id = `encodeURIComponent(sezione)+"~"+encodeURIComponent(id)`, campi `c` (sezione: ricette, lezioni, menu, appunti, archivio, bicchieri, serate, impostazioni, ingredienti), `i` (id), `j` (la voce in JSON);
+- raccolta `dati`: un documento per voce, id = `encodeURIComponent(sezione)+"~"+encodeURIComponent(id)`, campi `c` (sezione: ricette, lezioni, menu, appunti, archivio, bicchieri, serate, impostazioni, ingredienti, cose; «cose» = lista delle cose da fare: testo, fatto, creata, fattaIl, ric), `i` (id), `j` (la voce in JSON);
 - raccolta `cronologia`: ogni salvataggio, con `ts`, `msg`, `chi`, `ch` (JSON delle voci prima `p` e dopo `n`); l'app la usa per annullare;
 - raccolta `foto`: `foto/<encodeURIComponent(id ricetta)>` con `b64` (jpeg) e `v`.
-Regole: leggono e scrivono solo l'utente di Tommi e `claude@ricettario-drink.app`.
+Regole (testo in `firestore.rules`, da incollare a mano nella console di Firebase): leggono e scrivono tutto solo l'utente di Tommi e `claude@ricettario-drink.app`; gli altri utenti entrati (ospiti) leggono tutto e scrivono solo le voci della lista «cose da fare» (`c` = `cose`).
 
 ## Come Claude modifica i dati
 La password dell'utente di Claude NON è salvata da nessuna parte: chiederla a Tommi.
