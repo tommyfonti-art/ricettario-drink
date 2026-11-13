@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-13b">
+<head><meta name="versione-app" content="2026-11-13c">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -69,6 +69,14 @@ main{padding-top:18px;min-width:0}
 h2.grp{font-family:var(--f-display);font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:500;margin:26px 0 6px;display:flex;gap:10px;align-items:center}
 h2.grp:first-child{margin-top:4px}
 h2.grp::after{content:"";flex:1;border-top:1px solid var(--line)}
+.trow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.trow h2{min-width:0}
+.csbtn{flex:none;font:inherit;font-size:.85rem;padding:7px 13px;margin-top:5px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;cursor:pointer;white-space:nowrap}
+.csbtn.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.dosihead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:24px}.dosihead h3{margin:0}.dosihead .ctl{margin:0;flex-wrap:nowrap}
+.dsg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin:10px 0 0}
+.dsg span{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:3px}
+.dsg input,.dsg select{width:100%;font:inherit;font-family:var(--f-mono);font-size:1rem;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+.dsg select{font-family:inherit}.dsg .full{grid-column:1/-1}
 .cssug{margin-top:6px}
 .csug{display:flex;justify-content:space-between;align-items:baseline;gap:12px;width:100%;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer}
 .csug:hover{border-color:var(--accent)}
@@ -233,7 +241,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   .dca{grid-column:1;grid-row:1;min-width:0}
   .dcb{grid-column:2;grid-row:1/span 2;min-width:0}
   .dcc{grid-column:1;grid-row:2;min-width:0}
-  .dcb>h3:first-child{margin-top:16px}
+  .dcb>h3:first-child,.dcb>.dosihead:first-child{margin-top:16px}
+  .dsg input,.dsg select{min-height:46px}
   .d h2{font-size:2rem}
 }
 </style>
@@ -1050,6 +1059,18 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     S.cs.txt="";S.formErr="";
     csSalva(id,o,function(){render();var i=$("cs-new");if(i)i.focus()});
   }
+  /* tasto nella scheda di ogni ricetta: mette (o toglie) la ricetta dalla lista delle cose da fare */
+  function csBtn(r){
+    if(!(S.canEdit&&S.db))return "";
+    var on=(S.cose||[]).some(function(x){return x.ric===r.id&&!x.fatto});
+    return '<button class="csbtn'+(on?' on':'')+'" data-csric="'+esc(r.id)+'" aria-pressed="'+(on?'true':'false')+'" title="'+(on?'Togli dalle cose da fare':'Aggiungi alle cose da fare')+'">'+(on?'In lista ✓':'+ Da fare')+'</button>';
+  }
+  function csToggleRic(rid){
+    if(!S.db||!recById(rid))return;
+    var L=(S.cose||[]).filter(function(x){return x.ric===rid});
+    var pend=L.filter(function(x){return !x.fatto})[0],fatta=L.filter(function(x){return x.fatto})[0];
+    if(pend)csDel(pend.id);else if(fatta)csTog(fatta.id);else csAddRic(rid);
+  }
   function csAddRic(rid){
     var r=recById(rid);if(!r||!S.db)return;
     var id="c"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
@@ -1078,6 +1099,9 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     a=t.closest("[data-csdel]");if(a){csDel(a.getAttribute("data-csdel"));return}
     a=t.closest("[data-cslink]");if(a){var id=a.getAttribute("data-cslink");S.cs.link=S.cs.link===id?null:id;S.cs.q="";render();return}
     if(t.closest("[data-csclean]")){csClean();return}
+  });
+  $("main").addEventListener("click",function(e){
+    var b=e.target.closest&&e.target.closest("[data-csric]");if(b)csToggleRic(b.getAttribute("data-csric"));
   });
   $("main").addEventListener("input",function(e){
     var t=e.target;if(t.id==="cs-new"){S.cs.txt=t.value;var sg=$("cs-sug");if(sg)sg.innerHTML=csSug(t.value);return}
@@ -1412,7 +1436,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     if(r.gruppo)meta.push('<span>· '+esc(r.gruppo)+'</span>');
     if(inc(r))meta.push('<span class="chip hot">incompleta</span>');
     var un=["ml","oz","l"].map(function(v){return '<button data-unit="'+v+'" aria-pressed="'+(S.unit===v)+'">'+v+'</button>'}).join("");
-    var h='<div class="d">'+navHtml(r)+'<h2>'+esc(dn(r))+'</h2><div class="meta">'+meta.join(" ")+'</div>';
+    var h='<div class="d">'+navHtml(r)+'<div class="trow"><h2>'+esc(dn(r))+'</h2>'+csBtn(r)+'</div><div class="meta">'+meta.join(" ")+'</div>';
     var csrc=srcOf(r);if(csrc)h+='<p class="note" style="margin:8px 0">Collegata a <a href="#ricetta-'+esc(csrc.id)+'">'+esc(dn(csrc))+'</a>: gli ingredienti si prendono da lì. Se cambi il drink, cambia anche questa.</p>';
     var tc=r.tecnica||"",tn=r.tecnica_nota||"",isDrink=r.cat==="cocktail"||r.cat==="analcolico",gl=isDrink?glassOf(r):null;
     /* riga d'identità del drink: si legge al primo colpo d'occhio, prima degli ingredienti */
@@ -1446,18 +1470,20 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     h+='<p class="src" id="convnote" style="margin-top:8px"'+(convNoteHtml()?'':' hidden')+'>'+convNoteHtml()+'</p>';
     h+='</div><div class="dcb">';
     var bm=baseMl(ar);
-    h+='<h3>Dosi</h3>';
+    h+='<div class="dosihead"><h3>Dosi</h3><div class="ctl unitsel" role="group" aria-label="Unità">'+un+'</div></div>';
     var subsD=subs.filter(function(x){return !(x.copia&&x.copia.da===r.id)});
     if(subsD.length)h+='<div class="ctl"><span class="lab">Ricetta</span>'+[r].concat(subsD).map(function(x){return '<button data-blk="'+(x===r?'':esc(x.id))+'" aria-pressed="'+(ar===x)+'">'+esc(x===r?(isDrink?'Drink':dn(x)):dn(x))+'</button>'}).join("")+'</div>';
-    h+='<div class="ctl one"><span class="lab">Per</span><input id="perin" type="number" min="0" step="any" inputmode="decimal" placeholder="es. 6" value="'+esc(S.perVal)+'" aria-label="Moltiplica per"><span class="lab" style="min-width:0;margin-left:10px">Diviso</span><input id="divin" type="number" min="0" step="any" inputmode="decimal" placeholder="es. 2" value="'+esc(S.divVal)+'" aria-label="Dividi per"></div>';
-    if(bm.t>0)h+='<div class="ctl one"><span class="lab">Finale</span><input id="totin" class="tot" type="number" min="0" step="any" inputmode="decimal" placeholder="Quantità finale" value="'+(S.target!=null?esc(S.target):"")+'" aria-label="Quantità finale desiderata"><span class="src" style="margin:0">'+S.unit+'</span></div>';
     var ol=onlyList(ar),osel=S.onlyIdx!=null?ol.filter(function(x){return x.i===S.onlyIdx})[0]:null;
+    /* 13 novembre: Per, Diviso, Finale e Ho solo in una griglia a due colonne, con l'unità in alto accanto a «Dosi» */
+    h+='<div class="dsg"><div><span>Per</span><input id="perin" type="number" min="0" step="any" inputmode="decimal" placeholder="es. 6" value="'+esc(S.perVal)+'" aria-label="Moltiplica per"></div>'+
+      '<div><span>Diviso</span><input id="divin" type="number" min="0" step="any" inputmode="decimal" placeholder="es. 2" value="'+esc(S.divVal)+'" aria-label="Dividi per"></div>';
+    if(bm.t>0)h+='<div><span>Finale ('+S.unit+')</span><input id="totin" class="tot" type="number" min="0" step="any" inputmode="decimal" placeholder="Quantità finale" value="'+(S.target!=null?esc(S.target):"")+'" aria-label="Quantità finale desiderata"></div>';
     if(ol.length&&bm.t>0){
-      h+='<div class="ctl one"><span class="lab">Ho solo</span><select id="onlyin" aria-label="Ingrediente che ho a disposizione" style="width:auto;max-width:55%"><option value="">— scegli ingrediente —</option>'+ol.map(function(x){return '<option value="'+x.i+'"'+(osel&&osel.i===x.i?' selected':'')+'>'+esc(x.ob.name||"ingrediente")+'</option>'}).join("")+'</select>'+
-        (osel?'<input id="onlyval" class="tot" type="number" min="0" step="any" inputmode="decimal" placeholder="Quanto ne ho" value="'+(S.onlyScaled?esc(String(Math.round(osel.ob.b*S.scale*100)/100)):"")+'" aria-label="Quantità che ho"><span class="src" style="margin:0">'+osel.ob.lab+'</span>':'')+'</div>';
+      h+='<div><span>Ho solo</span><select id="onlyin" aria-label="Ingrediente che ho a disposizione"><option value="">— scegli —</option>'+ol.map(function(x){return '<option value="'+x.i+'"'+(osel&&osel.i===x.i?' selected':'')+'>'+esc(x.ob.name||"ingrediente")+'</option>'}).join("")+'</select></div>';
+      if(osel)h+='<div class="full"><span>Quanto ne ho ('+esc(osel.ob.lab)+')</span><input id="onlyval" class="tot" type="number" min="0" step="any" inputmode="decimal" placeholder="Quanto ne ho" value="'+(S.onlyScaled?esc(String(Math.round(osel.ob.b*S.scale*100)/100)):"")+'" aria-label="Quantità che ho"></div>';
     }
+    h+='</div>';
     h+='<p class="note" id="onlynote" style="margin:8px 0 0"'+(onlyNoteHtml(ar)?'':' hidden')+'>'+onlyNoteHtml(ar)+'</p>';
-    h+='<div class="ctl"><span class="lab">Unità</span>'+un+'</div>';
     h+='<p class="src" id="basenote" style="margin:6px 0 0">'+baseNoteHtml(ar)+'</p>';
     /* preparazioni: grammi accanto ai ml, peso totale e peso di 100 ml di questa preparazione */
     if(gOn&&ar===r){
@@ -2693,7 +2719,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(err){S.formErr="Non riesco a leggere il ricettario ("+(err&&err.code||"errore")+").";render()});
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261113-1545";
+  var BUILD="20261113-1620";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
@@ -3732,7 +3758,10 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       var u=URL.createObjectURL(new Blob([b64d(sn.data().b64)],{type:"image/jpeg"}));FOTO[k]=u;return u;
     });
   }
+  /* 13 novembre: le foto sono spente (nella scheda c'era troppa roba); per riaccenderle basta mettere true */
+  var FOTO_ATTIVE=false;
   function fotoBox(r){
+    if(!FOTO_ATTIVE)return "";
     var ed=S.canEdit&&S.db;
     if(!r.foto&&!ed)return "";
     var h='<div id="fotobox" class="fotocard">';
