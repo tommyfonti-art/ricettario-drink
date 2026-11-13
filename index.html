@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-13a">
+<head><meta name="versione-app" content="2026-11-13b">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -69,6 +69,10 @@ main{padding-top:18px;min-width:0}
 h2.grp{font-family:var(--f-display);font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:500;margin:26px 0 6px;display:flex;gap:10px;align-items:center}
 h2.grp:first-child{margin-top:4px}
 h2.grp::after{content:"";flex:1;border-top:1px solid var(--line)}
+.cssug{margin-top:6px}
+.csug{display:flex;justify-content:space-between;align-items:baseline;gap:12px;width:100%;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer}
+.csug:hover{border-color:var(--accent)}
+.csug .rs{color:var(--muted);font-size:.82rem;flex:none}
 .csr{display:flex;align-items:flex-start;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line)}
 .csk{flex:none;width:30px;height:30px;padding:0;border-radius:8px;border:2px solid var(--line);background:var(--surface);color:var(--accent-fg);font:inherit;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .csk.on{background:var(--accent);border-color:var(--accent)}
@@ -976,16 +980,20 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
      I dati stanno nella raccolta «cose» (id = voce): testo, fatto, creata, fattaIl, ric (id della ricetta collegata). */
   S.cs={txt:"",link:null,q:""};
   function csById(id){return (S.cose||[]).filter(function(x){return x.id===id})[0]}
-  /* se nella frase c'è il nome di una ricetta, la collega da sola (vince il nome più lungo) */
+  /* se il testo scritto è esattamente il nome di una ricetta, la collega da sola; il resto resta testo libero */
   function csMatch(txt){
-    var t=" "+norm(txt)+" ",best=null,bl=0;
-    (S.ricette||[]).forEach(function(r){
-      [dn(r),r.nome].forEach(function(nm){
-        var n=norm(nm||"");if(n.length<4||t.indexOf(" "+n+" ")<0)return;
-        if(n.length>bl||(n.length===bl&&best&&best.cat==="cocktail"&&r.cat!=="cocktail")){best=r;bl=n.length}
-      });
-    });
+    var t=norm(txt),best=null;if(!t)return null;
+    (S.ricette||[]).forEach(function(r){if(!best&&(norm(dn(r))===t||norm(r.nome||"")===t))best=r});
     return best;
+  }
+  /* suggerimenti mentre scrivi: le ricette che esistono già (prima quelle che iniziano con quello che hai scritto) */
+  function csSug(q){
+    var t=norm(q);if(!t)return "";
+    var L=(S.ricette||[]).filter(function(r){return collMatch(r,q)});
+    L.sort(function(a,b){var sa=norm(dn(a)).indexOf(t)===0?0:1,sb=norm(dn(b)).indexOf(t)===0?0:1;return sa-sb||byName(a,b)});
+    L=L.slice(0,8);
+    if(!L.length)return '<p class="hint" style="margin:6px 2px">Nessuna ricetta con questo nome: premi «Aggiungi» e la scrivo come voce libera.</p>';
+    return L.map(function(r){return '<button class="csug" data-cspick="'+esc(r.id)+'"><span>'+esc(dn(r))+'</span><span class="rs">'+esc(CATNAME[r.cat]||r.cat)+'</span></button>'}).join("");
   }
   function csPool(q){var t=(q||"").trim();return (S.ricette||[]).filter(function(r){return t?collMatch(r,t):(r.cat!=="cocktail"&&r.cat!=="analcolico")}).sort(byName).slice(0,400)}
   function csOpts(x){
@@ -1017,7 +1025,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var h='<div class="list">';
     if(ed)h+='<div class="form" style="margin:0 0 14px"><label for="cs-new">Nuova cosa da fare</label>'+
       '<input id="cs-new" placeholder="Per esempio: fare lo sciroppo di passion" autocomplete="off" value="'+esc(S.cs.txt)+'">'+
-      '<p class="hint">Se dentro la frase c\'è il nome di una preparazione, si collega da sola e toccandola si apre la sua pagina. Altrimenti usa «Collega».</p>'+
+      '<div id="cs-sug" class="cssug">'+csSug(S.cs.txt)+'</div>'+
+      '<p class="hint">Scrivi e toccando un suggerimento la voce si collega a quella ricetta. Se non c\'è, scrivi quello che vuoi e premi «Aggiungi»: la collegherai dopo, o creerai la preparazione.</p>'+
       '<div class="actions" style="margin-top:10px"><button class="btn pri" data-csadd="1">Aggiungi</button></div></div>';
     if(S.formErr)h+='<div class="err">'+esc(S.formErr)+'</div>';
     if(!L.length)return h+'<div class="empty"><b>Niente da fare</b>'+(ed?'Scrivi qui sopra la prima cosa da ricordarti.':'La lista è vuota.')+'</div></div>';
@@ -1041,6 +1050,12 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     S.cs.txt="";S.formErr="";
     csSalva(id,o,function(){render();var i=$("cs-new");if(i)i.focus()});
   }
+  function csAddRic(rid){
+    var r=recById(rid);if(!r||!S.db)return;
+    var id="c"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    S.cs.txt="";S.formErr="";
+    csSalva(id,{testo:dn(r),fatto:false,creata:Date.now(),ric:r.id},function(){render();var i=$("cs-new");if(i)i.focus()});
+  }
   function csTog(id){
     var x=csById(id);if(!x)return;
     var n=Object.assign({},x);n.fatto=!x.fatto;if(n.fatto)n.fattaIl=Date.now();else delete n.fattaIl;
@@ -1058,13 +1073,14 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   $("main").addEventListener("click",function(e){
     var t=e.target;if(!t.closest||S.tab!=="cose"||S.open||S.panel)return;
     if(t.closest("[data-csadd]")){csAdd();return}
+    var pk=t.closest("[data-cspick]");if(pk){csAddRic(pk.getAttribute("data-cspick"));return}
     var a=t.closest("[data-cstog]");if(a){csTog(a.getAttribute("data-cstog"));return}
     a=t.closest("[data-csdel]");if(a){csDel(a.getAttribute("data-csdel"));return}
     a=t.closest("[data-cslink]");if(a){var id=a.getAttribute("data-cslink");S.cs.link=S.cs.link===id?null:id;S.cs.q="";render();return}
     if(t.closest("[data-csclean]")){csClean();return}
   });
   $("main").addEventListener("input",function(e){
-    var t=e.target;if(t.id==="cs-new"){S.cs.txt=t.value;return}
+    var t=e.target;if(t.id==="cs-new"){S.cs.txt=t.value;var sg=$("cs-sug");if(sg)sg.innerHTML=csSug(t.value);return}
     if(t.id==="cs-q"){
       S.cs.q=t.value;var x=csById(S.cs.link),sel=$("cs-sel"),c=$("cs-cnt");
       if(x&&sel)sel.innerHTML=csOpts(x);
@@ -2677,7 +2693,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(err){S.formErr="Non riesco a leggere il ricettario ("+(err&&err.code||"errore")+").";render()});
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261113-1520";
+  var BUILD="20261113-1545";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
