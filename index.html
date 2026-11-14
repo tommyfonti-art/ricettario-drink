@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-14c">
+<head><meta name="versione-app" content="2026-11-14d">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -75,6 +75,9 @@ nav.tabs button.mbtn svg{width:18px;height:18px;flex:none}
 .drwx{font:inherit;color:var(--fg);background:none;border:0;min-width:44px;min-height:44px;font-size:1.2rem;cursor:pointer}
 .drwg{font-family:var(--f-display);font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:500;margin:18px 6px 4px}
 .drwp .it{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;box-sizing:border-box;text-align:left;font:inherit;color:var(--fg);background:none;border:0;padding:12px 10px;min-height:46px;border-radius:8px;cursor:pointer;text-decoration:none}
+.drwg.lk{display:flex;justify-content:space-between;align-items:center;width:100%;box-sizing:border-box;background:none;border:0;border-radius:8px;cursor:pointer;text-align:left;min-height:44px;padding:8px 6px;margin:14px 0 2px;color:var(--fg);font-weight:600}
+.drwg.lk:hover,.drwg.lk[aria-current="true"]{background:var(--surface)}
+.drwg.lk .n{font-family:var(--f-mono);font-size:.75rem;color:var(--muted);font-weight:400;letter-spacing:0}
 .drwp .it:hover{background:var(--surface)}
 .drwp .it[aria-current="true"]{background:var(--surface);font-weight:600}
 .drwp .it .n{font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
@@ -961,7 +964,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     else if(h.indexOf("calcolatore-")===0){S.open={k:"c",id:h.slice(12)}}
     else if(h.indexOf("ingrediente-")===0){S.open={k:"i",id:h.slice(12)}}
     else if(h==="accesso"||h==="impostazioni"||h==="bicchieri"||h==="ordine"||h==="diluizioni"||h==="sicurezza"||PANX.indexOf(h)>=0){S.open=null;S.panel=h;panEnter(h);if(h==="ordine"){S.ord=orderIds();S.alto=altoIds();S.nomi=Object.assign({},savedNomi())}if(h==="diluizioni"){S.dilForm=null;S.dilMis={p:"",d:""}}}
-    else{S.open=null;S.panel=null;if(TABS.some(function(t){return t[0]===h}))S.tab=h}
+    else{S.open=null;S.panel=null;if(TABS.some(function(t){return t[0]===h})||GRP[h])S.tab=h}
   }
   function readHash(){parse(location.hash)}
   function reset(){S.calc.target="62";S.creating=false;S.msg="";S.panel=null;S.target=null;S.scale=1;S.perVal="";S.divVal="";S.onlyIdx=null;S.onlyScaled=false;S.blk=null;S.subq="";S.edit=false;S.confirmDel=false;S.collega=false;S.formErr="";S.szMsg="";S.szSure=null;S.mn=null}
@@ -1038,11 +1041,43 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     $("tabs").innerHTML='<button class="mbtn" type="button" data-menu="1" aria-haspopup="dialog" aria-label="Apri il menu con tutte le sezioni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Menu</button>'+vis.map(function(t){
       var sel=sel0&&S.tab===t[0];
       return '<button role="tab" data-tab="'+t[0]+'" aria-selected="'+sel+'">'+esc(t[1])+(c[t[0]]!=null?'<span class="n">'+c[t[0]]+'</span>':'')+'</button>'}).join("");
+    if(sel0&&GRP[S.tab])$("tabs").insertAdjacentHTML("beforeend",'<button role="tab" aria-selected="true">'+esc(GRP[S.tab].nome)+'</button>');
     try{var at=$("tabs").querySelector('[aria-selected="true"]'),bx=$("tabs");
       if(at&&bx.scrollWidth>bx.clientWidth+2){var ra=at.getBoundingClientRect(),rb=bx.getBoundingClientRect();if(ra.left<rb.left||ra.right>rb.right)bx.scrollLeft+=ra.left-rb.left-24}}catch(x){}
     if($("drw")&&$("drw").classList.contains("on"))$("drwc").innerHTML=drwBuild();
   }
-  var DRW_G=[["Ricette",null],["Preparazioni",["homemade","blend","soda","infusione"]],["Cerca e prepara",["cerca","ingredienti","cose"]],["Strumenti",["controllare","unisci","calcolatori"]],["Da leggere",["librieorsi","appunti"]]];
+  var DRW_G=[["Ricette",null,"g-ricette"],["Preparazioni",["homemade","blend","soda","infusione"],"g-prep"],["Cerca e prepara",["cerca","ingredienti","cose"]],["Strumenti",["controllare","unisci","calcolatori"]],["Da leggere",["librieorsi","appunti"]]];
+  /* «Ricette» e «Preparazioni» si possono toccare: aprono una pagina sola con tutti i drink (cocktail, analcolici, menu) o con tutte le preparazioni,
+     con i tasti per restringere a una sezione. Sono schermate virtuali (g-ricette, g-prep): non stanno in TABS e non hanno un menu in alto. */
+  var GRP={"g-ricette":{nome:"Ricette",cats:["cocktail","analcolico"]},"g-prep":{nome:"Preparazioni",cats:["homemade","blend","soda","infusione"]}};
+  function grpCats(k){var cs=GRP[k].cats.slice();if(k==="g-prep")SEZ.forEach(function(z){if(z.tipo!=="menu")cs.push(z.id)});return cs}
+  function grpMenus(k){return k==="g-ricette"?SEZ.filter(function(z){return z.tipo==="menu"}):[]}
+  function grpFiltro(k){var f=(S.gf&&S.gf[k])||"";return f&&(grpCats(k).indexOf(f)>=0||grpMenus(k).some(function(z){return z.id===f}))?f:""}
+  function grpItems(k){
+    var f=grpFiltro(k),L=[];
+    if(f&&isSezMenu(f)){var m=menuDoc(f);((m&&m.sezioni)||[]).forEach(function(g){(g.drink||[]).forEach(function(id){var x=unById(id);if(x&&L.indexOf(x)<0)L.push(x)})});return L}
+    (f?[f]:grpCats(k)).forEach(function(c){L=L.concat(S.ricette.filter(function(r){return r.cat===c&&!inc(r)}).sort(byName))});
+    return L;
+  }
+  function grpTotale(k){var n=0;grpCats(k).forEach(function(c){n+=S.ricette.filter(function(r){return r.cat===c&&!inc(r)}).length});return n}
+  function renderGruppo(k){
+    var f=grpFiltro(k),cs=grpCats(k).filter(function(c){return S.ricette.some(function(r){return r.cat===c&&!inc(r)})});
+    var chip=function(v,lab,n){return '<button class="btn'+(f===v?' pri':'')+'" type="button" data-gf="'+k+'|'+esc(v)+'" aria-pressed="'+(f===v)+'">'+esc(lab)+(n!=null?' ('+n+')':'')+'</button>'};
+    var h='<div class="list"><div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px">'+chip("","Tutti",grpTotale(k))+
+      cs.map(function(c){return chip(c,CATNAME[c]||c,S.ricette.filter(function(r){return r.cat===c&&!inc(r)}).length)}).join("")+
+      grpMenus(k).map(function(z){return chip(z.id,sezNome(z.id),mnCount(z.id))}).join("")+'</div>';
+    if(f&&isSezMenu(f)){
+      var m=menuDoc(f),any=false;
+      ((m&&m.sezioni)||[]).forEach(function(g){var L=(g.drink||[]).map(unById).filter(Boolean);if(!L.length&&!g.titolo)return;any=true;h+='<h2 class="grp">'+esc(g.titolo||"")+' ('+L.length+')</h2>'+L.map(function(r){return row(r,true)}).join("")});
+      if(!any)h+='<div class="empty"><b>Menu vuoto</b>Qui non c\'è ancora niente.</div>';
+      return h+'</div>';
+    }
+    var tot=0;
+    (f?[f]:cs).forEach(function(c){var L=S.ricette.filter(function(r){return r.cat===c&&!inc(r)}).sort(byName);if(!L.length)return;tot+=L.length;
+      h+=(f?'':'<h2 class="grp">'+esc(CATNAME[c]||c)+' ('+L.length+')</h2>')+L.map(function(r){return row(r,false)}).join("")});
+    if(!tot)h+='<div class="empty"><b>Ancora niente qui</b>Le ricette compariranno appena verranno aggiunte.</div>';
+    return h+'</div>';
+  }
   function drwBuild(){
     var c=tabCounts(),all=tabsOrdered().filter(tabVisible),sel0=!S.open&&!S.q&&!S.panel,used={};
     DRW_G.forEach(function(g){if(g[1])g[1].forEach(function(id){used[id]=1})});
@@ -1050,7 +1085,8 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     DRW_G.forEach(function(g){
       var L=all.filter(function(t){return g[1]?g[1].indexOf(t[0])>=0:!used[t[0]]});
       if(!L.length)return;
-      h+='<h3 class="drwg">'+g[0]+'</h3>'+L.map(function(t){return '<button class="it" type="button" data-tab="'+t[0]+'"'+(sel0&&S.tab===t[0]?' aria-current="true"':'')+'><span>'+esc(t[1])+'</span>'+(c[t[0]]!=null?'<span class="n">'+c[t[0]]+'</span>':'')+'</button>'}).join("");
+      var gh=g[2]?'<button class="drwg lk" type="button" data-tab="'+g[2]+'"'+(sel0&&S.tab===g[2]?' aria-current="true"':'')+'><span>'+g[0]+'</span><span class="n">Tutte ('+grpTotale(g[2])+') ›</span></button>':'<h3 class="drwg">'+g[0]+'</h3>';
+      h+=gh+L.map(function(t){return '<button class="it" type="button" data-tab="'+t[0]+'"'+(sel0&&S.tab===t[0]?' aria-current="true"':'')+'><span>'+esc(t[1])+'</span>'+(c[t[0]]!=null?'<span class="n">'+c[t[0]]+'</span>':'')+'</button>'}).join("");
     });
     if(S.role==="boss")h+='<h3 class="drwg">Altro</h3><a class="it" href="#impostazioni" data-drwx="1"><span>Impostazioni</span></a>';
     return h+'</div>';
@@ -1484,6 +1520,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       var by={};I.forEach(function(r){(by[r.cat]=by[r.cat]||[]).push(r)});
       return '<div class="list">'+Object.keys(by).map(function(c){return '<h2 class="grp">'+esc(CATNAME[c]||c)+'</h2>'+by[c].sort(byName).map(function(r){return row(r,false)}).join("")}).join("")+'</div>';
     }
+    if(GRP[S.tab])return renderGruppo(S.tab);
     var items=S.ricette.filter(function(r){return r.cat===S.tab&&!inc(r)});
     if(!items.length)return '<div class="empty"><b>Ancora niente qui</b>Le ricette di questa sezione compariranno appena verranno aggiunte.</div>';
     return '<div class="list">'+items.slice().sort(byName).map(function(r){return row(r,false)}).join("")+'</div>';
@@ -1594,6 +1631,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var L=[];
     if(isSezMenu(S.tab)){var m=menuDoc(S.tab);((m&&m.sezioni)||[]).forEach(function(g){(g.drink||[]).forEach(function(id){var x=unById(id);if(x&&L.indexOf(x)<0)L.push(x)})})}
     else if(S.tab==="incompleti")L=S.ricette.filter(inc).sort(byName);
+    else if(GRP[S.tab])L=grpItems(S.tab);
     else L=S.ricette.filter(function(x){return x.cat===S.tab&&!inc(x)}).sort(byName);
     return L;
   }
@@ -2524,6 +2562,10 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
 
   /* ---- eventi ---- */
   $("tabs").addEventListener("click",function(e){if(e.target.closest("button[data-menu]")){drwOpen();return}});
+  $("main").addEventListener("click",function(e){
+    var g=e.target.closest&&e.target.closest("button[data-gf]");if(!g)return;
+    var q=g.getAttribute("data-gf").split("|");S.gf=S.gf||{};S.gf[q[0]]=q[1]||"";render();
+  });
   $("drw").addEventListener("click",function(e){
     var b=e.target.closest("button[data-tab]");
     if(b){var id=b.getAttribute("data-tab");drwClose();$("q").value="";S.q="";NAV=[];go(id,"sostituisci");return}
@@ -2914,7 +2956,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(err){S.formErr="Non riesco a leggere il ricettario ("+(err&&err.code||"errore")+").";render()});
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261114-0950";
+  var BUILD="20261114-1010";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
