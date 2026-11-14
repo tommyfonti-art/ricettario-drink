@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-14d">
+<head><meta name="versione-app" content="2026-11-14e">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -66,7 +66,7 @@ nav.tabs button{flex:none;font:inherit;font-weight:500;background:none;border:0;
 nav.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
 nav.tabs .n{font-family:var(--f-mono);font-size:.72rem;margin-left:5px;color:var(--muted)}
 nav.tabs button.mbtn{display:flex;align-items:center;gap:7px;color:var(--fg);font-weight:600}
-nav.tabs button.mbtn svg{width:18px;height:18px;flex:none}
+nav.tabs button.mbtn svg{width:22px;height:22px;flex:none}
 .drw{position:fixed;inset:0;z-index:60;display:none}
 .drw.on{display:block}
 .drw .bk{position:absolute;inset:0;background:rgba(0,0,0,.5)}
@@ -1038,7 +1038,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   function renderTabs(){
     var c=tabCounts(),alto=altoIds(),sel0=!S.open&&!S.q&&!S.panel;
     var vis=tabsOrdered().filter(tabVisible).filter(function(t){return alto.indexOf(t[0])>=0||(sel0&&S.tab===t[0])});
-    $("tabs").innerHTML='<button class="mbtn" type="button" data-menu="1" aria-haspopup="dialog" aria-label="Apri il menu con tutte le sezioni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Menu</button>'+vis.map(function(t){
+    $("tabs").innerHTML='<button class="mbtn" type="button" data-menu="1" aria-haspopup="dialog" aria-label="Apri il menu con tutte le sezioni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>'+vis.map(function(t){
       var sel=sel0&&S.tab===t[0];
       return '<button role="tab" data-tab="'+t[0]+'" aria-selected="'+sel+'">'+esc(t[1])+(c[t[0]]!=null?'<span class="n">'+c[t[0]]+'</span>':'')+'</button>'}).join("");
     if(sel0&&GRP[S.tab])$("tabs").insertAdjacentHTML("beforeend",'<button role="tab" aria-selected="true">'+esc(GRP[S.tab].nome)+'</button>');
@@ -2956,7 +2956,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(err){S.formErr="Non riesco a leggere il ricettario ("+(err&&err.code||"errore")+").";render()});
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261114-1010";
+  var BUILD="20261114-1105";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
