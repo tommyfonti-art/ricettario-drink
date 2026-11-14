@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-14b">
+<head><meta name="versione-app" content="2026-11-14c">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -1042,7 +1042,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       if(at&&bx.scrollWidth>bx.clientWidth+2){var ra=at.getBoundingClientRect(),rb=bx.getBoundingClientRect();if(ra.left<rb.left||ra.right>rb.right)bx.scrollLeft+=ra.left-rb.left-24}}catch(x){}
     if($("drw")&&$("drw").classList.contains("on"))$("drwc").innerHTML=drwBuild();
   }
-  var DRW_G=[["Ricette",null],["Cerca e prepara",["cerca","ingredienti","cose"]],["Strumenti",["controllare","unisci","calcolatori"]],["Da leggere",["librieorsi","appunti"]]];
+  var DRW_G=[["Ricette",null],["Preparazioni",["homemade","blend","soda","infusione"]],["Cerca e prepara",["cerca","ingredienti","cose"]],["Strumenti",["controllare","unisci","calcolatori"]],["Da leggere",["librieorsi","appunti"]]];
   function drwBuild(){
     var c=tabCounts(),all=tabsOrdered().filter(tabVisible),sel0=!S.open&&!S.q&&!S.panel,used={};
     DRW_G.forEach(function(g){if(g[1])g[1].forEach(function(id){used[id]=1})});
@@ -2914,7 +2914,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(err){S.formErr="Non riesco a leggere il ricettario ("+(err&&err.code||"errore")+").";render()});
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261114-0930";
+  var BUILD="20261114-0950";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
