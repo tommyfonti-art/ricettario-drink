@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-13h">
+<head><meta name="versione-app" content="2026-11-14a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -649,6 +649,12 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
       Object.keys(o).forEach(function(k){if(k!=="nome"&&(t[k]===undefined||t[k]===""||t[k]===null))t[k]=o[k]});
       t.nome=nuovo;d.ingredienti[nsid]=t;delete d.ingredienti[sid];
     }else if(o){o.nome=nuovo}
+    /* le voci libere della lista «Cose da fare» (messe col «+» accanto all'ingrediente) seguono il nuovo nome */
+    var vk=norm(vecchio);
+    Object.keys(d.cose||{}).forEach(function(k){
+      var c=d.cose[k];
+      if(c&&!c.ric&&norm(c.testo)===vk)c.testo=nuovo;
+    });
   }
   function ingRinomina(sid,vecchio,nuovo){
     nuovo=String(nuovo||"").replace(/\s+/g," ").trim();
@@ -1072,8 +1078,12 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var L=(S.ricette||[]).filter(function(r){return collMatch(r,q)});
     L.sort(function(a,b){var sa=norm(dn(a)).indexOf(t)===0?0:1,sb=norm(dn(b)).indexOf(t)===0?0:1;return sa-sb||byName(a,b)});
     L=L.slice(0,8);
-    if(!L.length)return '<p class="hint" style="margin:6px 2px">Nessuna ricetta con questo nome: premi «Aggiungi» e la scrivo come voce libera.</p>';
-    return L.map(function(r){return '<button class="csug" data-cspick="'+esc(r.id)+'"><span>'+esc(dn(r))+'</span><span class="rs">'+esc(CATNAME[r.cat]||r.cat)+'</span></button>'}).join("");
+    var I=ingList().filter(function(o){var h=norm(o.nome);return t.split(" ").every(function(w){return h.indexOf(w)>=0})});
+    I.sort(function(a,b){var sa=norm(a.nome).indexOf(t)===0?0:1,sb=norm(b.nome).indexOf(t)===0?0:1;return sa-sb||a.nome.localeCompare(b.nome,"it")});
+    I=I.slice(0,6);
+    if(!L.length&&!I.length)return '<p class="hint" style="margin:6px 2px">Nessuna ricetta o ingrediente con questo nome: premi «Aggiungi» e la scrivo come voce libera.</p>';
+    return L.map(function(r){return '<button class="csug" data-cspick="'+esc(r.id)+'"><span>'+esc(dn(r))+'</span><span class="rs">'+esc(CATNAME[r.cat]||r.cat)+'</span></button>'}).join("")+
+      I.map(function(o){return '<button class="csug" data-cspicking="'+esc(o.nome)+'"><span>'+esc(o.nome)+'</span><span class="rs">Ingrediente</span></button>'}).join("");
   }
   function csPool(q){var t=(q||"").trim();return (S.ricette||[]).filter(function(r){return t?collMatch(r,t):(r.cat!=="cocktail"&&r.cat!=="analcolico")}).sort(byName).slice(0,400)}
   function csOpts(x){
@@ -1183,6 +1193,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var t=e.target;if(!t.closest||S.tab!=="cose"||S.open||S.panel)return;
     if(t.closest("[data-csadd]")){csAdd();return}
     var pk=t.closest("[data-cspick]");if(pk){csAddRic(pk.getAttribute("data-cspick"));return}
+    var pi=t.closest("[data-cspicking]");if(pi){var nm=pi.getAttribute("data-cspicking");S.cs.txt="";if(!csIngOn(nm,""))csToggleIng(nm,"");else render();return}
     var a=t.closest("[data-cstog]");if(a){csTog(a.getAttribute("data-cstog"));return}
     a=t.closest("[data-csdel]");if(a){csDel(a.getAttribute("data-csdel"));return}
     a=t.closest("[data-cslink]");if(a){var id=a.getAttribute("data-cslink");S.cs.link=S.cs.link===id?null:id;S.cs.q="";render();return}
@@ -2858,7 +2869,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(err){S.formErr="Non riesco a leggere il ricettario ("+(err&&err.code||"errore")+").";render()});
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261113-2100";
+  var BUILD="20261114-0900";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
