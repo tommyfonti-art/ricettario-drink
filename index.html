@@ -273,6 +273,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
   .dsg input,.dsg select{min-height:46px}
   .d h2{font-size:2rem}
 }
+.pw-box{position:relative;display:block}.pw-box input{padding-right:50px!important}.occhio{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:42px;height:42px;padding:0;margin:0;background:none;border:0;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer}.pw-dim{display:block;margin:14px auto 0;background:none;border:0;color:var(--muted);font:inherit;font-size:.95rem;text-decoration:underline;cursor:pointer}
 </style>
 </head>
 <body>
@@ -2979,11 +2980,12 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     $("bar").innerHTML="";$("tabs").innerHTML="";
     var m=$("main");
     if(S.authWait){m.innerHTML='<div class="empty"><b>Apro il ricettario…</b></div>';return}
-    m.innerHTML='<div class="d panel form"><h2>Entra</h2><p class="sub">Scrivi email e password del tuo utente.</p>'+
-      '<label for="em">Email</label><input id="em" type="email" autocomplete="username" autocapitalize="none" value="'+esc(S.lastEmail||"")+'">'+
-      '<label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" autocapitalize="none">'+
-      (S.formErr?'<div class="err">'+esc(S.formErr)+'</div>':'')+(S.msg?'<div class="okmsg">'+esc(S.msg)+'</div>':'')+
-      '<div class="actions"><button class="btn pri" data-ui="login">Entra</button></div></div>';
+    m.innerHTML='<form id="f-login" class="d panel form" autocomplete="on"><h2>Entra</h2><p class="sub">Scrivi email e password del tuo utente.</p>'+
+      '<label for="em">Email</label><input id="em" name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" value="'+esc(S.lastEmail||"")+'">'+
+      '<label for="pw">Password</label><span class="pw-box"><input id="pw" name="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false"><button type="button" class="occhio" data-occhio aria-label="Mostra la password"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span>'+
+      '<div class="err" id="login-err"'+(S.formErr?'':' hidden')+'>'+esc(S.formErr||"")+'</div><div class="okmsg" id="login-ok"'+(S.msg?'':' hidden')+'>'+esc(S.msg||"")+'</div>'+
+      '<div class="actions"><button type="submit" class="btn pri" id="login-vai">Entra</button></div>'+
+      '<button type="button" class="pw-dim" data-ui="pwreset">Password dimenticata?</button></form>';
   }
   function renderBar(){
     var b=$("bar");if(!b)return;
@@ -3280,9 +3282,15 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(e){S.busy=false;flash(saveMsg(e),1)});
   }
   function flash(msg,err){S.szMsg="";S.msg=err?"":msg;S.formErr=err?msg:"";render()}
+  function loginMsg(t,ok){var e=$("login-err"),o=$("login-ok");if(!e||!o)return;e.hidden=!!ok||!t;o.hidden=!ok||!t;(ok?o:e).textContent=t||"";(ok?e:o).textContent=""}
+  function doPwReset(){
+    var em=(($("em")||{}).value||"").trim();if(!em){loginMsg("Scrivi prima la tua email.");return}
+    fbLoad().then(function(F){return F.a.sendPasswordResetEmail(F.auth,em)}).then(function(){loginMsg("Ti ho mandato una email per scegliere una password nuova. Guarda anche nella posta indesiderata.",1)},function(e){var c=e&&e.code||"";loginMsg(/invalid-email/.test(c)?"L'email non sembra giusta.":/too-many/.test(c)?"Troppi tentativi: aspetta qualche minuto.":"Non riesco a mandare la email. Controlla la connessione.")});
+  }
   function doLogin(){
-    var em=(($("em")||{}).value||"").trim(),pw=($("pw")||{}).value||"";if(!em||!pw){flash("Scrivi email e password.",1);return}
-    S.busy=true;S.lastEmail=em;flash("Controllo…");
+    var em=(($("em")||{}).value||"").trim(),pw=($("pw")||{}).value||"";if(!em||!pw){loginMsg("Scrivi email e password.");return}
+    /* niente ridisegno mentre controllo: le password restano scritte e il portachiavi di iPhone le può salvare */
+    S.busy=true;S.lastEmail=em;loginMsg("");var bv=$("login-vai");if(bv){bv.disabled=true;bv.textContent="Controllo…"}
     fbLoad().then(function(F){return F.a.signInWithEmailAndPassword(F.auth,em,pw)}).then(function(){S.busy=false;S.msg="";S.formErr="";S.authWait=true;render()}).catch(function(e){
       S.busy=false;var c=e&&e.code||"";
       flash(/invalid|wrong|not-found|user/.test(c)?"Email o password sbagliate.":/too-many/.test(c)?"Troppi tentativi: aspetta qualche minuto e riprova.":"Non riesco a entrare. Controlla la connessione.",1);
@@ -3362,10 +3370,14 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500);
     flash("Elenco scaricato ("+cs.length+" drink).");
   }
+  document.addEventListener("submit",function(e){if(e.target&&e.target.id==="f-login"){e.preventDefault();doLogin()}});
   document.addEventListener("click",function(e){
+    var oc=e.target.closest&&e.target.closest("[data-occhio]");
+    if(oc){e.preventDefault();var p=oc.parentNode.querySelector("input"),vedo=p.type==="password";p.type=vedo?"text":"password";oc.innerHTML=vedo?'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A9.9 9.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7c1.8 0 3.4-.5 4.7-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>':'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';oc.setAttribute("aria-label",vedo?"Nascondi la password":"Mostra la password");return}
     var b=e.target.closest&&e.target.closest("[data-ui]");if(!b)return;
     var a=b.getAttribute("data-ui");
     if(a==="login")doLogin();
+    else if(a==="pwreset")doPwReset();
     else if(a==="refresh")refreshNow(b);
     else if(a==="logout"){if(confirm("Uscire dall'account?"))doLogout()}
     else if(a==="savetok")doSaveTok();
@@ -3616,9 +3628,9 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     return '<div class="d panel form">'+panHead("Account")+
       '<p>Sei entrato come <b>'+esc(S.email||"")+'</b>.</p>'+
       '<h3>Esci</h3><p>Esci da questo dispositivo: per rientrare servono email e password.</p><div class="actions" style="margin-top:6px"><button class="btn" data-ui="logout">Esci dall\'account</button></div>'+
-      '<h3>Cambia la tua password</h3><label for="pb0">Password attuale</label><input id="pb0" type="password" autocomplete="current-password" autocapitalize="none">'+
-      '<label for="pb1">Nuova password (almeno 6 caratteri)</label><input id="pb1" type="password" autocomplete="new-password" autocapitalize="none">'+
-      '<label for="pb2">Ripeti la nuova password</label><input id="pb2" type="password" autocomplete="new-password" autocapitalize="none">'+
+      '<h3>Cambia la tua password</h3><label for="pb0">Password attuale</label><span class="pw-box"><input id="pb0" type="password" autocomplete="current-password" autocapitalize="none"><button type="button" class="occhio" data-occhio aria-label="Mostra la password"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span>'+
+      '<label for="pb1">Nuova password (almeno 6 caratteri)</label><span class="pw-box"><input id="pb1" type="password" autocomplete="new-password" autocapitalize="none"><button type="button" class="occhio" data-occhio aria-label="Mostra la password"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span>'+
+      '<label for="pb2">Ripeti la nuova password</label><span class="pw-box"><input id="pb2" type="password" autocomplete="new-password" autocapitalize="none"><button type="button" class="occhio" data-occhio aria-label="Mostra la password"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span>'+
       '<div class="actions"><button class="btn pri" data-ui="chboss">Cambia password</button></div></div>';
   }
   function panGestione(){
