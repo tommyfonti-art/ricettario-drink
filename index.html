@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="it">
-<head><meta name="versione-app" content="2026-11-14f">
+<head><meta name="versione-app" content="2026-11-25a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -1485,7 +1485,24 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     var q=norm(S.q);
     if(q){
       var MM=mqMappa();
-      var rs=S.ricette.filter(function(r){return tutte(haystack(r)+" "+mqTesto(MM,r),q)}).sort(byName);
+      var rs=S.ricette.filter(function(r){return tutte(haystack(r)+" "+mqTesto(MM,r),q)});
+      /* 25 novembre: i risultati si ordinano per somiglianza col titolo (prima il nome uguale, poi che inizia così, poi parola intera nel titolo, poi pezzo di parola, infine solo dentro ingredienti/note) */
+      var pq=q.split(" ").filter(Boolean);
+      var punti=function(r){
+        var n=norm(dn(r)),pn=n.split(" "),al=(r.alias||[]).map(norm);
+        if(n===q||al.indexOf(q)>=0)return 0;
+        if(n.indexOf(q+" ")===0)return 1;
+        if((" "+n+" ").indexOf(" "+q+" ")>=0)return 2;
+        var intere=pq.every(function(w){return pn.indexOf(w)>=0});
+        if(intere)return 3;
+        if(n.indexOf(q)===0)return 4;
+        if(n.indexOf(q)>=0)return 5;
+        if(pq.every(function(w){return n.indexOf(w)>=0}))return 6;
+        if(al.some(function(a){return a.indexOf(q)>=0}))return 7;
+        return 8;
+      };
+      var pt={};rs.forEach(function(r){pt[r.id]=punti(r)});
+      rs.sort(function(a,b){return pt[a.id]-pt[b.id]||dn(a).length-dn(b).length||byName(a,b)});
       var ls=(S.lezioni||[]).filter(function(l){return tutte(l.titolo+" "+l.sommario+" "+JSON.stringify(l.sezioni||[]),q)});
       var ls2=LIB.concat(CE).filter(function(l){return tutte(l.titolo+" "+l.sommario+" "+JSON.stringify(l.sezioni||[]),q)});
       var as=(S.appunti||[]).filter(function(l){return tutte(l.titolo+" "+l.sommario+" "+JSON.stringify(l.sezioni||[]),q)});
@@ -2957,7 +2974,7 @@ input[type=color]{cursor:pointer;background:var(--surface);border:1px solid var(
     },function(err){S.formErr="Non riesco a leggere il ricettario ("+(err&&err.code||"errore")+").";render()});
   }
   /* versione dell'app: cambia a ogni pubblicazione; il tasto aggiorna la confronta con quella sul sito */
-  var BUILD="20261114-1120";
+  var BUILD="20261125-1400";
   function codeNew(){
     return fetch("index.html?cb="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){var m=t.match(new RegExp('BUILD'+'="([^"]+)"'));return !!m&&m[1]!==BUILD}).catch(function(){return false});
   }
