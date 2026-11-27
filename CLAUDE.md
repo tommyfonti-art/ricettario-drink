@@ -7,7 +7,7 @@ Firebase, progetto `ricettario-drink` (Firestore). Prima erano cifrati su GitHub
 - raccolta `dati`: un documento per voce, id = `encodeURIComponent(sezione)+"~"+encodeURIComponent(id)`, campi `c` (sezione: ricette, lezioni, menu, appunti, archivio, bicchieri, serate, impostazioni, ingredienti, cose; «cose» = lista delle cose da fare: testo, fatto, creata, fattaIl, ric), `i` (id), `j` (la voce in JSON);
 - raccolta `cronologia`: ogni salvataggio, con `ts`, `msg`, `chi`, `ch` (JSON delle voci prima `p` e dopo `n`); l'app la usa per annullare;
 - raccolta `foto`: `foto/<encodeURIComponent(id ricetta)>` con `b64` (jpeg) e `v`.
-Regole (testo in `firestore.rules`, da incollare a mano nella console di Firebase): leggono e scrivono tutto solo l'utente di Tommi e `claude@ricettario-drink.app`; gli altri utenti entrati (ospiti) leggono tutto e scrivono solo le voci della lista «cose da fare» (`c` = `cose`).
+Regole (testo in `firestore.rules`, da incollare a mano nella console di Firebase): entrano SOLO gli UID scritti nelle regole (dal 27 novembre 2026), perché su Firebase gratuito chiunque può crearsi un account. Leggono e scrivono tutto solo l'utente di Tommi e `claude@ricettario-drink.app`; l'utente ospiti (colleghi, UID `y9i2vGDPpDZz1ymdcVxFwqWK5yt2`) legge tutto e scrive solo le voci della lista «cose da fare» (`c` = `cose`). Ogni utente nuovo lo crea Tommi nella console e il suo UID va aggiunto alla funzione `ammesso()`.
 
 ## Come Claude modifica i dati
 La password dell'utente di Claude NON è salvata da nessuna parte: chiederla a Tommi.
