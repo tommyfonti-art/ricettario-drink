@@ -1,0 +1,34 @@
+# Pubblica il sito su GitHub Pages a ogni modifica e cambia da solo il numero di versione,
+# così telefoni, iPad e Mac capiscono che c'è una versione nuova e si aggiornano senza dimenticanze.
+# Serve che in Settings → Pages → Source sia scelto «GitHub Actions».
+name: Pubblica il sito
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  pubblica:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Numero di versione automatico
+        run: |
+          V="$(TZ=Europe/Rome date +%Y-%m-%d-%H%M)-${GITHUB_SHA::7}"
+          sed -i -E 's/(<meta name="versione-app" content=")[0-9][^"]*(")/\1'"$V"'\2/' index.html
+          grep -o '<meta name="versione-app" content="[^"]*"' index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4

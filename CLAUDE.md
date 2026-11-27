@@ -20,4 +20,4 @@ CLAUDE_PW=... node strumenti/firebase-claude.mjs carica dati.json "Descrizione d
 
 ## Regole di lavoro
 - Scrivere tutto in italiano, anche i commenti e i messaggi dell'app.
-- A ogni modifica di `index.html`: cambiare `BUILD` e il `<meta name="versione-app">`, così telefoni e iPad si aggiornano da soli.
+- Il `<meta name="versione-app">` lo cambia da solo GitHub a ogni pubblicazione (`.github/workflows/pubblica.yml`, Pages con sorgente «GitHub Actions»); `BUILD` va comunque cambiato a ogni modifica di `index.html`.
